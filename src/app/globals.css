@@ -156,6 +156,14 @@
   }
 }
 
+/* Sidebar ambient gradient */
+.dark [data-slot="sidebar-inner"] {
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(29, 155, 240, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(123, 97, 255, 0.06) 0%, transparent 50%),
+    var(--sidebar);
+}
+
 /* X.com style selection highlight */
 ::selection {
   background: oklch(0.65 0.18 240 / 30%);

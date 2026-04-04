@@ -34,8 +34,9 @@ export default async function DashboardLayout({
           <main className="relative flex flex-1 flex-col gap-4 overflow-hidden p-6 pt-0">
             {/* Ambient gradient glow */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-              <div className="absolute -top-[200px] -left-[100px] h-[500px] w-[500px] rounded-full bg-[#1D9BF0]/10 blur-[150px]" />
-              <div className="absolute -right-[100px] top-[30%] h-[400px] w-[400px] rounded-full bg-[#7B61FF]/[0.07] blur-[140px]" />
+              <div className="absolute -top-[150px] -left-[50px] h-[600px] w-[600px] rounded-full bg-[#1D9BF0]/20 blur-[180px]" />
+              <div className="absolute -right-[50px] top-[20%] h-[500px] w-[500px] rounded-full bg-[#7B61FF]/15 blur-[160px]" />
+              <div className="absolute -bottom-[100px] left-[20%] h-[500px] w-[500px] rounded-full bg-[#1D9BF0]/10 blur-[150px]" />
             </div>
             <div className="relative z-0">
               {children}
