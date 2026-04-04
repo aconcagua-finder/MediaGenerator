@@ -81,17 +81,20 @@ function ImageCard({
         >
           {/* Чекбокс выбора */}
           <div
-            className={`absolute left-2 top-2 z-10 transition-opacity ${
+            className={`absolute left-2 top-2 z-20 transition-opacity ${
               isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             }`}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
+              e.preventDefault()
               onToggleSelect()
             }}
           >
             <Checkbox
               checked={isSelected}
-              className="size-5 border-white/70 bg-black/40 data-[state=checked]:bg-primary"
+              tabIndex={-1}
+              className="pointer-events-none size-5 border-white/70 bg-black/40 data-[state=checked]:bg-primary"
             />
           </div>
 
