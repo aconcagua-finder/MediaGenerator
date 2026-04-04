@@ -1,0 +1,237 @@
+/**
+ * Начальные данные для таблицы model_registry.
+ * Используется при первом запуске для заполнения реестра моделей.
+ */
+
+export interface SeedModel {
+  provider: string
+  modelId: string
+  displayName: string
+  description: string
+  paramsSchema: Record<string, unknown>
+  pricing: Record<string, unknown>
+}
+
+export const SEED_MODELS: SeedModel[] = [
+  // === OpenAI ===
+  {
+    provider: "openai",
+    modelId: "gpt-image-1.5",
+    displayName: "GPT Image 1.5",
+    description: "Флагманская модель OpenAI. Лучшее качество и следование промпту.",
+    paramsSchema: {
+      size: {
+        type: "select",
+        label: "Размер",
+        options: ["1024x1024", "1536x1024", "1024x1536", "1792x1024", "1024x1792"],
+        default: "1024x1024",
+      },
+      quality: {
+        type: "select",
+        label: "Качество",
+        options: ["low", "medium", "high"],
+        default: "medium",
+      },
+      output_format: {
+        type: "select",
+        label: "Формат",
+        options: ["png", "jpeg", "webp"],
+        default: "png",
+      },
+      background: {
+        type: "select",
+        label: "Фон",
+        options: ["opaque", "transparent"],
+        default: "opaque",
+      },
+    },
+    pricing: {
+      low:    { "1024x1024": 0.009, wide: 0.013 },
+      medium: { "1024x1024": 0.034, wide: 0.050 },
+      high:   { "1024x1024": 0.133, wide: 0.200 },
+    },
+  },
+  {
+    provider: "openai",
+    modelId: "gpt-image-1",
+    displayName: "GPT Image 1",
+    description: "Предыдущее поколение. Хорошее качество, чуть дешевле.",
+    paramsSchema: {
+      size: {
+        type: "select",
+        label: "Размер",
+        options: ["1024x1024", "1536x1024", "1024x1536"],
+        default: "1024x1024",
+      },
+      quality: {
+        type: "select",
+        label: "Качество",
+        options: ["low", "medium", "high"],
+        default: "medium",
+      },
+      output_format: {
+        type: "select",
+        label: "Формат",
+        options: ["png", "jpeg", "webp"],
+        default: "png",
+      },
+      background: {
+        type: "select",
+        label: "Фон",
+        options: ["opaque", "transparent"],
+        default: "opaque",
+      },
+    },
+    pricing: {
+      low:    { "1024x1024": 0.011, wide: 0.016 },
+      medium: { "1024x1024": 0.042, wide: 0.063 },
+      high:   { "1024x1024": 0.167, wide: 0.250 },
+    },
+  },
+  {
+    provider: "openai",
+    modelId: "gpt-image-1-mini",
+    displayName: "GPT Image 1 Mini",
+    description: "Бюджетная модель. Самая дешёвая от OpenAI.",
+    paramsSchema: {
+      size: {
+        type: "select",
+        label: "Размер",
+        options: ["1024x1024", "1536x1024", "1024x1536"],
+        default: "1024x1024",
+      },
+      quality: {
+        type: "select",
+        label: "Качество",
+        options: ["low", "medium", "high"],
+        default: "medium",
+      },
+      output_format: {
+        type: "select",
+        label: "Формат",
+        options: ["png", "jpeg", "webp"],
+        default: "png",
+      },
+      background: {
+        type: "select",
+        label: "Фон",
+        options: ["opaque", "transparent"],
+        default: "opaque",
+      },
+    },
+    pricing: {
+      low:    { "1024x1024": 0.005, wide: 0.006 },
+      medium: { "1024x1024": 0.011, wide: 0.015 },
+      high:   { "1024x1024": 0.036, wide: 0.052 },
+    },
+  },
+
+  // === xAI ===
+  {
+    provider: "xai",
+    modelId: "grok-imagine-image",
+    displayName: "Grok Imagine",
+    description: "Стандартная модель xAI. Быстрая генерация.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2"],
+        default: "1:1",
+      },
+      resolution: {
+        type: "select",
+        label: "Разрешение",
+        options: ["1k", "2k"],
+        default: "1k",
+      },
+    },
+    pricing: { perImage: 0.02 },
+  },
+  {
+    provider: "xai",
+    modelId: "grok-imagine-image-pro",
+    displayName: "Grok Imagine Pro",
+    description: "Модель высокого качества xAI.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2"],
+        default: "1:1",
+      },
+      resolution: {
+        type: "select",
+        label: "Разрешение",
+        options: ["1k", "2k"],
+        default: "1k",
+      },
+    },
+    pricing: { perImage: 0.07 },
+  },
+
+  // === OpenRouter ===
+  {
+    provider: "openrouter",
+    modelId: "google/gemini-2.5-flash-image",
+    displayName: "Gemini 2.5 Flash Image",
+    description: "Google — стабильная и быстрая генерация.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["0.5K", "1K", "2K", "4K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.039 },
+  },
+  {
+    provider: "openrouter",
+    modelId: "black-forest-labs/flux.2-pro",
+    displayName: "FLUX 2 Pro",
+    description: "Black Forest Labs — высокое качество, open-source.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["0.5K", "1K", "2K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.03 },
+  },
+  {
+    provider: "openrouter",
+    modelId: "bytedance/seedream-4.5",
+    displayName: "Seedream 4.5",
+    description: "ByteDance — высокое качество генерации.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["0.5K", "1K", "2K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.04 },
+  },
+]
