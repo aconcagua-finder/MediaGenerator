@@ -80,6 +80,7 @@ export const openrouterProvider: ImageProvider = {
       }
 
       const data = await response.json() as {
+        error?: { message?: string; code?: number }
         choices?: Array<{
           message?: {
             content?: Array<{
@@ -92,6 +93,11 @@ export const openrouterProvider: ImageProvider = {
             }>
           }
         }>
+      }
+
+      // OpenRouter может вернуть 200 с ошибкой внутри JSON
+      if (data.error) {
+        throw new Error(data.error.message || `OpenRouter ошибка: ${data.error.code}`)
       }
 
       const aspectRatio = (params.aspect_ratio as string) || "1:1"
@@ -155,9 +161,8 @@ export const openrouterProvider: ImageProvider = {
       }
 
       if (images.length === 0) {
-        // Логируем ответ для диагностики
         console.error("[openrouter] Нет изображений. Ответ:", JSON.stringify(data).slice(0, 500))
-        throw new Error("Модель не вернула изображений. Попробуйте другую модель или измените промпт.")
+        throw new Error(`${model}: модель не вернула изображений. Попробуйте другую модель или повторите позже.`)
       }
 
       const cost = calculateCost("openrouter", model, params, count)
