@@ -176,18 +176,18 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
                   </Select>
                 </div>
               </div>
-              <Button
-                size="lg"
+              <button
                 onClick={handleGenerate}
                 disabled={isGenerating || !prompt.trim() || !hasApiKeys[provider]}
+                className="flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-violet-600/25 transition-all hover:shadow-xl hover:shadow-violet-600/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:shadow-none"
               >
                 {isGenerating ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  <Sparkles className="mr-2 size-4" />
+                  <Sparkles className="size-4" />
                 )}
                 {isGenerating ? "Генерация..." : "Сгенерировать"}
-              </Button>
+              </button>
             </div>
             {!hasApiKeys[provider] && (
               <p className="mt-2 text-sm text-destructive">
