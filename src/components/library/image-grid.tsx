@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { Download, FolderInput, Trash2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -69,8 +68,6 @@ function ImageCard({
   onDelete: () => void
   onMove: () => void
 }) {
-  const [isLoaded, setIsLoaded] = useState(false)
-
   // Aspect ratio из метаданных, fallback на 1:1
   const w = image.width || 1024
   const h = image.height || 1024
@@ -104,19 +101,12 @@ function ImageCard({
           </div>
 
           {/* Изображение с натуральным aspect ratio */}
-          {!isLoaded && (
-            <div
-              className="animate-pulse bg-muted"
-              style={{ aspectRatio }}
-            />
-          )}
           <img
             src={`/api/images/${image.id}`}
             alt={image.generation.prompt.slice(0, 50)}
-            className={`w-full cursor-pointer object-cover ${isLoaded ? "" : "hidden"}`}
+            className="w-full cursor-pointer bg-white/[0.03]"
             style={{ aspectRatio }}
             loading="lazy"
-            onLoad={() => setIsLoaded(true)}
             onClick={onOpenLightbox}
           />
 
