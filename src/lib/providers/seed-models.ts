@@ -173,6 +173,48 @@ export const SEED_MODELS: SeedModel[] = [
   // === OpenRouter ===
   {
     provider: "openrouter",
+    modelId: "google/gemini-3.1-flash-image-preview",
+    displayName: "Gemini 3.1 Flash Image",
+    description: "Новейшая модель Google. Pro-качество на Flash-скорости.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["0.5K", "1K", "2K", "4K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.04 },
+  },
+  {
+    provider: "openrouter",
+    modelId: "google/gemini-3-pro-image-preview",
+    displayName: "Gemini 3 Pro Image",
+    description: "Google — максимальное качество, 2K/4K выход.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["0.5K", "1K", "2K", "4K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.08 },
+  },
+  {
+    provider: "openrouter",
     modelId: "google/gemini-2.5-flash-image",
     displayName: "Gemini 2.5 Flash Image",
     description: "Google — стабильная и быстрая генерация.",
@@ -194,9 +236,51 @@ export const SEED_MODELS: SeedModel[] = [
   },
   {
     provider: "openrouter",
+    modelId: "openai/gpt-5-image",
+    displayName: "GPT-5 Image",
+    description: "OpenAI через OpenRouter — флагманская модель.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["1K", "2K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.10 },
+  },
+  {
+    provider: "openrouter",
+    modelId: "openai/gpt-5-image-mini",
+    displayName: "GPT-5 Image Mini",
+    description: "OpenAI Mini — бюджетная генерация через OpenRouter.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["1K", "2K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.04 },
+  },
+  {
+    provider: "openrouter",
     modelId: "black-forest-labs/flux.2-pro",
-    displayName: "FLUX 2 Pro",
-    description: "Black Forest Labs — высокое качество, open-source.",
+    displayName: "FLUX.2 Pro",
+    description: "Black Forest Labs — высокое качество.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
@@ -215,9 +299,51 @@ export const SEED_MODELS: SeedModel[] = [
   },
   {
     provider: "openrouter",
-    modelId: "bytedance/seedream-4.5",
+    modelId: "black-forest-labs/flux.2-max",
+    displayName: "FLUX.2 Max",
+    description: "Black Forest Labs — максимальное качество FLUX.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["0.5K", "1K", "2K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.06 },
+  },
+  {
+    provider: "openrouter",
+    modelId: "black-forest-labs/flux.2-flex",
+    displayName: "FLUX.2 Flex",
+    description: "Black Forest Labs — гибкий формат, быстрая.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["0.5K", "1K", "2K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.02 },
+  },
+  {
+    provider: "openrouter",
+    modelId: "bytedance-seed/seedream-4.5",
     displayName: "Seedream 4.5",
-    description: "ByteDance — высокое качество генерации.",
+    description: "ByteDance — высокое качество, хорошие детали.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
