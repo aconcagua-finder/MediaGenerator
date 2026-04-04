@@ -47,7 +47,7 @@ export function ParamPanel({ schema, values, onChange }: ParamPanelProps) {
               value={currentValue}
               onValueChange={(v) => v && onChange(key, v)}
             >
-              <SelectTrigger className="w-full border-white/8 bg-white/[0.02]">
+              <SelectTrigger className="w-full border-white/[0.08] bg-white/[0.02]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

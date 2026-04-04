@@ -26,7 +26,7 @@ export function PromptInput({ value, onChange, onSubmit, disabled }: PromptInput
           }
         }}
         disabled={disabled}
-        className="min-h-[120px] resize-y border-white/8 bg-white/[0.02] text-white placeholder-neutral-600 focus:border-x-blue/40 focus:ring-1 focus:ring-x-blue/20"
+        className="min-h-[120px] resize-y border-white/[0.08] bg-white/[0.02] text-white placeholder-neutral-600 focus:border-x-blue/40 focus:ring-1 focus:ring-x-blue/20"
         rows={4}
       />
       <p className="text-xs text-neutral-600">

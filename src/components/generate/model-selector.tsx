@@ -53,7 +53,7 @@ export function ModelSelector({
       <div className="space-y-2">
         <Label className="text-sm font-medium text-neutral-400">Провайдер</Label>
         <Select value={selectedProvider} onValueChange={(v) => v && handleProviderChange(v)}>
-          <SelectTrigger className="w-full border-white/8 bg-white/[0.02]">
+          <SelectTrigger className="w-full border-white/[0.08] bg-white/[0.02]">
             <SelectValue placeholder="Выберите провайдера" />
           </SelectTrigger>
           <SelectContent>
@@ -69,7 +69,7 @@ export function ModelSelector({
       <div className="space-y-2">
         <Label className="text-sm font-medium text-neutral-400">Модель</Label>
         <Select value={selectedModel} onValueChange={(v) => v && onModelChange(v)}>
-          <SelectTrigger className="w-full border-white/8 bg-white/[0.02]">
+          <SelectTrigger className="w-full border-white/[0.08] bg-white/[0.02]">
             <SelectValue placeholder="Выберите модель" />
           </SelectTrigger>
           <SelectContent className="!w-auto min-w-[280px] max-w-[min(480px,90vw)]">
