@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { Sparkles, Loader2 } from "lucide-react"
+import { useState, useCallback, useMemo } from "react"
+import { Sparkles, Loader2, DollarSign } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -56,6 +56,32 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
   const paramsSchema = currentModel?.paramsSchema as Record<string, {
     type: string; label: string; options: string[]; default: string
   }> | null
+
+  // Расчёт примерной стоимости
+  const estimatedCost = useMemo(() => {
+    if (!currentModel) return null
+    const pricing = currentModel.pricing as Record<string, unknown> | null
+    if (!pricing) return null
+
+    const n = parseInt(count) || 1
+
+    // OpenAI: pricing[quality][size_category]
+    if (provider === "openai") {
+      const quality = (params.quality || paramsSchema?.quality?.default || "medium") as string
+      const size = (params.size || paramsSchema?.size?.default || "1024x1024") as string
+      const qualityPrices = pricing[quality] as Record<string, number> | undefined
+      if (!qualityPrices) return null
+      const isWide = size !== "1024x1024"
+      const price = isWide ? qualityPrices.wide : qualityPrices["1024x1024"]
+      return price ? price * n : null
+    }
+
+    // xAI / OpenRouter: pricing.perImage
+    const perImage = (pricing as { perImage?: number }).perImage
+    if (perImage) return perImage * n
+
+    return null
+  }, [currentModel, provider, params, paramsSchema, count])
 
   const handleModelChange = useCallback((newModelId: string) => {
     setModelId(newModelId)
@@ -240,6 +266,19 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
             onChange={handleParamChange}
           />
         </div>
+
+        {/* Стоимость */}
+        {estimatedCost !== null && (
+          <div className="flex items-center justify-between rounded-lg border border-white/8 bg-white/[0.02] px-5 py-3">
+            <div className="flex items-center gap-2 text-sm text-neutral-400">
+              <DollarSign className="size-4" />
+              <span>Стоимость</span>
+            </div>
+            <span className="text-sm font-bold text-white">
+              ${estimatedCost.toFixed(3)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Lightbox */}
