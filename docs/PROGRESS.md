@@ -8,7 +8,7 @@
 
 | Фаза | Статус | Прогресс |
 |------|--------|----------|
-| Фаза 1: Фундамент | В работе | 4/6 |
+| Фаза 1: Фундамент | Завершена | 6/6 |
 | Фаза 2: Генерация | Не начата | 0/6 |
 | Фаза 3: Библиотека и история | Не начата | 0/4 |
 | Фаза 4: Админка и уведомления | Не начата | 0/3 |
@@ -23,8 +23,8 @@
 - [x] 1.2 Docker Compose (PostgreSQL + MinIO + App)
 - [x] 1.3 Drizzle ORM + схема БД + миграции
 - [x] 1.4 Better Auth (логин, регистрация, роли)
-- [ ] 1.5 MinIO S3 клиент
-- [ ] 1.6 Базовый layout дашборда
+- [x] 1.5 MinIO S3 клиент
+- [x] 1.6 Базовый layout дашборда
 
 ### Фаза 2: Генерация
 - [ ] 2.1 Адаптеры провайдеров (OpenAI, xAI, OpenRouter)
@@ -63,6 +63,8 @@
 | 2026-04-04 | 1.2 Docker Compose | — | Dockerfile (standalone), docker-compose.yml, .env.example |
 | 2026-04-04 | 1.3 Drizzle ORM + схема БД | — | 11 таблиц, первая миграция, проверена на PostgreSQL |
 | 2026-04-04 | 1.4 Better Auth | — | Email+пароль, admin plugin, proxy, страницы login/register |
+| 2026-04-04 | 1.5 MinIO S3 клиент | — | upload, download, delete, getPresignedUrl, ensureBucket |
+| 2026-04-04 | 1.6 Layout дашборда | — | Sidebar, nav-user, 4 страницы-заглушки, auto-admin |
 
 ---
 
