@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
 import crypto from "crypto";
 
+const buildId = crypto.randomUUID();
+
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Уникальный ID деплоя — клиент автоматически перезагрузится
-  // при несовпадении с сервером после пересборки
-  deploymentId: crypto.randomUUID(),
+  generateBuildId: () => buildId,
+  deploymentId: buildId,
 };
 
 export default nextConfig;

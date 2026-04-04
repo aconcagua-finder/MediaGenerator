@@ -67,8 +67,8 @@ export function MoveToFolderDialog({
             <button
               className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                 selectedFolderId === null
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent/50"
+                  ? "bg-primary/20 text-primary ring-1 ring-primary/40"
+                  : "text-muted-foreground hover:bg-white/5"
               }`}
               onClick={() => setSelectedFolderId(null)}
             >
@@ -81,8 +81,8 @@ export function MoveToFolderDialog({
                 key={folder.id}
                 className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                   selectedFolderId === folder.id
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:bg-accent/50"
+                    ? "bg-primary/20 text-primary ring-1 ring-primary/40"
+                    : "text-muted-foreground hover:bg-white/5"
                 }`}
                 onClick={() => setSelectedFolderId(folder.id)}
               >
