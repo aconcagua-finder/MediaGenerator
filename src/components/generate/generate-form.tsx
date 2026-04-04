@@ -82,10 +82,32 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
       if (perImage) return { amount: perImage * n, exact: true }
     }
 
-    // OpenRouter: pricing.perImage — примерная цена
+    // OpenRouter: per-image или per-megapixel
     if (provider === "openrouter") {
-      const perImage = (pricing as { perImage?: number }).perImage
-      if (perImage) return { amount: perImage * n, exact: false }
+      const p = pricing as {
+        perImage?: number
+        firstMP?: number
+        extraMP?: number
+        perMP?: number
+      }
+
+      // Per-megapixel (FLUX models) — зависит от image_size
+      if (p.firstMP || p.perMP) {
+        const sizeKey = (params.image_size || paramsSchema?.image_size?.default || "1K") as string
+        const sizeMultiplier: Record<string, number> = { "0.5K": 0.25, "1K": 1, "2K": 4, "4K": 16 }
+        const mp = sizeMultiplier[sizeKey] || 1
+
+        let pricePerImage: number
+        if (p.perMP) {
+          pricePerImage = p.perMP * mp
+        } else {
+          pricePerImage = (p.firstMP || 0) + Math.max(0, mp - 1) * (p.extraMP || 0)
+        }
+        return { amount: pricePerImage * n, exact: true }
+      }
+
+      // Flat per-image (Seedream, Gemini, GPT-5)
+      if (p.perImage) return { amount: p.perImage * n, exact: false }
     }
 
     return null

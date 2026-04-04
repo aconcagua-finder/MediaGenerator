@@ -60,9 +60,31 @@ export function calculateCost(
     }
 
     case "openrouter": {
-      // OpenRouter цены варьируются, используем примерные значения из registry
-      // Реальная стоимость будет получена из ответа API
-      pricePerImage = 0.04 // средняя оценка
+      // FLUX per-megapixel
+      if (model.includes("flux")) {
+        const sizeKey = (params.image_size as string) || "1K"
+        const sizeMP: Record<string, number> = { "0.5K": 0.25, "1K": 1, "2K": 4 }
+        const mp = sizeMP[sizeKey] || 1
+
+        if (model.includes("flux.2-pro")) {
+          pricePerImage = 0.03 + Math.max(0, mp - 1) * 0.015
+        } else if (model.includes("flux.2-max")) {
+          pricePerImage = 0.07 + Math.max(0, mp - 1) * 0.03
+        } else if (model.includes("flux.2-flex")) {
+          pricePerImage = 0.06 * mp
+        } else {
+          pricePerImage = 0.03
+        }
+      } else if (model.includes("seedream")) {
+        pricePerImage = 0.04
+      } else if (model.includes("gpt-5-image-mini")) {
+        pricePerImage = 0.04
+      } else if (model.includes("gpt-5-image")) {
+        pricePerImage = 0.10
+      } else {
+        // Gemini и прочие — примерная оценка
+        pricePerImage = 0.04
+      }
       break
     }
   }

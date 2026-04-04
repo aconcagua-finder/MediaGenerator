@@ -295,7 +295,7 @@ export const SEED_MODELS: SeedModel[] = [
         default: "1K",
       },
     },
-    pricing: { perImage: 0.03 },
+    pricing: { firstMP: 0.03, extraMP: 0.015 },
   },
   {
     provider: "openrouter",
@@ -316,7 +316,7 @@ export const SEED_MODELS: SeedModel[] = [
         default: "1K",
       },
     },
-    pricing: { perImage: 0.06 },
+    pricing: { firstMP: 0.07, extraMP: 0.03 },
   },
   {
     provider: "openrouter",
@@ -337,7 +337,7 @@ export const SEED_MODELS: SeedModel[] = [
         default: "1K",
       },
     },
-    pricing: { perImage: 0.02 },
+    pricing: { perMP: 0.06 },
   },
   {
     provider: "openrouter",
