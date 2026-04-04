@@ -1,30 +1,32 @@
 # MediaGenerator
 
-Веб-приложение для генерации изображений через API нейросетей (OpenAI, xAI, OpenRouter).
+Веб-приложение для генерации изображений через API нейросетей.
+Дизайн в стиле X.com / Grok — чёрный фон, синие акценты, минимализм.
 
 ## Возможности
 
-- Генерация изображений через множество моделей (GPT Image, Grok, FLUX, Gemini и др.)
-- Библиотека изображений с папками и массовыми операциями
-- История генераций с фильтрами и повторной генерацией
-- Админ-панель: управление пользователями, лимитами, моделями
-- Автоматическая проверка новых моделей у провайдеров
-- Система уведомлений
-- Шифрование API ключей (AES-256-GCM)
-- Тёмная тема, русский интерфейс
+- **Мультипровайдер**: OpenAI (GPT Image 1/1.5), xAI (Grok Imagine), OpenRouter (Gemini, FLUX, Seedream, GPT-5)
+- **Библиотека**: masonry-layout, папки, массовое выделение/удаление/перемещение
+- **История**: фильтры, раскрывающиеся промпты, повторная генерация
+- **Система ролей**: admin видит всё, user ограничен лимитами
+- **Лимиты**: по бюджету ($0.10 по умолчанию), дневной, общий
+- **Наследование ключей**: новые юзеры получают копии API ключей админа
+- **Автопроверка моделей**: cron-сервис раз в сутки проверяет новые модели
+- **Безопасность**: AES-256-GCM шифрование ключей, расшифровка только на сервере
+- **UI**: тёмная тема, русский язык, фоновые градиенты
 
 ## Стек
 
-- **Next.js 15** (App Router) + React 19 + TypeScript
+- **Next.js 16** (App Router) + React 19 + TypeScript
 - **PostgreSQL 16** + Drizzle ORM
-- **shadcn/ui** + Tailwind CSS 4
+- **shadcn/ui** (base-nova) + Tailwind CSS 4
 - **Better Auth** (email/пароль, роли admin/user)
-- **MinIO** (S3-совместимое хранилище изображений)
-- **Docker Compose**
+- **MinIO** (S3-совместимое хранилище)
+- **Docker Compose** (app + postgres + minio + cron)
 
 ---
 
-## Быстрый старт (Docker)
+## Быстрый старт
 
 ### 1. Клонирование и настройка
 
@@ -36,12 +38,11 @@ cp .env.example .env
 
 ### 2. Генерация секретов
 
-Отредактируйте `.env`, заменив все `change_me_*` значения:
+Отредактируйте `.env`, заменив все `change_me_*`:
 
 ```bash
-# Генерация ключей:
-openssl rand -hex 32   # для ENCRYPTION_KEY и BETTER_AUTH_SECRET
-openssl rand -hex 16   # для CRON_SECRET, POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD
+openssl rand -hex 32   # ENCRYPTION_KEY, BETTER_AUTH_SECRET
+openssl rand -hex 16   # CRON_SECRET, POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD
 ```
 
 ### 3. Запуск
@@ -50,174 +51,91 @@ openssl rand -hex 16   # для CRON_SECRET, POSTGRES_PASSWORD, MINIO_ROOT_PASSW
 docker compose up -d
 ```
 
-Дождитесь запуска всех сервисов (~30 секунд):
-- **Приложение**: http://localhost:3000
+Сервисы:
+- **Приложение**: http://localhost:3001
 - **MinIO Console**: http://localhost:9001
 
-### 4. Первый пользователь
+### 4. Назначение админа
 
-Перейдите на http://localhost:3000/register. Первый зарегистрированный пользователь автоматически получает роль **admin**.
-
-### 5. Миграции БД
-
-Миграции применяются автоматически при первом запуске. Если нужно запустить вручную:
+Первый пользователь **не** становится админом автоматически. Назначьте вручную через БД:
 
 ```bash
-docker compose exec app npx drizzle-kit migrate
+docker compose exec postgres psql -U mediagen -d mediagenerator \
+  -c "UPDATE \"user\" SET role = 'admin', cost_limit = 999999 WHERE email = 'ваш@email.com';"
 ```
 
-### 6. Настройка API ключей
+### 5. API ключи
 
-Перейдите в **Настройки** и добавьте API ключи провайдеров:
+Админ добавляет ключи в **Настройки**:
 - **OpenAI**: https://platform.openai.com/api-keys
 - **xAI**: https://console.x.ai/
 - **OpenRouter**: https://openrouter.ai/keys
 
+Новые пользователи при регистрации автоматически получают копии ключей админа.
+
 ---
 
-## Cloudflare Tunnel (mediagenerator.sanktum.net)
+## Система лимитов
 
-Для доступа извне без открытия портов.
+| Лимит | По умолчанию | Описание |
+|-------|-------------|----------|
+| `costLimit` | $0.10 | Максимальный бюджет пользователя |
+| `dailyLimit` | 50 | Генераций в день |
+| `maxGenerations` | ∞ | Общий лимит генераций |
 
-### Установка cloudflared
+Админ управляет лимитами в **Настройки > Пользователи**.
+Админ не ограничен лимитами.
 
-```bash
-# macOS
-brew install cloudflared
+---
 
-# Linux
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-chmod +x /usr/local/bin/cloudflared
-```
+## Docker Compose сервисы
 
-### Авторизация
+| Сервис | Назначение |
+|--------|-----------|
+| `app` | Next.js приложение (:3001 → :3000) |
+| `postgres` | PostgreSQL 16 (:5432) |
+| `minio` | S3-хранилище (:9000 API, :9001 console) |
+| `cron` | Проверка моделей раз в 24ч (alpine) |
+
+---
+
+## Cloudflare Tunnel
+
+Для доступа извне без открытия портов:
 
 ```bash
 cloudflared tunnel login
-```
-
-### Создание туннеля
-
-```bash
 cloudflared tunnel create mediagenerator
-```
-
-Запомните ID туннеля из вывода.
-
-### Конфигурация
-
-Создайте `~/.cloudflared/config.yml`:
-
-```yaml
-tunnel: <TUNNEL_ID>
-credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
-
-ingress:
-  - hostname: mediagenerator.sanktum.net
-    service: http://localhost:3000
-  - service: http_status:404
-```
-
-### DNS запись
-
-```bash
-cloudflared tunnel route dns mediagenerator mediagenerator.sanktum.net
-```
-
-### Запуск туннеля
-
-```bash
-# Разово (для теста):
+cloudflared tunnel route dns mediagenerator your.domain.com
 cloudflared tunnel run mediagenerator
-
-# Как системный сервис:
-cloudflared service install
 ```
 
-### Обновление .env для продакшена
-
+Обновите `.env`:
 ```env
-NEXT_PUBLIC_APP_URL=https://mediagenerator.sanktum.net
-BETTER_AUTH_URL=https://mediagenerator.sanktum.net
+NEXT_PUBLIC_APP_URL=https://your.domain.com
+BETTER_AUTH_URL=https://your.domain.com
 ```
-
----
-
-## Проверка обновлений моделей (Cron)
-
-Автоматическая проверка новых моделей у провайдеров:
-
-```bash
-# Ручной запуск:
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/model-check
-
-# Автоматический (crontab -e):
-0 6 * * * curl -s -X POST -H "Authorization: Bearer YOUR_CRON_SECRET" http://localhost:3000/api/cron/model-check
-```
-
-Новые модели добавляются как неактивные. Активируйте их в **Настройки > Уведомления**.
 
 ---
 
 ## Бэкапы
 
-### PostgreSQL
-
 ```bash
-# Создать бэкап:
-docker compose exec postgres pg_dump -U mediagen mediagenerator > backup_$(date +%Y%m%d).sql
+# PostgreSQL
+docker compose exec postgres pg_dump -U mediagen mediagenerator > backup.sql
 
-# Восстановить:
-cat backup_20260404.sql | docker compose exec -T postgres psql -U mediagen mediagenerator
-```
-
-### MinIO (изображения)
-
-```bash
-# Установить mc (MinIO Client):
-brew install minio/stable/mc  # macOS
-
-# Настроить:
+# MinIO
 mc alias set local http://localhost:9000 minioadmin YOUR_MINIO_PASSWORD
-
-# Бэкап:
 mc mirror local/mediagenerator ./backup_images/
-
-# Восстановить:
-mc mirror ./backup_images/ local/mediagenerator
 ```
 
 ---
 
-## Обновление приложения
+## Обновление
 
 ```bash
 git pull
-docker compose build app
-docker compose up -d app
-```
-
-Если есть новые миграции:
-
-```bash
-docker compose exec app npx drizzle-kit migrate
-```
-
----
-
-## Разработка (без Docker)
-
-```bash
-npm install
-
-# Убедитесь что PostgreSQL и MinIO запущены:
-docker compose up -d postgres minio
-
-# Миграции:
-npx drizzle-kit migrate
-
-# Dev сервер:
-npm run dev
+docker compose up -d --build
 ```
 
 ---
@@ -226,15 +144,22 @@ npm run dev
 
 ```
 src/
-├── app/           # Next.js App Router (страницы, API routes)
-├── components/    # React компоненты по фичам
+├── app/              # Next.js страницы и API routes
+│   ├── (auth)/       # Login, Register
+│   ├── (dashboard)/  # Generate, Library, History, Settings
+│   └── api/          # Generate, Images, Auth, Cron
+├── components/       # React компоненты
+│   ├── generate/     # Форма генерации, селекторы
+│   ├── library/      # Masonry-сетка, папки, lightbox
+│   ├── history/      # Таблица, фильтры, пагинация
+│   └── settings/     # API ключи, пользователи
 ├── lib/
-│   ├── actions/   # Server Actions (бизнес-логика)
-│   ├── db/        # Drizzle ORM (схема, миграции)
-│   ├── providers/ # Адаптеры провайдеров генерации
-│   ├── cron/      # Логика периодических задач
-│   └── utils/     # Утилиты (crypto, admin-guard)
-└── hooks/         # React хуки
+│   ├── actions/      # Server Actions
+│   ├── db/schema/    # Drizzle ORM схема
+│   ├── providers/    # OpenAI, xAI, OpenRouter адаптеры
+│   ├── cron/         # Проверка моделей
+│   └── utils/        # Crypto, admin guard, cost calculator
+└── hooks/            # React хуки
 ```
 
-Подробнее: `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`
+Подробнее: `docs/ARCHITECTURE.md`

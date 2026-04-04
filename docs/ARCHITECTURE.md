@@ -11,7 +11,7 @@
 
 | Слой | Технология | Версия | Назначение |
 |------|-----------|--------|------------|
-| Фреймворк | Next.js (App Router) | 15.x | Fullstack: SSR, RSC, Server Actions, API routes |
+| Фреймворк | Next.js (App Router) | 16.x | Fullstack: SSR, RSC, Server Actions, API routes |
 | UI | React | 19.x | Компоненты интерфейса |
 | Стили | Tailwind CSS | 4.x | Утилитарные стили, тёмная тема |
 | UI-библиотека | shadcn/ui | latest | Компоненты: кнопки, модалки, формы, таблицы |
@@ -19,15 +19,15 @@
 | ORM | Drizzle ORM | latest | Type-safe запросы, миграции |
 | Аутентификация | Better Auth | latest | Логин, регистрация, роли, сессии |
 | Хранилище файлов | MinIO (S3) | latest | Хранение сгенерированных изображений |
-| Фоновые задачи | node-cron | latest | Ежедневная проверка обновлений моделей |
+| Фоновые задачи | Docker cron (alpine) | — | Ежедневная проверка обновлений моделей |
 | Язык | TypeScript | 5.x | End-to-end типизация |
-| Контейнеризация | Docker Compose | latest | PostgreSQL + MinIO + App |
+| Контейнеризация | Docker Compose | latest | PostgreSQL + MinIO + App + Cron |
 
 ---
 
 ## Почему именно этот стек
 
-### Next.js 15 + React 19
+### Next.js 16 + React 19
 - Fullstack в одном пакете: фронтенд, API, SSR
 - Server Actions для мутаций без отдельных API-эндпоинтов
 - React Server Components для быстрой загрузки страниц

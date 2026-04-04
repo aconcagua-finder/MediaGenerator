@@ -1,249 +1,128 @@
-# MediaGenerator - Провайдеры и модели
+# MediaGenerator — Провайдеры и модели
 
 > Актуально на: апрель 2026
 
 ---
 
-## Обзор провайдеров
-
-| Провайдер | Тип | API ключ | Модели на старте |
-|-----------|-----|----------|-----------------|
-| OpenAI | Прямой | `OPENAI_API_KEY` | gpt-image-1.5, gpt-image-1, gpt-image-1-mini |
-| xAI | Прямой | `XAI_API_KEY` | grok-imagine-image, grok-imagine-image-pro |
-| OpenRouter | Агрегатор | `OPENROUTER_API_KEY` | Google Gemini, FLUX 2, Seedream и др. |
-
----
-
 ## 1. OpenAI
 
-### Endpoint
-```
-POST https://api.openai.com/v1/images/generations
-Authorization: Bearer $OPENAI_API_KEY
-```
+**Endpoint:** `POST https://api.openai.com/v1/images/generations`
 
 ### Модели
 
-| ID модели | Тип | Описание |
-|-----------|-----|----------|
-| `gpt-image-1.5` | Флагман | Лучшее качество, лучшее следование промпту |
-| `gpt-image-1` | Предыдущее поколение | Хорошее качество, чуть дешевле |
-| `gpt-image-1-mini` | Бюджетная | Самая дешёвая от OpenAI |
-
-> `dall-e-3` и `dall-e-2` deprecated, поддержка до 12.05.2026
+| Модель | ID | Цена (1024x1024, medium) |
+|--------|----|--------------------------|
+| GPT Image 1.5 | `gpt-image-1.5` | $0.034 |
+| GPT Image 1 | `gpt-image-1` | $0.042 |
+| GPT Image 1 Mini | `gpt-image-1-mini` | $0.011 |
 
 ### Параметры
 
-| Параметр | Значения | По умолчанию | Описание (для UI) |
-|----------|----------|-------------|-------------------|
-| `size` | `1024x1024`, `1536x1024`, `1024x1536`, `1792x1024`, `1024x1792` | `1024x1024` | Размер изображения. Квадрат, горизонтальный или вертикальный |
-| `quality` | `low`, `medium`, `high` | `medium` | Качество. Влияет на детализацию и стоимость |
-| `output_format` | `png`, `jpeg`, `webp` | `png` | Формат файла. PNG для прозрачности, JPEG для компактности |
-| `background` | `opaque`, `transparent` | `opaque` | Фон. Прозрачный работает только с PNG/WebP |
-| `n` | 1+ | 1 | Количество изображений за один запрос |
-| `moderation` | `auto`, `low` | `auto` | Строгость фильтрации контента |
+| Параметр | Значения |
+|----------|----------|
+| `size` | 1024x1024, 1536x1024, 1024x1536, 1792x1024, 1024x1792 |
+| `quality` | low, medium, high |
+| `output_format` | png, jpeg, webp |
+| `background` | opaque, transparent |
+| `n` | 1-10 |
 
-### Цены (за изображение)
+**Важно:** GPT Image модели НЕ поддерживают `response_format: "b64_json"` — base64 возвращается по умолчанию. Параметр `response_format` нужен только для DALL-E.
 
-**gpt-image-1.5:**
-| Качество | 1024x1024 | 1536x1024 / 1024x1536 | 1792x1024 / 1024x1792 |
-|----------|-----------|----------------------|----------------------|
-| low | $0.009 | $0.013 | $0.013 |
-| medium | $0.034 | $0.050 | $0.050 |
-| high | $0.133 | $0.200 | $0.200 |
+### Ценообразование (за изображение)
 
-**gpt-image-1:**
-| Качество | 1024x1024 | 1536x1024 / 1024x1536 |
-|----------|-----------|----------------------|
-| low | $0.011 | $0.016 |
-| medium | $0.042 | $0.063 |
-| high | $0.167 | $0.250 |
-
-**gpt-image-1-mini:**
-| Качество | 1024x1024 | 1536x1024 / 1024x1536 |
-|----------|-----------|----------------------|
-| low | $0.005 | $0.006 |
-| medium | $0.011 | $0.015 |
-| high | $0.036 | $0.052 |
-
-### Формат ответа
-```json
-{
-  "data": [
-    {
-      "b64_json": "...",
-      "revised_prompt": "..."
-    }
-  ]
-}
-```
+| Модель | Low | Medium | High |
+|--------|-----|--------|------|
+| gpt-image-1.5 (1024) | $0.009 | $0.034 | $0.133 |
+| gpt-image-1.5 (wide) | $0.013 | $0.050 | $0.200 |
+| gpt-image-1 (1024) | $0.011 | $0.042 | $0.167 |
+| gpt-image-1 (wide) | $0.016 | $0.063 | $0.250 |
+| gpt-image-1-mini (1024) | $0.005 | $0.011 | $0.036 |
+| gpt-image-1-mini (wide) | $0.006 | $0.015 | $0.052 |
 
 ---
 
 ## 2. xAI (Grok)
 
-### Endpoint
-```
-POST https://api.x.ai/v1/images/generations
-Authorization: Bearer $XAI_API_KEY
-```
+**Endpoint:** `POST https://api.x.ai/v1/images/generations`
 
 ### Модели
 
-| ID модели | Цена/изображение | Rate limit | Описание |
-|-----------|-----------------|------------|----------|
-| `grok-imagine-image` | $0.02 | 300 RPM | Стандартное качество |
-| `grok-imagine-image-pro` | $0.07 | 30 RPM | Высокое качество |
+| Модель | ID | Цена |
+|--------|----|------|
+| Grok Imagine | `grok-imagine-image` | $0.02/изобр. |
+| Grok Imagine Pro | `grok-imagine-image-pro` | $0.07/изобр. |
 
 ### Параметры
 
-| Параметр | Значения | По умолчанию | Описание (для UI) |
-|----------|----------|-------------|-------------------|
-| `aspect_ratio` | `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `2:1`, `1:2`, `auto` | `auto` | Соотношение сторон |
-| `resolution` | `1k`, `2k` | `1k` | Разрешение. 2k — выше качество, но дольше |
-| `n` | 1-10 | 1 | Количество изображений (макс. 10) |
-| `response_format` | `url`, `b64_json` | `url` | Формат получения (всегда используем b64_json) |
-
-### Формат ответа
-```json
-{
-  "data": [
-    {
-      "url": "https://...",
-      "b64_json": "..."
-    }
-  ]
-}
-```
-
-### Особенности
-- Совместим с OpenAI SDK (тот же формат запросов)
-- Поддерживает редактирование (до 5 исходных изображений)
-- Стиль-трансфер (реализм, аниме и т.д.)
+| Параметр | Значения |
+|----------|----------|
+| `aspect_ratio` | 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 2:1, 1:2 |
+| `resolution` | 1k, 2k |
+| `n` | 1-10 |
+| `response_format` | b64_json, url |
 
 ---
 
 ## 3. OpenRouter (агрегатор)
 
-### Endpoint
-```
-POST https://openrouter.ai/api/v1/chat/completions
-Authorization: Bearer $OPENROUTER_API_KEY
-```
+**Endpoint:** `POST https://openrouter.ai/api/v1/chat/completions`
 
-### Как генерировать изображения
-В отличие от OpenAI/xAI, OpenRouter использует chat completions формат с `modalities`:
+Использует chat completions формат с `modalities: ["image"]`.
 
-```json
-{
-  "model": "google/gemini-2.5-flash-image",
-  "messages": [{"role": "user", "content": "промпт"}],
-  "modalities": ["image"],
-  "image_config": {
-    "aspect_ratio": "1:1",
-    "image_size": "1K"
-  }
-}
-```
+### Модели
 
-### Модели (основные для генерации изображений)
+| Модель | ID | Цена ~  |
+|--------|----|---------|
+| Gemini 3.1 Flash Image | `google/gemini-3.1-flash-image-preview` | $0.04 |
+| Gemini 3 Pro Image | `google/gemini-3-pro-image-preview` | $0.08 |
+| Gemini 2.5 Flash Image | `google/gemini-2.5-flash-image` | $0.039 |
+| GPT-5 Image | `openai/gpt-5-image` | $0.10 |
+| GPT-5 Image Mini | `openai/gpt-5-image-mini` | $0.04 |
+| FLUX.2 Pro | `black-forest-labs/flux.2-pro` | $0.03 |
+| FLUX.2 Max | `black-forest-labs/flux.2-max` | $0.06 |
+| FLUX.2 Flex | `black-forest-labs/flux.2-flex` | $0.02 |
+| Seedream 4.5 | `bytedance-seed/seedream-4.5` | $0.04 |
 
-| ID модели | Цена/изображение | Описание |
-|-----------|-----------------|----------|
-| `google/gemini-2.5-flash-image` | ~$0.039 | Google Nano Banana, стабильная |
-| `google/gemini-3.1-flash-image-preview` | ~$0.067 | Nano Banana 2, preview |
-| `google/gemini-3-pro-image-preview` | ~$0.134 | Nano Banana Pro, высокое качество |
-| `openai/gpt-5-image` | varies | GPT-5 + генерация |
-| `black-forest-labs/flux.2-pro` | ~$0.03 | FLUX 2 Pro |
-| `bytedance/seedream-4.5` | $0.04 | ByteDance Seedream |
+### Параметры
 
-> Полный список: `GET /api/v1/models?output_modalities=image`
+| Параметр | Значения |
+|----------|----------|
+| `aspect_ratio` | 1:1, 2:3, 3:2, 3:4, 4:3, 9:16, 16:9 |
+| `image_size` | 0.5K, 1K, 2K, 4K |
 
-### Параметры (image_config)
+### Автообнаружение моделей
 
-| Параметр | Значения | По умолчанию | Описание (для UI) |
-|----------|----------|-------------|-------------------|
-| `aspect_ratio` | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` | `1:1` | Соотношение сторон |
-| `image_size` | `0.5K`, `1K`, `2K`, `4K` | `1K` | Размер изображения. Больше = дороже |
-
-### Формат ответа
-```json
-{
-  "choices": [{
-    "message": {
-      "content": [
-        {
-          "type": "image_url",
-          "image_url": {
-            "url": "data:image/png;base64,..."
-          }
-        }
-      ]
-    }
-  }]
-}
-```
-
-### Обнаружение новых моделей
 ```
 GET https://openrouter.ai/api/v1/models?output_modalities=image
 ```
-Возвращает все доступные модели с `output_modalities: ["image"]`.
-Используется для автоматической проверки обновлений.
+
+Cron-сервис автоматически проверяет новые модели раз в сутки.
 
 ---
 
-## Сравнение цен (1024x1024, стандартное качество)
+## Сравнение цен (1024x1024, стандарт)
 
-| Модель | Цена | Примечание |
-|--------|------|-----------|
-| OpenAI gpt-image-1-mini (low) | **$0.005** | Самая дешёвая |
-| OpenAI gpt-image-1.5 (low) | $0.009 | Флагман, минимум |
-| xAI grok-imagine-image | $0.020 | Фиксированная цена |
-| OpenRouter FLUX 2 Pro | ~$0.030 | Open-source |
-| OpenAI gpt-image-1.5 (medium) | $0.034 | Оптимальный баланс |
-| OpenRouter Gemini 2.5 Flash | ~$0.039 | Google через OpenRouter |
-| OpenRouter Seedream 4.5 | $0.040 | ByteDance |
-| xAI grok-imagine-image-pro | $0.070 | Высокое качество |
-| OpenRouter Gemini 3 Pro | ~$0.134 | Максимальное качество Google |
-| OpenAI gpt-image-1.5 (high) | $0.133 | Максимальное качество OpenAI |
+| Модель | Цена |
+|--------|------|
+| OpenAI gpt-image-1-mini (low) | $0.005 |
+| OpenAI gpt-image-1-mini (medium) | $0.011 |
+| xAI Grok Imagine | $0.020 |
+| FLUX.2 Flex | $0.020 |
+| FLUX.2 Pro | $0.030 |
+| OpenAI gpt-image-1.5 (medium) | $0.034 |
+| Gemini 2.5 Flash | $0.039 |
+| Seedream 4.5 | $0.040 |
+| xAI Grok Imagine Pro | $0.070 |
+| Gemini 3 Pro | $0.080 |
+| GPT-5 Image (OpenRouter) | $0.100 |
+| OpenAI gpt-image-1.5 (high) | $0.133 |
 
 ---
 
-## Унифицированный интерфейс адаптера
+## Безопасность API ключей
 
-Каждый провайдер реализует общий интерфейс:
-
-```typescript
-interface ImageProvider {
-  // Идентификатор провайдера
-  id: string; // 'openai' | 'xai' | 'openrouter'
-
-  // Генерация изображений
-  generate(request: GenerateRequest): Promise<GenerateResult>;
-
-  // Список доступных моделей (для проверки обновлений)
-  listModels(): Promise<ModelInfo[]>;
-
-  // Проверка валидности API ключа
-  validateKey(key: string): Promise<boolean>;
-}
-
-interface GenerateRequest {
-  model: string;
-  prompt: string;
-  params: Record<string, unknown>; // Специфичные для модели
-  count: number;
-}
-
-interface GenerateResult {
-  images: {
-    data: Buffer;       // Бинарные данные изображения
-    format: string;     // png, jpeg, webp
-    width: number;
-    height: number;
-  }[];
-  cost: number;         // Расчётная стоимость
-  raw_response?: unknown; // Оригинальный ответ API
-}
-```
+- Ключи шифруются AES-256-GCM перед сохранением в БД
+- Клиент видит только hint (последние 4 символа)
+- Расшифровка происходит только на сервере при генерации
+- При регистрации новый юзер получает копии ключей админа (зашифрованные)
+- Fallback: если у юзера нет ключа — используется ключ админа
