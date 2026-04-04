@@ -47,11 +47,11 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <ImageIcon className="size-4" />
+              <div className="flex size-8 items-center justify-center rounded-full bg-x-blue">
+                <ImageIcon className="size-4 text-white" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">MediaGenerator</span>
+                <span className="truncate font-bold">MediaGenerator</span>
                 <span className="truncate text-xs text-muted-foreground">
                   Генерация изображений
                 </span>
@@ -72,13 +72,13 @@ export function AppSidebar({
                     tooltip={item.title}
                   >
                     <item.icon />
-                    <span>{item.title}</span>
+                    <span className="font-medium">{item.title}</span>
                     {item.href === "/settings" &&
                       user.role === "admin" &&
                       unreadNotificationCount > 0 && (
                         <Badge
                           variant="destructive"
-                          className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                          className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-xs"
                         >
                           {unreadNotificationCount}
                         </Badge>

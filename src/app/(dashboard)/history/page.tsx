@@ -8,10 +8,10 @@ export default async function HistoryPage() {
   const providers = [...new Set(result.items.map((g) => g.provider))]
 
   return (
-    <div className="flex flex-col gap-4 py-4">
+    <div className="flex flex-col gap-6 py-6">
       <div>
-        <h1 className="text-2xl font-semibold">История</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-xl font-bold text-white">История</h1>
+        <p className="mt-1 text-sm text-neutral-500">
           Все ваши генерации изображений
         </p>
       </div>

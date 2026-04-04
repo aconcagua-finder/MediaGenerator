@@ -27,27 +27,27 @@ interface ParamPanelProps {
 export function ParamPanel({ schema, values, onChange }: ParamPanelProps) {
   if (!schema || Object.keys(schema).length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-neutral-600">
         Нет настраиваемых параметров для этой модели
       </p>
     )
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2">
       {Object.entries(schema).map(([key, param]) => {
         if (param.type !== "select") return null
 
         const currentValue = values[key] || param.default
 
         return (
-          <div key={key} className="space-y-1.5">
-            <Label className="text-sm">{param.label}</Label>
+          <div key={key} className="space-y-2">
+            <Label className="text-sm font-medium text-neutral-400">{param.label}</Label>
             <Select
               value={currentValue}
               onValueChange={(v) => v && onChange(key, v)}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full border-white/8 bg-white/[0.02]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

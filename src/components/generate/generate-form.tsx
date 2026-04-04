@@ -4,7 +4,6 @@ import { useState, useCallback } from "react"
 import { Sparkles, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -41,7 +40,6 @@ interface GenerateFormProps {
 }
 
 export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
-  // Найти первый провайдер с ключом
   const firstAvailableProvider = Object.keys(models).find((p) => hasApiKeys[p]) || Object.keys(models)[0] || ""
   const firstModel = models[firstAvailableProvider]?.[0]?.modelId || ""
 
@@ -54,13 +52,11 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
   const [results, setResults] = useState<GeneratedImage[]>([])
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
 
-  // Текущая модель
   const currentModel = models[provider]?.find((m) => m.modelId === modelId)
   const paramsSchema = currentModel?.paramsSchema as Record<string, {
     type: string; label: string; options: string[]; default: string
   }> | null
 
-  // При смене модели — сбросить параметры на дефолты
   const handleModelChange = useCallback((newModelId: string) => {
     setModelId(newModelId)
     setParams({})
@@ -91,7 +87,6 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
     setIsGenerating(true)
 
     try {
-      // Собираем параметры с дефолтами
       const finalParams: Record<string, string> = {}
       if (paramsSchema) {
         for (const [key, schema] of Object.entries(paramsSchema)) {
@@ -138,134 +133,118 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
 
   if (noProviders) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <p className="text-muted-foreground">
-            Нет доступных моделей. Обратитесь к администратору.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border border-white/8 py-12 text-center">
+        <p className="text-neutral-500">
+          Нет доступных моделей. Обратитесь к администратору.
+        </p>
+      </div>
     )
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-      {/* Левая часть — промпт и результаты */}
-      <div className="space-y-4">
-        <Card>
-          <CardContent className="pt-6">
-            <PromptInput
-              value={prompt}
-              onChange={setPrompt}
-              onSubmit={handleGenerate}
-              disabled={isGenerating}
-            />
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="space-y-1">
-                  <Label className="text-sm">Количество</Label>
-                  <Select value={count} onValueChange={(v) => v && setCount(v)}>
-                    <SelectTrigger className="w-20">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["1", "2", "3", "4"].map((n) => (
-                        <SelectItem key={n} value={n}>{n}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      {/* Left — prompt and results */}
+      <div className="space-y-6">
+        <div className="rounded-lg border border-white/8 bg-white/[0.02] p-5">
+          <PromptInput
+            value={prompt}
+            onChange={setPrompt}
+            onSubmit={handleGenerate}
+            disabled={isGenerating}
+          />
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-neutral-500">Количество</Label>
+                <Select value={count} onValueChange={(v) => v && setCount(v)}>
+                  <SelectTrigger className="w-20 border-white/8 bg-white/[0.02]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["1", "2", "3", "4"].map((n) => (
+                      <SelectItem key={n} value={n}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerating || !prompt.trim() || !hasApiKeys[provider]}
-                className="flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-6 text-sm font-semibold text-white shadow-lg shadow-violet-600/25 transition-all hover:shadow-xl hover:shadow-violet-600/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:shadow-none"
-              >
-                {isGenerating ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Sparkles className="size-4" />
-                )}
-                {isGenerating ? "Генерация..." : "Сгенерировать"}
-              </button>
             </div>
-            {!hasApiKeys[provider] && (
-              <p className="mt-2 text-sm text-destructive">
-                API ключ для {currentModel?.provider || provider} не настроен. Перейдите в Настройки.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating || !prompt.trim() || !hasApiKeys[provider]}
+              className="flex h-10 items-center gap-2 rounded-full bg-x-blue px-5 text-sm font-bold text-white transition-colors hover:bg-x-blue-hover active:scale-[0.98] disabled:opacity-40"
+            >
+              {isGenerating ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Sparkles className="size-4" />
+              )}
+              {isGenerating ? "Генерация..." : "Сгенерировать"}
+            </button>
+          </div>
+          {!hasApiKeys[provider] && (
+            <p className="mt-3 text-sm text-red-400">
+              API ключ для {currentModel?.provider || provider} не настроен. Перейдите в Настройки.
+            </p>
+          )}
+        </div>
 
-        {/* Результаты генерации */}
+        {/* Results */}
         {(results.length > 0 || isGenerating) && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Результаты</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                {isGenerating &&
-                  Array.from({ length: parseInt(count) }).map((_, i) => (
-                    <div
-                      key={`skeleton-${i}`}
-                      className="aspect-square animate-pulse rounded-lg bg-muted"
-                    />
-                  ))}
-                {results.map((img) => (
-                  <button
-                    key={img.id}
-                    className="group relative aspect-square overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary"
-                    onClick={() => setSelectedImage(img)}
-                  >
-                    <img
-                      src={img.url}
-                      alt="Generated"
-                      className="size-full object-cover"
-                    />
-                  </button>
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-neutral-400">Результаты</h3>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+              {isGenerating &&
+                Array.from({ length: parseInt(count) }).map((_, i) => (
+                  <div
+                    key={`skeleton-${i}`}
+                    className="aspect-square animate-pulse rounded-lg bg-white/[0.03]"
+                  />
                 ))}
-              </div>
-            </CardContent>
-          </Card>
+              {results.map((img) => (
+                <button
+                  key={img.id}
+                  className="group relative aspect-square overflow-hidden rounded-lg border border-white/8 bg-white/[0.02] transition-all hover:border-x-blue/40"
+                  onClick={() => setSelectedImage(img)}
+                >
+                  <img
+                    src={img.url}
+                    alt="Generated"
+                    className="size-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Правая панель — параметры */}
-      <div className="space-y-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Модель</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ModelSelector
-              models={models}
-              selectedProvider={provider}
-              selectedModel={modelId}
-              onProviderChange={handleProviderChange}
-              onModelChange={handleModelChange}
-            />
-          </CardContent>
-        </Card>
+      {/* Right panel — model & params */}
+      <div className="space-y-6">
+        <div className="rounded-lg border border-white/8 bg-white/[0.02] p-5">
+          <h3 className="mb-4 text-sm font-bold text-white">Модель</h3>
+          <ModelSelector
+            models={models}
+            selectedProvider={provider}
+            selectedModel={modelId}
+            onProviderChange={handleProviderChange}
+            onModelChange={handleModelChange}
+          />
+        </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Параметры</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ParamPanel
-              schema={paramsSchema}
-              values={params}
-              onChange={handleParamChange}
-            />
-          </CardContent>
-        </Card>
+        <div className="rounded-lg border border-white/8 bg-white/[0.02] p-5">
+          <h3 className="mb-4 text-sm font-bold text-white">Параметры</h3>
+          <ParamPanel
+            schema={paramsSchema}
+            values={params}
+            onChange={handleParamChange}
+          />
+        </div>
       </div>
 
-      {/* Лайтбокс */}
+      {/* Lightbox */}
       {selectedImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
           onClick={() => setSelectedImage(null)}
         >
           <div
@@ -281,7 +260,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
               <a
                 href={selectedImage.url}
                 download={`image-${selectedImage.id}.png`}
-                className="inline-flex h-8 items-center rounded-md bg-secondary px-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/80"
+                className="inline-flex h-9 items-center rounded-full bg-x-blue px-4 text-sm font-bold text-white transition-colors hover:bg-x-blue-hover"
               >
                 Скачать
               </a>
@@ -289,6 +268,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedImage(null)}
+                className="rounded-full text-neutral-400 hover:text-white"
               >
                 Закрыть
               </Button>

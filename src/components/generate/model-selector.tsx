@@ -40,7 +40,6 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const providers = Object.keys(models)
 
-  // При смене провайдера — выбрать первую модель
   function handleProviderChange(provider: string) {
     onProviderChange(provider)
     const firstModel = models[provider]?.[0]
@@ -50,11 +49,11 @@ export function ModelSelector({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <Label>Провайдер</Label>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-neutral-400">Провайдер</Label>
         <Select value={selectedProvider} onValueChange={(v) => v && handleProviderChange(v)}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full border-white/8 bg-white/[0.02]">
             <SelectValue placeholder="Выберите провайдера" />
           </SelectTrigger>
           <SelectContent>
@@ -67,10 +66,10 @@ export function ModelSelector({
         </Select>
       </div>
 
-      <div className="space-y-1.5">
-        <Label>Модель</Label>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-neutral-400">Модель</Label>
         <Select value={selectedModel} onValueChange={(v) => v && onModelChange(v)}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full border-white/8 bg-white/[0.02]">
             <SelectValue placeholder="Выберите модель" />
           </SelectTrigger>
           <SelectContent>
@@ -81,7 +80,7 @@ export function ModelSelector({
                   <div className="flex flex-col">
                     <span>{m.displayName}</span>
                     {m.description && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-neutral-500">
                         {m.description}
                       </span>
                     )}

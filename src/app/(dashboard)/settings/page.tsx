@@ -21,10 +21,10 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 py-4">
+    <div className="mx-auto w-full max-w-4xl space-y-6 py-6">
       <div>
-        <h1 className="text-2xl font-semibold">Настройки</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-xl font-bold text-white">Настройки</h1>
+        <p className="mt-1 text-sm text-neutral-500">
           Управление API ключами{isAdmin ? " и системой" : ""}
         </p>
       </div>

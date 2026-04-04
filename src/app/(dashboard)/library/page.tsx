@@ -9,10 +9,10 @@ export default async function LibraryPage() {
   ])
 
   return (
-    <div className="flex flex-col gap-4 py-4">
+    <div className="flex flex-col gap-6 py-6">
       <div>
-        <h1 className="text-2xl font-semibold">Библиотека</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-xl font-bold text-white">Библиотека</h1>
+        <p className="mt-1 text-sm text-neutral-500">
           Ваши сгенерированные изображения
         </p>
       </div>
