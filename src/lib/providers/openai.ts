@@ -11,13 +11,19 @@ export const openaiProvider: ImageProvider = {
   async generate(request: GenerateRequest): Promise<GenerateResult> {
     const { model, prompt, params, count, apiKey } = request
 
+    const isGptImage = model.startsWith("gpt-image")
+
     const body: Record<string, unknown> = {
       model,
       prompt,
       n: count,
-      response_format: "b64_json",
       size: params.size || "1024x1024",
       quality: params.quality || "medium",
+    }
+
+    // DALL-E модели требуют response_format, GPT Image — нет (b64_json по умолчанию)
+    if (!isGptImage) {
+      body.response_format = "b64_json"
     }
 
     if (params.output_format) body.output_format = params.output_format
