@@ -102,7 +102,7 @@ function ImageCard({
           <img
             src={`/api/images/${image.id}`}
             alt={image.generation.prompt.slice(0, 50)}
-            className="size-full cursor-pointer object-cover transition-transform group-hover:scale-105"
+            className="size-full cursor-pointer object-cover"
             loading="lazy"
             onLoad={() => setIsLoaded(true)}
             onClick={onOpenLightbox}
