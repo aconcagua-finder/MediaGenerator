@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
+
 import { usePathname } from "next/navigation"
 import {
   ImagesIcon,
@@ -47,7 +47,8 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/logo.webp"
                 alt="MediaGenerator"
                 width={32}

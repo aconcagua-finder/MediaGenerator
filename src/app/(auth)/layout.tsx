@@ -1,5 +1,3 @@
-import Image from "next/image"
-
 export default function AuthLayout({
   children,
 }: {
@@ -16,7 +14,8 @@ export default function AuthLayout({
       <div className="relative z-10 w-full max-w-sm">
         {/* Logo */}
         <div className="mb-10 flex flex-col items-center gap-3">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/logo.webp"
             alt="MediaGenerator"
             width={56}
