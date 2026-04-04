@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { Check, Download, FolderInput, Trash2, MoreHorizontal } from "lucide-react"
+import { useState } from "react"
+import { Download, FolderInput, Trash2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   ContextMenu,
@@ -38,7 +38,7 @@ export function ImageGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <div className="columns-2 gap-3 sm:columns-3 lg:columns-4 xl:columns-5">
       {images.map((img) => (
         <ImageCard
           key={img.id}
@@ -71,11 +71,16 @@ function ImageCard({
 }) {
   const [isLoaded, setIsLoaded] = useState(false)
 
+  // Aspect ratio из метаданных, fallback на 1:1
+  const w = image.width || 1024
+  const h = image.height || 1024
+  const aspectRatio = `${w} / ${h}`
+
   return (
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className={`group relative aspect-square overflow-hidden rounded-lg border bg-muted transition-all ${
+          className={`group relative mb-3 break-inside-avoid overflow-hidden rounded-lg border transition-all ${
             isSelected ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-muted-foreground/30"
           }`}
         >
@@ -98,14 +103,18 @@ function ImageCard({
             />
           </div>
 
-          {/* Изображение */}
+          {/* Изображение с натуральным aspect ratio */}
           {!isLoaded && (
-            <div className="absolute inset-0 animate-pulse bg-muted" />
+            <div
+              className="animate-pulse bg-muted"
+              style={{ aspectRatio }}
+            />
           )}
           <img
             src={`/api/images/${image.id}`}
             alt={image.generation.prompt.slice(0, 50)}
-            className="size-full cursor-pointer object-cover"
+            className={`w-full cursor-pointer object-cover ${isLoaded ? "" : "hidden"}`}
+            style={{ aspectRatio }}
             loading="lazy"
             onLoad={() => setIsLoaded(true)}
             onClick={onOpenLightbox}

@@ -192,24 +192,25 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
         {(results.length > 0 || isGenerating) && (
           <div>
             <h3 className="mb-3 text-sm font-medium text-neutral-400">Результаты</h3>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            <div className="columns-2 gap-3 sm:columns-3">
               {isGenerating &&
                 Array.from({ length: parseInt(count) }).map((_, i) => (
                   <div
                     key={`skeleton-${i}`}
-                    className="aspect-square animate-pulse rounded-lg bg-white/[0.03]"
+                    className="mb-3 break-inside-avoid aspect-square animate-pulse rounded-lg bg-white/[0.03]"
                   />
                 ))}
               {results.map((img) => (
                 <button
                   key={img.id}
-                  className="group relative aspect-square overflow-hidden rounded-lg border border-white/8 bg-white/[0.02] transition-all hover:border-x-blue/40"
+                  className="group relative mb-3 w-full break-inside-avoid overflow-hidden rounded-lg border border-white/8 bg-white/[0.02] transition-all hover:border-x-blue/40"
                   onClick={() => setSelectedImage(img)}
                 >
                   <img
                     src={img.url}
                     alt="Generated"
-                    className="size-full object-cover"
+                    className="w-full"
+                    style={{ aspectRatio: `${img.width} / ${img.height}` }}
                   />
                 </button>
               ))}
