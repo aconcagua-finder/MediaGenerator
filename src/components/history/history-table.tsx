@@ -224,7 +224,7 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
 
       {/* Детали генерации */}
       <Dialog open={!!detailGen} onOpenChange={() => setDetailGen(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl w-[90vw]">
           {detailGen && (
             <>
               <DialogHeader>
@@ -330,7 +330,7 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
                 )}
 
                 {/* Повторить */}
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-center pt-2">
                   <Button
                     className="gap-2"
                     onClick={() => onRegenerate(detailGen)}
