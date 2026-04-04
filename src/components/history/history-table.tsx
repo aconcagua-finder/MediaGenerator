@@ -8,6 +8,8 @@ import {
   Loader2,
   Copy,
   RotateCw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -56,8 +58,19 @@ const statusMap: Record<string, { label: string; icon: React.ReactNode; variant:
   },
 }
 
+function formatDate(date: Date) {
+  return new Date(date).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
   const [detailGen, setDetailGen] = useState<GenerationWithImages | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   if (generations.length === 0) {
     return (
@@ -67,14 +80,9 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
     )
   }
 
-  function formatDate(date: Date) {
-    return new Date(date).toLocaleString("ru-RU", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+  function toggleExpand(e: React.MouseEvent, id: string) {
+    e.stopPropagation()
+    setExpandedId(expandedId === id ? null : id)
   }
 
   return (
@@ -83,14 +91,21 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
       <div className="space-y-2 md:hidden">
         {generations.map((gen) => {
           const status = statusMap[gen.status] || statusMap.pending
+          const isExpanded = expandedId === gen.id
           return (
             <div
               key={gen.id}
-              className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50"
-              onClick={() => setDetailGen(gen)}
+              className="rounded-lg border p-3 transition-colors"
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="line-clamp-2 text-sm">{gen.prompt}</p>
+                <button
+                  className="text-left text-sm"
+                  onClick={(e) => toggleExpand(e, gen.id)}
+                >
+                  <span className={isExpanded ? "" : "line-clamp-2"}>
+                    {gen.prompt}
+                  </span>
+                </button>
                 <Badge variant={status.variant} className="shrink-0 gap-1">
                   {status.icon}
                   {status.label}
@@ -103,7 +118,17 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
                   </Badge>
                   <span>{gen.model}</span>
                 </div>
-                <span>{formatDate(gen.createdAt)}</span>
+                <div className="flex items-center gap-1">
+                  <span>{formatDate(gen.createdAt)}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    onClick={() => setDetailGen(gen)}
+                  >
+                    <RotateCw className="size-3" />
+                  </Button>
+                </div>
               </div>
             </div>
           )
@@ -115,18 +140,20 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[180px]">Дата</TableHead>
+              <TableHead className="w-[160px]">Дата</TableHead>
               <TableHead>Промпт</TableHead>
               <TableHead className="w-[120px]">Модель</TableHead>
               <TableHead className="w-[100px]">Провайдер</TableHead>
               <TableHead className="w-[100px]">Статус</TableHead>
-              <TableHead className="w-[80px] text-right">Цена</TableHead>
+              <TableHead className="w-[70px] text-right">Цена</TableHead>
               <TableHead className="w-[60px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {generations.map((gen) => {
               const status = statusMap[gen.status] || statusMap.pending
+              const isExpanded = expandedId === gen.id
+              const isLong = gen.prompt.length > 60
 
               return (
                 <TableRow
@@ -138,9 +165,31 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
                     {formatDate(gen.createdAt)}
                   </TableCell>
                   <TableCell>
-                    <span className="line-clamp-1 text-sm">
-                      {gen.prompt}
-                    </span>
+                    <div className="flex items-start gap-1">
+                      <span
+                        className={`text-sm ${isExpanded ? "" : "line-clamp-1"}`}
+                        onClick={(e) => {
+                          if (isLong) {
+                            e.stopPropagation()
+                            toggleExpand(e, gen.id)
+                          }
+                        }}
+                      >
+                        {gen.prompt}
+                      </span>
+                      {isLong && (
+                        <button
+                          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => toggleExpand(e, gen.id)}
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="size-3.5" />
+                          ) : (
+                            <ChevronDown className="size-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <span className="text-xs">{gen.model}</span>
