@@ -1,15 +1,26 @@
-import { HistoryIcon } from "lucide-react"
+import { getGenerations } from "@/lib/actions/generations"
+import { HistoryView } from "@/components/history/history-view"
 
-export default function HistoryPage() {
+export default async function HistoryPage() {
+  const result = await getGenerations({ limit: 20, offset: 0 })
+
+  // Собираем уникальных провайдеров из генераций
+  const providers = [...new Set(result.items.map((g) => g.provider))]
+
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <div className="text-center">
-        <HistoryIcon className="mx-auto size-12 text-muted-foreground" />
-        <h1 className="mt-4 text-2xl font-semibold">История</h1>
-        <p className="mt-2 text-muted-foreground">
-          Здесь будет история генераций
+    <div className="flex flex-col gap-4 py-4">
+      <div>
+        <h1 className="text-2xl font-semibold">История</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Все ваши генерации изображений
         </p>
       </div>
+
+      <HistoryView
+        initialGenerations={result.items}
+        initialTotal={result.total}
+        providers={providers}
+      />
     </div>
   )
 }

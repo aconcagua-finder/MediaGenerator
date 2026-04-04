@@ -1,0 +1,268 @@
+"use client"
+
+import { useState } from "react"
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Loader2,
+  Copy,
+  RotateCw,
+} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { toast } from "sonner"
+import type { GenerationWithImages } from "@/lib/actions/generations"
+
+interface HistoryTableProps {
+  generations: GenerationWithImages[]
+  onRegenerate: (gen: GenerationWithImages) => void
+}
+
+const statusMap: Record<string, { label: string; icon: React.ReactNode; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  done: {
+    label: "Готово",
+    icon: <CheckCircle2 className="size-3.5" />,
+    variant: "default",
+  },
+  error: {
+    label: "Ошибка",
+    icon: <XCircle className="size-3.5" />,
+    variant: "destructive",
+  },
+  processing: {
+    label: "В процессе",
+    icon: <Loader2 className="size-3.5 animate-spin" />,
+    variant: "secondary",
+  },
+  pending: {
+    label: "Ожидание",
+    icon: <Clock className="size-3.5" />,
+    variant: "outline",
+  },
+}
+
+export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
+  const [detailGen, setDetailGen] = useState<GenerationWithImages | null>(null)
+
+  if (generations.length === 0) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-20">
+        <p className="text-muted-foreground">Нет генераций</p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[180px]">Дата</TableHead>
+              <TableHead>Промпт</TableHead>
+              <TableHead className="w-[120px]">Модель</TableHead>
+              <TableHead className="w-[100px]">Провайдер</TableHead>
+              <TableHead className="w-[100px]">Статус</TableHead>
+              <TableHead className="w-[80px] text-right">Цена</TableHead>
+              <TableHead className="w-[60px]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {generations.map((gen) => {
+              const status = statusMap[gen.status] || statusMap.pending
+
+              return (
+                <TableRow
+                  key={gen.id}
+                  className="cursor-pointer"
+                  onClick={() => setDetailGen(gen)}
+                >
+                  <TableCell className="text-xs text-muted-foreground">
+                    {new Date(gen.createdAt).toLocaleString("ru-RU", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <span className="line-clamp-1 text-sm">
+                      {gen.prompt}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs">{gen.model}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {gen.provider}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={status.variant} className="gap-1">
+                      {status.icon}
+                      {status.label}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right text-xs">
+                    {gen.cost ? `$${Number(gen.cost).toFixed(3)}` : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7"
+                      title="Повторить"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRegenerate(gen)
+                      }}
+                    >
+                      <RotateCw className="size-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Детали генерации */}
+      <Dialog open={!!detailGen} onOpenChange={() => setDetailGen(null)}>
+        <DialogContent className="max-w-2xl">
+          {detailGen && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Детали генерации</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                {/* Промпт */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Промпт</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(detailGen.prompt)
+                        toast.success("Промпт скопирован")
+                      }}
+                    >
+                      <Copy className="mr-1 size-3.5" />
+                      Копировать
+                    </Button>
+                  </div>
+                  <p className="rounded-md bg-muted p-3 text-sm">
+                    {detailGen.prompt}
+                  </p>
+                </div>
+
+                {/* Метаданные */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Провайдер</span>
+                    <p>{detailGen.provider}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Модель</span>
+                    <p>{detailGen.model}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Статус</span>
+                    <p>
+                      {statusMap[detailGen.status]?.label || detailGen.status}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Стоимость</span>
+                    <p>
+                      {detailGen.cost
+                        ? `$${Number(detailGen.cost).toFixed(4)}`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Изображений</span>
+                    <p>{detailGen.imagesCount}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Дата</span>
+                    <p>
+                      {new Date(detailGen.createdAt).toLocaleString("ru-RU")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Параметры */}
+                {detailGen.params !== null && detailGen.params !== undefined && (
+                  <div>
+                    <span className="text-sm font-medium">Параметры</span>
+                    <pre className="mt-1 rounded-md bg-muted p-3 text-xs">
+                      {JSON.stringify(detailGen.params, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Ошибка */}
+                {detailGen.errorMessage && (
+                  <div>
+                    <span className="text-sm font-medium text-destructive">
+                      Ошибка
+                    </span>
+                    <p className="mt-1 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                      {detailGen.errorMessage}
+                    </p>
+                  </div>
+                )}
+
+                {/* Изображения */}
+                {detailGen.images.length > 0 && (
+                  <div>
+                    <span className="text-sm font-medium">Изображения</span>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {detailGen.images.map((img) => (
+                        <img
+                          key={img.id}
+                          src={`/api/images/${img.id}`}
+                          alt="Generated"
+                          className="aspect-square rounded-md object-cover"
+                          loading="lazy"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Повторить */}
+                <div className="flex justify-end">
+                  <Button onClick={() => onRegenerate(detailGen)}>
+                    <RotateCw className="mr-2 size-4" />
+                    Повторить с теми же параметрами
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
