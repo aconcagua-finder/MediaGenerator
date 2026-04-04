@@ -199,48 +199,77 @@ function FolderNode({
     <div>
       <ContextMenu>
         <ContextMenuTrigger>
-          <button
-            className={`flex w-full items-center gap-1 rounded-md py-1.5 text-sm transition-colors ${
+          <div
+            className={`group/folder flex w-full items-center gap-1 rounded-md py-1.5 text-sm transition-colors ${
               isActive
                 ? "bg-accent text-accent-foreground"
                 : "text-muted-foreground hover:bg-accent/50"
             }`}
-            style={{ paddingLeft: `${(depth + 1) * 8 + 8}px` }}
-            onClick={() => onSelect(folder.id)}
+            style={{ paddingLeft: `${(depth + 1) * 8 + 8}px`, paddingRight: '4px' }}
           >
-            {hasChildren && (
-              <ChevronRight
-                className={`size-3 shrink-0 transition-transform ${
-                  isExpanded ? "rotate-90" : ""
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsExpanded(!isExpanded)
-                }}
-              />
+            <button
+              className="flex min-w-0 flex-1 items-center gap-1"
+              onClick={() => onSelect(folder.id)}
+            >
+              {hasChildren && (
+                <ChevronRight
+                  className={`size-3 shrink-0 transition-transform ${
+                    isExpanded ? "rotate-90" : ""
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsExpanded(!isExpanded)
+                  }}
+                />
+              )}
+              {isActive ? (
+                <FolderOpen className="size-4 shrink-0" />
+              ) : (
+                <Folder className="size-4 shrink-0" />
+              )}
+              {isEditing ? (
+                <Input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => onEditNameChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onRenameSubmit(folder.id)
+                    if (e.key === "Escape") onCancelEdit()
+                  }}
+                  onBlur={() => onRenameSubmit(folder.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-6 text-sm"
+                />
+              ) : (
+                <span className="truncate">{folder.name}</span>
+              )}
+            </button>
+            {/* Кнопки при ховере */}
+            {!isEditing && (
+              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/folder:opacity-100">
+                <button
+                  className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                  title="Переименовать"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onStartEdit(folder.id, folder.name)
+                  }}
+                >
+                  <Pencil className="size-3" />
+                </button>
+                <button
+                  className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
+                  title="Удалить папку"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(folder.id)
+                  }}
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              </div>
             )}
-            {isActive ? (
-              <FolderOpen className="size-4 shrink-0" />
-            ) : (
-              <Folder className="size-4 shrink-0" />
-            )}
-            {isEditing ? (
-              <Input
-                autoFocus
-                value={editName}
-                onChange={(e) => onEditNameChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") onRenameSubmit(folder.id)
-                  if (e.key === "Escape") onCancelEdit()
-                }}
-                onBlur={() => onRenameSubmit(folder.id)}
-                onClick={(e) => e.stopPropagation()}
-                className="h-6 text-sm"
-              />
-            ) : (
-              <span className="truncate">{folder.name}</span>
-            )}
-          </button>
+          </div>
         </ContextMenuTrigger>
 
         <ContextMenuContent>
