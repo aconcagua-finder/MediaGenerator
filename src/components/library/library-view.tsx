@@ -2,11 +2,20 @@
 
 import { useState, useCallback, useTransition } from "react"
 import { toast } from "sonner"
+import { FolderOpen } from "lucide-react"
 import { ImageGrid } from "./image-grid"
 import { FolderTree } from "./folder-tree"
 import { BulkActionsBar } from "./bulk-actions-bar"
 import { MoveToFolderDialog } from "./move-to-folder-dialog"
 import { ImageLightbox } from "./image-lightbox"
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -194,7 +203,7 @@ export function LibraryView({
 
   return (
     <div className="flex h-full gap-4">
-      {/* Левая панель — папки */}
+      {/* Левая панель — папки (десктоп) */}
       <div className="hidden w-56 shrink-0 md:block">
         <FolderTree
           folders={folders}
@@ -208,6 +217,37 @@ export function LibraryView({
 
       {/* Основная область */}
       <div className="flex min-w-0 flex-1 flex-col gap-3">
+        {/* Мобильная кнопка папок */}
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger
+              render={
+                <Button variant="outline" size="sm">
+                  <FolderOpen className="mr-2 size-4" />
+                  Папки
+                </Button>
+              }
+            />
+            <SheetContent side="left" className="w-64 p-4">
+              <SheetHeader>
+                <SheetTitle>Папки</SheetTitle>
+              </SheetHeader>
+              <div className="mt-4">
+                <FolderTree
+                  folders={folders}
+                  activeFolderId={activeFolderId}
+                  onSelectFolder={(id) => {
+                    handleSelectFolder(id)
+                  }}
+                  onCreateFolder={handleCreateFolder}
+                  onRenameFolder={handleRenameFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
         {/* Панель массовых действий */}
         <BulkActionsBar
           selectedCount={selectedIds.size}

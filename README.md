@@ -1,36 +1,240 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MediaGenerator
 
-## Getting Started
+Веб-приложение для генерации изображений через API нейросетей (OpenAI, xAI, OpenRouter).
 
-First, run the development server:
+## Возможности
+
+- Генерация изображений через множество моделей (GPT Image, Grok, FLUX, Gemini и др.)
+- Библиотека изображений с папками и массовыми операциями
+- История генераций с фильтрами и повторной генерацией
+- Админ-панель: управление пользователями, лимитами, моделями
+- Автоматическая проверка новых моделей у провайдеров
+- Система уведомлений
+- Шифрование API ключей (AES-256-GCM)
+- Тёмная тема, русский интерфейс
+
+## Стек
+
+- **Next.js 15** (App Router) + React 19 + TypeScript
+- **PostgreSQL 16** + Drizzle ORM
+- **shadcn/ui** + Tailwind CSS 4
+- **Better Auth** (email/пароль, роли admin/user)
+- **MinIO** (S3-совместимое хранилище изображений)
+- **Docker Compose**
+
+---
+
+## Быстрый старт (Docker)
+
+### 1. Клонирование и настройка
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repo-url> mediagenerator
+cd mediagenerator
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Генерация секретов
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Отредактируйте `.env`, заменив все `change_me_*` значения:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Генерация ключей:
+openssl rand -hex 32   # для ENCRYPTION_KEY и BETTER_AUTH_SECRET
+openssl rand -hex 16   # для CRON_SECRET, POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD
+```
 
-## Learn More
+### 3. Запуск
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+docker compose up -d
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Дождитесь запуска всех сервисов (~30 секунд):
+- **Приложение**: http://localhost:3000
+- **MinIO Console**: http://localhost:9001
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 4. Первый пользователь
 
-## Deploy on Vercel
+Перейдите на http://localhost:3000/register. Первый зарегистрированный пользователь автоматически получает роль **admin**.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 5. Миграции БД
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Миграции применяются автоматически при первом запуске. Если нужно запустить вручную:
+
+```bash
+docker compose exec app npx drizzle-kit migrate
+```
+
+### 6. Настройка API ключей
+
+Перейдите в **Настройки** и добавьте API ключи провайдеров:
+- **OpenAI**: https://platform.openai.com/api-keys
+- **xAI**: https://console.x.ai/
+- **OpenRouter**: https://openrouter.ai/keys
+
+---
+
+## Cloudflare Tunnel (mediagenerator.sanktum.net)
+
+Для доступа извне без открытия портов.
+
+### Установка cloudflared
+
+```bash
+# macOS
+brew install cloudflared
+
+# Linux
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+chmod +x /usr/local/bin/cloudflared
+```
+
+### Авторизация
+
+```bash
+cloudflared tunnel login
+```
+
+### Создание туннеля
+
+```bash
+cloudflared tunnel create mediagenerator
+```
+
+Запомните ID туннеля из вывода.
+
+### Конфигурация
+
+Создайте `~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: <TUNNEL_ID>
+credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: mediagenerator.sanktum.net
+    service: http://localhost:3000
+  - service: http_status:404
+```
+
+### DNS запись
+
+```bash
+cloudflared tunnel route dns mediagenerator mediagenerator.sanktum.net
+```
+
+### Запуск туннеля
+
+```bash
+# Разово (для теста):
+cloudflared tunnel run mediagenerator
+
+# Как системный сервис:
+cloudflared service install
+```
+
+### Обновление .env для продакшена
+
+```env
+NEXT_PUBLIC_APP_URL=https://mediagenerator.sanktum.net
+BETTER_AUTH_URL=https://mediagenerator.sanktum.net
+```
+
+---
+
+## Проверка обновлений моделей (Cron)
+
+Автоматическая проверка новых моделей у провайдеров:
+
+```bash
+# Ручной запуск:
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/model-check
+
+# Автоматический (crontab -e):
+0 6 * * * curl -s -X POST -H "Authorization: Bearer YOUR_CRON_SECRET" http://localhost:3000/api/cron/model-check
+```
+
+Новые модели добавляются как неактивные. Активируйте их в **Настройки > Уведомления**.
+
+---
+
+## Бэкапы
+
+### PostgreSQL
+
+```bash
+# Создать бэкап:
+docker compose exec postgres pg_dump -U mediagen mediagenerator > backup_$(date +%Y%m%d).sql
+
+# Восстановить:
+cat backup_20260404.sql | docker compose exec -T postgres psql -U mediagen mediagenerator
+```
+
+### MinIO (изображения)
+
+```bash
+# Установить mc (MinIO Client):
+brew install minio/stable/mc  # macOS
+
+# Настроить:
+mc alias set local http://localhost:9000 minioadmin YOUR_MINIO_PASSWORD
+
+# Бэкап:
+mc mirror local/mediagenerator ./backup_images/
+
+# Восстановить:
+mc mirror ./backup_images/ local/mediagenerator
+```
+
+---
+
+## Обновление приложения
+
+```bash
+git pull
+docker compose build app
+docker compose up -d app
+```
+
+Если есть новые миграции:
+
+```bash
+docker compose exec app npx drizzle-kit migrate
+```
+
+---
+
+## Разработка (без Docker)
+
+```bash
+npm install
+
+# Убедитесь что PostgreSQL и MinIO запущены:
+docker compose up -d postgres minio
+
+# Миграции:
+npx drizzle-kit migrate
+
+# Dev сервер:
+npm run dev
+```
+
+---
+
+## Структура проекта
+
+```
+src/
+├── app/           # Next.js App Router (страницы, API routes)
+├── components/    # React компоненты по фичам
+├── lib/
+│   ├── actions/   # Server Actions (бизнес-логика)
+│   ├── db/        # Drizzle ORM (схема, миграции)
+│   ├── providers/ # Адаптеры провайдеров генерации
+│   ├── cron/      # Логика периодических задач
+│   └── utils/     # Утилиты (crypto, admin-guard)
+└── hooks/         # React хуки
+```
+
+Подробнее: `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`

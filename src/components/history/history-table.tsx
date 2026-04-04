@@ -67,9 +67,51 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
     )
   }
 
+  function formatDate(date: Date) {
+    return new Date(date).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
   return (
     <>
-      <div className="rounded-md border">
+      {/* Мобильный вид — карточки */}
+      <div className="space-y-2 md:hidden">
+        {generations.map((gen) => {
+          const status = statusMap[gen.status] || statusMap.pending
+          return (
+            <div
+              key={gen.id}
+              className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50"
+              onClick={() => setDetailGen(gen)}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="line-clamp-2 text-sm">{gen.prompt}</p>
+                <Badge variant={status.variant} className="shrink-0 gap-1">
+                  {status.icon}
+                  {status.label}
+                </Badge>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {gen.provider}
+                  </Badge>
+                  <span>{gen.model}</span>
+                </div>
+                <span>{formatDate(gen.createdAt)}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Десктопный вид — таблица */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -93,13 +135,7 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
                   onClick={() => setDetailGen(gen)}
                 >
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(gen.createdAt).toLocaleString("ru-RU", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatDate(gen.createdAt)}
                   </TableCell>
                   <TableCell>
                     <span className="line-clamp-1 text-sm">

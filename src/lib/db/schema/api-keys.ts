@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp } from "drizzle-orm/pg-core"
+import { pgTable, uuid, text, boolean, timestamp, index } from "drizzle-orm/pg-core"
 import { user } from "./auth"
 
 export const apiKeys = pgTable("api_keys", {
@@ -11,4 +11,7 @@ export const apiKeys = pgTable("api_keys", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-})
+}, (table) => [
+  index("idx_api_keys_created_by").on(table.createdBy),
+  index("idx_api_keys_provider_user").on(table.provider, table.createdBy),
+])

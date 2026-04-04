@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, uuid, text, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core"
 import { generations } from "./generations"
 import { folders } from "./folders"
 
@@ -18,4 +18,8 @@ export const images = pgTable("images", {
   sizeBytes: integer("size_bytes"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-})
+}, (table) => [
+  index("idx_images_generation_id").on(table.generationId),
+  index("idx_images_folder_id").on(table.folderId),
+  index("idx_images_created_at").on(table.createdAt),
+])

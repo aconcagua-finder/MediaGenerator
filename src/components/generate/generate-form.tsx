@@ -157,6 +157,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
             <PromptInput
               value={prompt}
               onChange={setPrompt}
+              onSubmit={handleGenerate}
               disabled={isGenerating}
             />
             <div className="mt-4 flex items-center justify-between">
