@@ -119,9 +119,9 @@
   /* Destructive */
   --destructive: oklch(0.65 0.22 25);
 
-  /* Ultra-thin borders */
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 8%);
+  /* Ultra-thin borders — rgb format for hsl() compat in shadcn */
+  --border: rgb(255 255 255 / 8%);
+  --input: rgb(255 255 255 / 8%);
 
   /* Ring: accent blue glow */
   --ring: oklch(0.65 0.18 240);
@@ -133,15 +133,15 @@
   --chart-4: oklch(0.45 0 0);
   --chart-5: oklch(0.30 0 0);
 
-  /* Sidebar: near-black, minimal */
-  --sidebar: oklch(0 0 0);
-  --sidebar-foreground: oklch(0.88 0 0);
-  --sidebar-primary: oklch(0.65 0.18 240);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(1 0 0 / 5%);
-  --sidebar-accent-foreground: oklch(0.93 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.65 0.18 240);
+  /* Sidebar: near-black, minimal — rgb for hsl() compat in shadcn */
+  --sidebar: #000000;
+  --sidebar-foreground: #d4d4d4;
+  --sidebar-primary: #1D9BF0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(255 255 255 / 5%);
+  --sidebar-accent-foreground: #e5e5e5;
+  --sidebar-border: rgb(255 255 255 / 8%);
+  --sidebar-ring: #1D9BF0;
 }
 
 @layer base {
