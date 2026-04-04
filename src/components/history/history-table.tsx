@@ -158,28 +158,21 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
               return (
                 <TableRow
                   key={gen.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer hover:bg-white/[0.03]"
                   onClick={() => setDetailGen(gen)}
                 >
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(gen.createdAt)}
                   </TableCell>
                   <TableCell className="overflow-hidden">
-                    <div className="flex items-start gap-1">
-                      <span
-                        className={`text-sm break-words ${isExpanded ? "" : "line-clamp-1"}`}
-                        onClick={(e) => {
-                          if (isLong) {
-                            e.stopPropagation()
-                            toggleExpand(e, gen.id)
-                          }
-                        }}
-                      >
+                    <div className="flex items-center gap-1.5">
+                      <span className={`min-w-0 text-sm break-words ${isExpanded ? "" : "line-clamp-1"}`}>
                         {gen.prompt}
                       </span>
                       {isLong && (
                         <button
-                          className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
+                          className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                          title={isExpanded ? "Свернуть" : "Развернуть промпт"}
                           onClick={(e) => toggleExpand(e, gen.id)}
                         >
                           {isExpanded ? (
@@ -231,7 +224,7 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
 
       {/* Детали генерации */}
       <Dialog open={!!detailGen} onOpenChange={() => setDetailGen(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           {detailGen && (
             <>
               <DialogHeader>
@@ -337,9 +330,12 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
                 )}
 
                 {/* Повторить */}
-                <div className="flex justify-end">
-                  <Button onClick={() => onRegenerate(detailGen)}>
-                    <RotateCw className="mr-2 size-4" />
+                <div className="flex justify-end pt-2">
+                  <Button
+                    className="gap-2"
+                    onClick={() => onRegenerate(detailGen)}
+                  >
+                    <RotateCw className="size-4" />
                     Повторить с теми же параметрами
                   </Button>
                 </div>
