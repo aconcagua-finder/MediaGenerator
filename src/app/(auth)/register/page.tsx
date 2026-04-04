@@ -4,9 +4,6 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { signUp } from "@/lib/auth-client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 
 export default function RegisterPage() {
@@ -35,59 +32,59 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-8">
-      <div className="mb-6">
-        <h2 className="text-xl font-medium tracking-tight text-foreground">
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl shadow-black/40 backdrop-blur-xl">
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold tracking-tight text-white">
           Создать аккаунт
         </h2>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Начните генерировать изображения
+        <p className="mt-2 text-base text-white/50">
+          Начните генерировать изображения с ИИ
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {error}
           </div>
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm text-muted-foreground">
+          <label htmlFor="name" className="block text-sm font-medium text-white/70">
             Имя
-          </Label>
-          <Input
+          </label>
+          <input
             id="name"
             type="text"
-            placeholder="Ваше имя"
+            placeholder="Как вас зовут?"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             autoFocus
-            className="h-10 bg-background"
+            className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 text-base text-white placeholder-white/30 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm text-muted-foreground">
+          <label htmlFor="email" className="block text-sm font-medium text-white/70">
             Email
-          </Label>
-          <Input
+          </label>
+          <input
             id="email"
             type="email"
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="h-10 bg-background"
+            className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 text-base text-white placeholder-white/30 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-sm text-muted-foreground">
+          <label htmlFor="password" className="block text-sm font-medium text-white/70">
             Пароль
-          </Label>
-          <Input
+          </label>
+          <input
             id="password"
             type="password"
             placeholder="Минимум 8 символов"
@@ -95,25 +92,25 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            className="h-10 bg-background"
+            className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 text-base text-white placeholder-white/30 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
           />
         </div>
 
-        <Button
+        <button
           type="submit"
-          className="mt-2 h-10 w-full font-medium"
           disabled={loading}
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-base font-semibold text-white shadow-lg shadow-violet-600/25 transition-all hover:shadow-xl hover:shadow-violet-600/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:shadow-none"
         >
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {loading && <Loader2 className="h-5 w-5 animate-spin" />}
           {loading ? "Создание..." : "Создать аккаунт"}
-        </Button>
+        </button>
       </form>
 
-      <div className="mt-6 text-center text-sm text-muted-foreground">
+      <div className="mt-8 text-center text-sm text-white/40">
         Уже есть аккаунт?{" "}
         <Link
           href="/login"
-          className="text-foreground underline underline-offset-4 transition-colors hover:text-muted-foreground"
+          className="font-medium text-violet-400 transition-colors hover:text-violet-300"
         >
           Войти
         </Link>
