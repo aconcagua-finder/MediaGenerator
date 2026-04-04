@@ -72,7 +72,7 @@ export function ModelSelector({
           <SelectTrigger className="w-full border-white/8 bg-white/[0.02]">
             <SelectValue placeholder="Выберите модель" />
           </SelectTrigger>
-          <SelectContent className="min-w-[var(--radix-select-trigger-width)] max-w-[400px]">
+          <SelectContent className="min-w-[280px] max-w-[min(480px,90vw)]">
             <SelectGroup>
               <SelectLabel>{PROVIDER_INFO[selectedProvider]?.name}</SelectLabel>
               {(models[selectedProvider] || []).map((m) => (

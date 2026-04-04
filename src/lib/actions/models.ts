@@ -41,25 +41,33 @@ export async function getModel(provider: string, modelId: string) {
 }
 
 /**
- * Заполнить таблицу model_registry начальными данными (если пуста)
+ * Заполнить таблицу model_registry начальными данными.
+ * Добавляет только отсутствующие модели (по provider + modelId).
  */
 export async function seedModels() {
-  const existing = await db.select({ id: modelRegistry.id }).from(modelRegistry).limit(1)
-  if (existing.length > 0) return { seeded: false, count: 0 }
+  const existing = await db
+    .select({ provider: modelRegistry.provider, modelId: modelRegistry.modelId })
+    .from(modelRegistry)
 
-  const values = SEED_MODELS.map((m) => ({
-    provider: m.provider,
-    modelId: m.modelId,
-    displayName: m.displayName,
-    description: m.description,
-    paramsSchema: m.paramsSchema,
-    pricing: m.pricing,
-    isActive: true,
-  }))
+  const existingSet = new Set(existing.map((m) => `${m.provider}:${m.modelId}`))
 
-  await db.insert(modelRegistry).values(values)
+  const toInsert = SEED_MODELS
+    .filter((m) => !existingSet.has(`${m.provider}:${m.modelId}`))
+    .map((m) => ({
+      provider: m.provider,
+      modelId: m.modelId,
+      displayName: m.displayName,
+      description: m.description,
+      paramsSchema: m.paramsSchema,
+      pricing: m.pricing,
+      isActive: true,
+    }))
 
-  return { seeded: true, count: values.length }
+  if (toInsert.length === 0) return { seeded: false, count: 0 }
+
+  await db.insert(modelRegistry).values(toInsert)
+
+  return { seeded: true, count: toInsert.length }
 }
 
 /**
