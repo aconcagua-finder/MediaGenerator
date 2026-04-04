@@ -1,6 +1,6 @@
 "use server"
 
-import { eq, and, desc, sql, ilike } from "drizzle-orm"
+import { eq, and, desc, sql, ilike, inArray } from "drizzle-orm"
 import { db } from "../db"
 import { generations, images } from "../db/schema"
 import { auth } from "../auth"
@@ -78,9 +78,7 @@ export async function getGenerations(opts: {
             height: images.height,
           })
           .from(images)
-          .where(
-            sql`${images.generationId} = ANY(${generationIds})`
-          )
+          .where(inArray(images.generationId, generationIds))
       : []
 
   // Группируем изображения по генерациям

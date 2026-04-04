@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
-  ImageIcon,
   ImagesIcon,
   HistoryIcon,
   SettingsIcon,
@@ -47,9 +47,13 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              <div className="flex size-8 items-center justify-center rounded-full bg-x-blue">
-                <ImageIcon className="size-4 text-white" />
-              </div>
+              <Image
+                src="/logo.webp"
+                alt="MediaGenerator"
+                width={32}
+                height={32}
+                className="size-8 shrink-0 rounded-lg"
+              />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-bold">MediaGenerator</span>
                 <span className="truncate text-xs text-muted-foreground">

@@ -1,3 +1,5 @@
+import Image from "next/image"
+
 export default function AuthLayout({
   children,
 }: {
@@ -14,13 +16,13 @@ export default function AuthLayout({
       <div className="relative z-10 w-full max-w-sm">
         {/* Logo */}
         <div className="mb-10 flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-x-blue">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="9" cy="9" r="2" />
-              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-            </svg>
-          </div>
+          <Image
+            src="/logo.webp"
+            alt="MediaGenerator"
+            width={56}
+            height={56}
+            className="size-14 rounded-2xl"
+          />
           <h1 className="text-xl font-bold tracking-tight text-white">
             MediaGenerator
           </h1>
