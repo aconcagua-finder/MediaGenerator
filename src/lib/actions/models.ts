@@ -1,9 +1,11 @@
 "use server"
 
 import { eq } from "drizzle-orm"
+import { revalidatePath } from "next/cache"
 import { db } from "../db"
 import { modelRegistry } from "../db/schema"
 import { SEED_MODELS } from "../providers/seed-models"
+import { requireAdmin } from "../utils/admin-guard"
 
 /**
  * Получить все активные модели, сгруппированные по провайдерам
@@ -58,4 +60,48 @@ export async function seedModels() {
   await db.insert(modelRegistry).values(values)
 
   return { seeded: true, count: values.length }
+}
+
+/**
+ * Получить все модели (включая неактивные) для админ-панели
+ */
+export async function getAllModelsForAdmin() {
+  await requireAdmin()
+
+  return db
+    .select()
+    .from(modelRegistry)
+    .orderBy(modelRegistry.provider, modelRegistry.displayName)
+}
+
+/**
+ * Активировать модель
+ */
+export async function activateModel(id: string) {
+  await requireAdmin()
+
+  await db
+    .update(modelRegistry)
+    .set({ isActive: true })
+    .where(eq(modelRegistry.id, id))
+
+  revalidatePath("/settings")
+  revalidatePath("/generate")
+  return { success: true }
+}
+
+/**
+ * Деактивировать модель
+ */
+export async function deactivateModel(id: string) {
+  await requireAdmin()
+
+  await db
+    .update(modelRegistry)
+    .set({ isActive: false })
+    .where(eq(modelRegistry.id, id))
+
+  revalidatePath("/settings")
+  revalidatePath("/generate")
+  return { success: true }
 }

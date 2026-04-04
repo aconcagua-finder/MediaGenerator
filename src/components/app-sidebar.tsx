@@ -10,6 +10,7 @@ import {
   SparklesIcon,
 } from "lucide-react"
 import { NavUser } from "@/components/nav-user"
+import { Badge } from "@/components/ui/badge"
 import {
   Sidebar,
   SidebarContent,
@@ -32,9 +33,11 @@ const navItems = [
 
 export function AppSidebar({
   user,
+  unreadNotificationCount = 0,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
-  user: { name: string; email: string }
+  user: { name: string; email: string; role: string }
+  unreadNotificationCount?: number
 }) {
   const pathname = usePathname()
 
@@ -70,6 +73,16 @@ export function AppSidebar({
                   >
                     <item.icon />
                     <span>{item.title}</span>
+                    {item.href === "/settings" &&
+                      user.role === "admin" &&
+                      unreadNotificationCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="ml-auto h-5 min-w-5 px-1.5 text-xs"
+                        >
+                          {unreadNotificationCount}
+                        </Badge>
+                      )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
