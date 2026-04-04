@@ -58,14 +58,14 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
   }> | null
 
   // Расчёт примерной стоимости
-  const estimatedCost = useMemo(() => {
+  const costEstimate = useMemo(() => {
     if (!currentModel) return null
     const pricing = currentModel.pricing as Record<string, unknown> | null
     if (!pricing) return null
 
     const n = parseInt(count) || 1
 
-    // OpenAI: pricing[quality][size_category]
+    // OpenAI: pricing[quality][size_category] — точная цена
     if (provider === "openai") {
       const quality = (params.quality || paramsSchema?.quality?.default || "medium") as string
       const size = (params.size || paramsSchema?.size?.default || "1024x1024") as string
@@ -73,12 +73,20 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
       if (!qualityPrices) return null
       const isWide = size !== "1024x1024"
       const price = isWide ? qualityPrices.wide : qualityPrices["1024x1024"]
-      return price ? price * n : null
+      return price ? { amount: price * n, exact: true } : null
     }
 
-    // xAI / OpenRouter: pricing.perImage
-    const perImage = (pricing as { perImage?: number }).perImage
-    if (perImage) return perImage * n
+    // xAI: pricing.perImage — точная цена
+    if (provider === "xai") {
+      const perImage = (pricing as { perImage?: number }).perImage
+      if (perImage) return { amount: perImage * n, exact: true }
+    }
+
+    // OpenRouter: pricing.perImage — примерная цена
+    if (provider === "openrouter") {
+      const perImage = (pricing as { perImage?: number }).perImage
+      if (perImage) return { amount: perImage * n, exact: false }
+    }
 
     return null
   }, [currentModel, provider, params, paramsSchema, count])
@@ -133,22 +141,35 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Ошибка генерации")
+        const errData = await response.json().catch(() => ({}))
+        const errMsg = errData.error || `Ошибка сервера (${response.status})`
+
+        // Разные заголовки в зависимости от типа ошибки
+        if (response.status === 429) {
+          toast.error("Лимит исчерпан", { description: errMsg, duration: 8000 })
+        } else if (response.status === 400) {
+          toast.error("Ошибка запроса", { description: errMsg, duration: 6000 })
+        } else if (response.status === 502) {
+          toast.error("Ошибка провайдера", { description: errMsg, duration: 8000 })
+        } else {
+          toast.error("Ошибка генерации", { description: errMsg, duration: 6000 })
+        }
+        return
       }
 
       const data = await response.json() as {
         images: GeneratedImage[]
         generationId: string
+        cost: number
       }
 
       setResults((prev) => [...data.images, ...prev])
       toast.success("Готово!", {
-        description: `Сгенерировано ${data.images.length} изображений`,
+        description: `Сгенерировано ${data.images.length} изобр. — $${data.cost?.toFixed(3) || "?"}`,
       })
     } catch (error) {
-      toast.error("Ошибка генерации", {
-        description: error instanceof Error ? error.message : "Неизвестная ошибка",
+      toast.error("Сетевая ошибка", {
+        description: error instanceof Error ? error.message : "Не удалось подключиться к серверу",
       })
     } finally {
       setIsGenerating(false)
@@ -268,14 +289,14 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
         </div>
 
         {/* Стоимость */}
-        {estimatedCost !== null && (
+        {costEstimate !== null && (
           <div className="flex items-center justify-between rounded-lg border border-white/8 bg-white/[0.02] px-5 py-3">
             <div className="flex items-center gap-2 text-sm text-neutral-400">
               <DollarSign className="size-4" />
               <span>Стоимость</span>
             </div>
             <span className="text-sm font-bold text-white">
-              ${estimatedCost.toFixed(3)}
+              {costEstimate.exact ? "" : "~"}${costEstimate.amount.toFixed(3)}
             </span>
           </div>
         )}

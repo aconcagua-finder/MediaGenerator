@@ -201,6 +201,8 @@ export async function POST(request: NextRequest) {
       const errorMessage =
         genError instanceof Error ? genError.message : "Неизвестная ошибка"
 
+      console.error(`[generate] Ошибка ${provider}/${model}:`, errorMessage)
+
       await db
         .update(generations)
         .set({
