@@ -136,17 +136,17 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
       </div>
 
       {/* Десктопный вид — таблица */}
-      <div className="hidden md:block rounded-md border">
-        <Table>
+      <div className="hidden md:block overflow-x-auto rounded-md border">
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[160px]">Дата</TableHead>
-              <TableHead>Промпт</TableHead>
-              <TableHead className="w-[120px]">Модель</TableHead>
+              <TableHead className="w-[140px]">Дата</TableHead>
+              <TableHead className="w-auto">Промпт</TableHead>
+              <TableHead className="w-[110px]">Модель</TableHead>
               <TableHead className="w-[100px]">Провайдер</TableHead>
-              <TableHead className="w-[100px]">Статус</TableHead>
-              <TableHead className="w-[70px] text-right">Цена</TableHead>
-              <TableHead className="w-[60px]" />
+              <TableHead className="w-[95px]">Статус</TableHead>
+              <TableHead className="w-[60px] text-right">Цена</TableHead>
+              <TableHead className="w-[50px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -164,10 +164,10 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(gen.createdAt)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="overflow-hidden">
                     <div className="flex items-start gap-1">
                       <span
-                        className={`text-sm ${isExpanded ? "" : "line-clamp-1"}`}
+                        className={`text-sm break-words ${isExpanded ? "" : "line-clamp-1"}`}
                         onClick={(e) => {
                           if (isLong) {
                             e.stopPropagation()
@@ -191,8 +191,8 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <span className="text-xs">{gen.model}</span>
+                  <TableCell className="overflow-hidden">
+                    <span className="block truncate text-xs">{gen.model}</span>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">
