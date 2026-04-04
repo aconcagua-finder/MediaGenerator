@@ -8,7 +8,7 @@
 
 | Фаза | Статус | Прогресс |
 |------|--------|----------|
-| Фаза 1: Фундамент | В работе | 3/6 |
+| Фаза 1: Фундамент | В работе | 4/6 |
 | Фаза 2: Генерация | Не начата | 0/6 |
 | Фаза 3: Библиотека и история | Не начата | 0/4 |
 | Фаза 4: Админка и уведомления | Не начата | 0/3 |
@@ -22,7 +22,7 @@
 - [x] 1.1 Next.js 15 + TypeScript + Tailwind 4 + shadcn/ui
 - [x] 1.2 Docker Compose (PostgreSQL + MinIO + App)
 - [x] 1.3 Drizzle ORM + схема БД + миграции
-- [ ] 1.4 Better Auth (логин, регистрация, роли)
+- [x] 1.4 Better Auth (логин, регистрация, роли)
 - [ ] 1.5 MinIO S3 клиент
 - [ ] 1.6 Базовый layout дашборда
 
@@ -62,6 +62,7 @@
 | 2026-04-04 | 1.1 shadcn/ui + тёмная тема + layout | — | shadcn/ui init, next-themes, ThemeProvider, русская локаль |
 | 2026-04-04 | 1.2 Docker Compose | — | Dockerfile (standalone), docker-compose.yml, .env.example |
 | 2026-04-04 | 1.3 Drizzle ORM + схема БД | — | 11 таблиц, первая миграция, проверена на PostgreSQL |
+| 2026-04-04 | 1.4 Better Auth | — | Email+пароль, admin plugin, proxy, страницы login/register |
 
 ---
 

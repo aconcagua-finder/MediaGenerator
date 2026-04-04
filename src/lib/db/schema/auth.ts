@@ -19,6 +19,9 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").notNull().default("user"), // admin | user
   dailyLimit: integer("daily_limit").notNull().default(50),
+  banned: boolean("banned").default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
