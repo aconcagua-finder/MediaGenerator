@@ -54,6 +54,25 @@ services:
       minio:
         condition: service_healthy
 
+  # ===== Cron — периодическая проверка моделей (раз в сутки) =====
+  cron:
+    image: alpine:3.20
+    restart: unless-stopped
+    depends_on:
+      - app
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "Cron: model check every 24h"
+        sleep 60
+        while true; do
+          wget -q -O- --header="Authorization: Bearer $${CRON_SECRET}" --post-data="" http://app:3000/api/cron/model-check || true
+          sleep 86400
+        done
+    env_file:
+      - .env
+
 volumes:
   postgres_data:
   minio_data:
