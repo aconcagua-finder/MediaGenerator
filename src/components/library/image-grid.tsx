@@ -37,7 +37,7 @@ export function ImageGrid({
   }
 
   return (
-    <div className="columns-2 gap-3 sm:columns-3 lg:columns-4 xl:columns-5">
+    <div className="columns-1 gap-3 sm:columns-2 lg:columns-3 xl:columns-4">
       {images.map((img) => (
         <ImageCard
           key={img.id}
