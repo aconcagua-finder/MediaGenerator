@@ -11,6 +11,7 @@ interface HistoryViewProps {
   initialGenerations: GenerationWithImages[]
   initialTotal: number
   providers: string[]
+  isAdmin?: boolean
 }
 
 const PER_PAGE = 20
@@ -19,6 +20,7 @@ export function HistoryView({
   initialGenerations,
   initialTotal,
   providers,
+  isAdmin = false,
 }: HistoryViewProps) {
   const router = useRouter()
   const [generations, setGenerations] = useState(initialGenerations)
@@ -29,14 +31,12 @@ export function HistoryView({
   const [status, setStatus] = useState("")
   const [isPending, startTransition] = useTransition()
 
-  // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState("")
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(timer)
   }, [search])
 
-  // Загрузка при изменении фильтров
   const fetchData = useCallback(
     (opts: {
       page: number
@@ -51,15 +51,15 @@ export function HistoryView({
           search: opts.search || undefined,
           provider: opts.provider || undefined,
           status: opts.status || undefined,
+          showAll: isAdmin,
         })
         setGenerations(result.items)
         setTotal(result.total)
       })
     },
-    []
+    [isAdmin]
   )
 
-  // Реакция на фильтры
   useEffect(() => {
     fetchData({ page, search: debouncedSearch, provider, status })
   }, [page, debouncedSearch, provider, status, fetchData])
@@ -75,7 +75,6 @@ export function HistoryView({
     setPage(1)
   }
 
-  // Повторная генерация — перенаправляем на страницу генерации с параметрами
   function handleRegenerate(gen: GenerationWithImages) {
     const params = new URLSearchParams({
       provider: gen.provider,
@@ -113,6 +112,7 @@ export function HistoryView({
       <HistoryTable
         generations={generations}
         onRegenerate={handleRegenerate}
+        showUser={isAdmin}
       />
 
       <HistoryPagination

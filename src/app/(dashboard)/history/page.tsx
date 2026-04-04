@@ -1,10 +1,17 @@
 import { getGenerations } from "@/lib/actions/generations"
+import { getSession } from "@/lib/auth-server"
 import { HistoryView } from "@/components/history/history-view"
 
 export default async function HistoryPage() {
-  const result = await getGenerations({ limit: 20, offset: 0 })
+  const session = await getSession()
+  const isAdmin = session?.user?.role === "admin"
 
-  // Собираем уникальных провайдеров из генераций
+  const result = await getGenerations({
+    limit: 20,
+    offset: 0,
+    showAll: isAdmin,
+  })
+
   const providers = [...new Set(result.items.map((g) => g.provider))]
 
   return (
@@ -12,7 +19,7 @@ export default async function HistoryPage() {
       <div>
         <h1 className="text-xl font-bold text-white">История</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Все ваши генерации изображений
+          {isAdmin ? "Генерации всех пользователей" : "Все ваши генерации изображений"}
         </p>
       </div>
 
@@ -20,6 +27,7 @@ export default async function HistoryPage() {
         initialGenerations={result.items}
         initialTotal={result.total}
         providers={providers}
+        isAdmin={isAdmin}
       />
     </div>
   )

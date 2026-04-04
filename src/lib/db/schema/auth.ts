@@ -4,6 +4,7 @@ import {
   integer,
   timestamp,
   boolean,
+  numeric,
 } from "drizzle-orm/pg-core"
 
 // Таблицы Better Auth (user, session, account, verification)
@@ -19,6 +20,9 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").notNull().default("user"), // admin | user
   dailyLimit: integer("daily_limit").notNull().default(50),
+  costLimit: numeric("cost_limit", { precision: 10, scale: 4 }).notNull().default("0.1000"),
+  totalSpent: numeric("total_spent", { precision: 10, scale: 4 }).notNull().default("0.0000"),
+  maxGenerations: integer("max_generations"), // null = без ограничений
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),

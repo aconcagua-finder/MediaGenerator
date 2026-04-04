@@ -2,7 +2,7 @@
 
 import { eq, and } from "drizzle-orm"
 import { db } from "../db"
-import { apiKeys } from "../db/schema"
+import { apiKeys, user } from "../db/schema"
 import { encrypt, decrypt, getKeyHint } from "../utils/crypto"
 import { getProvider } from "../providers/registry"
 import { auth } from "../auth"
@@ -99,12 +99,14 @@ export async function deleteApiKey(keyId: string) {
 
 /**
  * Получить расшифрованный API ключ для провайдера (только серверное использование!)
+ * Сначала ищет ключ пользователя, затем fallback на ключ админа.
  */
 export async function getDecryptedApiKey(
   userId: string,
   provider: string
 ): Promise<string | null> {
-  const keys = await db
+  // 1. Ключ пользователя
+  const userKeys = await db
     .select({ encryptedKey: apiKeys.encryptedKey })
     .from(apiKeys)
     .where(
@@ -116,7 +118,27 @@ export async function getDecryptedApiKey(
     )
     .limit(1)
 
-  if (keys.length === 0) return null
+  if (userKeys.length > 0) {
+    return decrypt(userKeys[0].encryptedKey)
+  }
 
-  return decrypt(keys[0].encryptedKey)
+  // 2. Fallback: ключ любого админа
+  const adminKeys = await db
+    .select({ encryptedKey: apiKeys.encryptedKey })
+    .from(apiKeys)
+    .innerJoin(user, eq(apiKeys.createdBy, user.id))
+    .where(
+      and(
+        eq(apiKeys.provider, provider),
+        eq(user.role, "admin"),
+        eq(apiKeys.isActive, true)
+      )
+    )
+    .limit(1)
+
+  if (adminKeys.length > 0) {
+    return decrypt(adminKeys[0].encryptedKey)
+  }
+
+  return null
 }

@@ -2,7 +2,7 @@
 
 import { eq, and, desc, sql, ilike, inArray } from "drizzle-orm"
 import { db } from "../db"
-import { generations, images } from "../db/schema"
+import { generations, images, user } from "../db/schema"
 import { auth } from "../auth"
 import { headers } from "next/headers"
 
@@ -18,6 +18,8 @@ export interface GenerationWithImages {
   errorMessage: string | null
   createdAt: Date
   completedAt: Date | null
+  userName?: string
+  userEmail?: string
   images: {
     id: string
     s3Url: string
@@ -27,7 +29,8 @@ export interface GenerationWithImages {
 }
 
 /**
- * Получить историю генераций с фильтрами и пагинацией
+ * Получить историю генераций с фильтрами и пагинацией.
+ * Админ с showAll=true видит генерации всех пользователей.
  */
 export async function getGenerations(opts: {
   limit?: number
@@ -36,25 +39,51 @@ export async function getGenerations(opts: {
   model?: string
   status?: string
   search?: string
+  showAll?: boolean
 }): Promise<{ items: GenerationWithImages[]; total: number }> {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) throw new Error("Не авторизован")
 
-  const { limit = 20, offset = 0, provider, model, status, search } = opts
+  const { limit = 20, offset = 0, provider, model, status, search, showAll } = opts
+  const isAdmin = session.user.role === "admin"
+  const viewAll = isAdmin && showAll
 
-  const conditions = [eq(generations.userId, session.user.id)]
+  const conditions = []
+
+  // Обычный пользователь видит только свои генерации
+  if (!viewAll) {
+    conditions.push(eq(generations.userId, session.user.id))
+  }
 
   if (provider) conditions.push(eq(generations.provider, provider))
   if (model) conditions.push(eq(generations.model, model))
   if (status) conditions.push(eq(generations.status, status))
   if (search) conditions.push(ilike(generations.prompt, `%${search}%`))
 
-  // Получаем генерации
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined
+
+  // Получаем генерации с данными пользователя (для админа)
   const [items, countResult] = await Promise.all([
     db
-      .select()
+      .select({
+        id: generations.id,
+        userId: generations.userId,
+        provider: generations.provider,
+        model: generations.model,
+        prompt: generations.prompt,
+        params: generations.params,
+        status: generations.status,
+        imagesCount: generations.imagesCount,
+        cost: generations.cost,
+        errorMessage: generations.errorMessage,
+        createdAt: generations.createdAt,
+        completedAt: generations.completedAt,
+        userName: user.name,
+        userEmail: user.email,
+      })
       .from(generations)
-      .where(and(...conditions))
+      .innerJoin(user, eq(generations.userId, user.id))
+      .where(whereClause)
       .orderBy(desc(generations.createdAt))
       .limit(limit)
       .offset(offset),
@@ -62,7 +91,7 @@ export async function getGenerations(opts: {
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(generations)
-      .where(and(...conditions)),
+      .where(whereClause),
   ])
 
   // Получаем изображения для этих генераций
@@ -102,6 +131,7 @@ export async function getGenerations(opts: {
       errorMessage: gen.errorMessage,
       createdAt: gen.createdAt,
       completedAt: gen.completedAt,
+      ...(viewAll ? { userName: gen.userName, userEmail: gen.userEmail } : {}),
       images: (imagesByGeneration.get(gen.id) || []).map((img) => ({
         id: img.id,
         s3Url: img.s3Url,

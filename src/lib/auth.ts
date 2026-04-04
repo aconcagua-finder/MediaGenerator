@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { admin } from "better-auth/plugins"
-import { eq, count } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import { db } from "./db"
 import * as schema from "./db/schema"
 
@@ -33,20 +33,46 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        before: async (userData) => {
-          // Первый пользователь автоматически становится admin
-          const [result] = await db
-            .select({ value: count() })
-            .from(schema.user)
-          if (result.value === 0) {
-            return {
-              data: {
-                ...userData,
-                role: "admin",
-              },
+        after: async (userData) => {
+          // Копируем API ключи всех админов новому пользователю
+          try {
+            const adminKeys = await db
+              .select({
+                provider: schema.apiKeys.provider,
+                encryptedKey: schema.apiKeys.encryptedKey,
+                keyHint: schema.apiKeys.keyHint,
+              })
+              .from(schema.apiKeys)
+              .innerJoin(schema.user, eq(schema.apiKeys.createdBy, schema.user.id))
+              .where(
+                and(
+                  eq(schema.user.role, "admin"),
+                  eq(schema.apiKeys.isActive, true)
+                )
+              )
+
+            if (adminKeys.length > 0) {
+              // Группируем по провайдеру (берём первый ключ каждого провайдера)
+              const byProvider = new Map<string, typeof adminKeys[0]>()
+              for (const key of adminKeys) {
+                if (!byProvider.has(key.provider)) {
+                  byProvider.set(key.provider, key)
+                }
+              }
+
+              for (const [, key] of byProvider) {
+                await db.insert(schema.apiKeys).values({
+                  provider: key.provider,
+                  encryptedKey: key.encryptedKey,
+                  keyHint: key.keyHint,
+                  isActive: true,
+                  createdBy: userData.id,
+                })
+              }
             }
+          } catch (error) {
+            console.error("Ошибка копирования API ключей:", error)
           }
-          return { data: userData }
         },
       },
     },

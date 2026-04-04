@@ -36,14 +36,31 @@ export async function POST(request: NextRequest) {
     }
 
     const imageCount = Math.min(Math.max(count || 1, 1), 10)
+    const isAdmin = session.user.role === "admin"
 
-    // 3. Проверка дневного лимита
+    // 3. Получить данные пользователя для проверки лимитов
     const [userData] = await db
-      .select({ dailyLimit: user.dailyLimit })
+      .select({
+        dailyLimit: user.dailyLimit,
+        costLimit: user.costLimit,
+        totalSpent: user.totalSpent,
+        maxGenerations: user.maxGenerations,
+      })
       .from(user)
       .where(eq(user.id, session.user.id))
 
-    if (userData) {
+    if (!isAdmin && userData) {
+      // 3a. Проверка бюджетного лимита
+      const spent = parseFloat(userData.totalSpent) || 0
+      const limit = parseFloat(userData.costLimit) || 0
+      if (limit > 0 && spent >= limit) {
+        return NextResponse.json(
+          { error: `Лимит бюджета исчерпан ($${limit.toFixed(2)}). Обратитесь к администратору.` },
+          { status: 429 }
+        )
+      }
+
+      // 3b. Проверка дневного лимита
       const todayStart = new Date()
       todayStart.setHours(0, 0, 0, 0)
 
@@ -62,6 +79,21 @@ export async function POST(request: NextRequest) {
           { error: `Дневной лимит генераций исчерпан (${userData.dailyLimit})` },
           { status: 429 }
         )
+      }
+
+      // 3c. Проверка общего лимита генераций
+      if (userData.maxGenerations !== null) {
+        const [totalCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(generations)
+          .where(eq(generations.userId, session.user.id))
+
+        if (totalCount.count >= userData.maxGenerations) {
+          return NextResponse.json(
+            { error: `Общий лимит генераций исчерпан (${userData.maxGenerations})` },
+            { status: 429 }
+          )
+        }
       }
     }
 
@@ -122,7 +154,7 @@ export async function POST(request: NextRequest) {
           .values({
             generationId: generation.id,
             s3Key,
-            s3Url: s3Key, // будем проксировать через /api/images/[id]
+            s3Url: s3Key,
             width: img.width,
             height: img.height,
             format: img.format,
@@ -138,23 +170,34 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      const cost = result.cost
+
       // 9. Обновить generation → done
       await db
         .update(generations)
         .set({
           status: "done",
-          cost: result.cost.toFixed(4),
+          cost: cost.toFixed(4),
           completedAt: new Date(),
         })
         .where(eq(generations.id, generation.id))
 
+      // 10. Обновить totalSpent пользователя
+      if (cost > 0) {
+        await db
+          .update(user)
+          .set({
+            totalSpent: sql`${user.totalSpent}::numeric + ${cost.toFixed(4)}::numeric`,
+          })
+          .where(eq(user.id, session.user.id))
+      }
+
       return NextResponse.json({
         generationId: generation.id,
         images: savedImages,
-        cost: result.cost,
+        cost,
       })
     } catch (genError) {
-      // Ошибка генерации — обновить статус
       const errorMessage =
         genError instanceof Error ? genError.message : "Неизвестная ошибка"
 

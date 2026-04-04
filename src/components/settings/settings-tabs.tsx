@@ -20,6 +20,10 @@ type UserRow = {
   email: string
   role: string
   dailyLimit: number
+  costLimit: string
+  totalSpent: string
+  maxGenerations: number | null
+  totalGenerations: number
   banned: boolean | null
   banReason: string | null
   createdAt: Date

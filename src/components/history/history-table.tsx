@@ -33,6 +33,7 @@ import type { GenerationWithImages } from "@/lib/actions/generations"
 interface HistoryTableProps {
   generations: GenerationWithImages[]
   onRegenerate: (gen: GenerationWithImages) => void
+  showUser?: boolean
 }
 
 const statusMap: Record<string, { label: string; icon: React.ReactNode; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -68,7 +69,7 @@ function formatDate(date: Date) {
   })
 }
 
-export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
+export function HistoryTable({ generations, onRegenerate, showUser = false }: HistoryTableProps) {
   const [detailGen, setDetailGen] = useState<GenerationWithImages | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -141,6 +142,7 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[140px]">Дата</TableHead>
+              {showUser && <TableHead className="w-[120px]">Пользователь</TableHead>}
               <TableHead className="w-auto">Промпт</TableHead>
               <TableHead className="w-[110px]">Модель</TableHead>
               <TableHead className="w-[100px]">Провайдер</TableHead>
@@ -164,6 +166,13 @@ export function HistoryTable({ generations, onRegenerate }: HistoryTableProps) {
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(gen.createdAt)}
                   </TableCell>
+                  {showUser && (
+                    <TableCell className="overflow-hidden">
+                      <span className="block truncate text-xs" title={gen.userEmail || ""}>
+                        {gen.userName || gen.userEmail || "—"}
+                      </span>
+                    </TableCell>
+                  )}
                   <TableCell className="overflow-hidden">
                     <div className="flex items-center gap-1.5">
                       <span className={`min-w-0 text-sm break-words ${isExpanded ? "" : "line-clamp-1"}`}>
