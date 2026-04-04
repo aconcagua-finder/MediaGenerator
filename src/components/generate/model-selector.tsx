@@ -72,15 +72,15 @@ export function ModelSelector({
           <SelectTrigger className="w-full border-white/8 bg-white/[0.02]">
             <SelectValue placeholder="Выберите модель" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="min-w-[var(--radix-select-trigger-width)] max-w-[400px]">
             <SelectGroup>
               <SelectLabel>{PROVIDER_INFO[selectedProvider]?.name}</SelectLabel>
               {(models[selectedProvider] || []).map((m) => (
                 <SelectItem key={m.modelId} value={m.modelId}>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col gap-0.5">
                     <span>{m.displayName}</span>
                     {m.description && (
-                      <span className="text-xs text-neutral-500">
+                      <span className="text-xs leading-snug text-neutral-500">
                         {m.description}
                       </span>
                     )}
