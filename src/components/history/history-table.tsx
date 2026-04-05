@@ -368,7 +368,10 @@ export function HistoryTable({ generations, onRegenerate, showUser = false, sele
                         <button
                           key={img.id}
                           className="overflow-hidden rounded-md transition-all hover:ring-2 hover:ring-x-blue/50"
-                          onClick={() => setLightboxUrl(`/api/images/${img.id}`)}
+                          onClick={() => {
+                            setDetailGen(null)
+                            setLightboxUrl(`/api/images/${img.id}`)
+                          }}
                         >
                           <img
                             src={`/api/images/${img.id}`}
