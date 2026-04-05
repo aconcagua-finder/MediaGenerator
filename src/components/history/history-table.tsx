@@ -283,7 +283,7 @@ export function HistoryTable({ generations, onRegenerate, showUser = false, sele
 
       {/* Детали генерации */}
       <Dialog open={!!detailGen} onOpenChange={() => setDetailGen(null)}>
-        <DialogContent className="max-w-4xl w-[90vw]">
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
           {detailGen && (
             <>
               <DialogHeader>
@@ -307,7 +307,7 @@ export function HistoryTable({ generations, onRegenerate, showUser = false, sele
                       Копировать
                     </Button>
                   </div>
-                  <p className="rounded-md bg-muted p-3 text-sm">
+                  <p className="rounded-md bg-muted p-3 text-sm max-h-[40vh] overflow-y-auto">
                     {detailGen.prompt}
                   </p>
                 </div>
