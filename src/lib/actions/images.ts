@@ -1,8 +1,8 @@
 "use server"
 
-import { eq, and, desc, isNull, inArray, sql } from "drizzle-orm"
+import { eq, and, desc, isNull, isNotNull, inArray, notInArray, sql } from "drizzle-orm"
 import { db } from "../db"
-import { images, generations } from "../db/schema"
+import { images, generations, folders } from "../db/schema"
 import { auth } from "../auth"
 import { headers } from "next/headers"
 import { remove as s3Remove } from "../storage/s3"
@@ -40,18 +40,35 @@ export async function getImages(opts: {
   const { folderId = undefined, limit = 40, offset = 0 } = opts
 
   // Условие по папке
-  const folderCondition =
-    folderId === null
-      ? isNull(images.folderId) // корень — без папки
-      : folderId
-        ? eq(images.folderId, folderId)
-        : undefined // все изображения
-
   const conditions = [
     eq(generations.userId, session.user.id),
     eq(generations.status, "done"),
-    ...(folderCondition ? [folderCondition] : []),
   ]
+
+  if (folderId === null) {
+    // Корень — без папки
+    conditions.push(isNull(images.folderId))
+  } else if (folderId) {
+    // Конкретная папка
+    conditions.push(eq(images.folderId, folderId))
+  } else {
+    // Все изображения — исключаем те, что в запароленных папках
+    const lockedFolderIds = await db
+      .select({ id: folders.id })
+      .from(folders)
+      .where(
+        and(
+          eq(folders.userId, session.user.id),
+          isNotNull(folders.passwordHash)
+        )
+      )
+
+    if (lockedFolderIds.length > 0) {
+      conditions.push(
+        sql`(${images.folderId} IS NULL OR ${images.folderId} NOT IN (${sql.join(lockedFolderIds.map((f) => sql`${f.id}`), sql`, `)}))`
+      )
+    }
+  }
 
   const [items, countResult] = await Promise.all([
     db
