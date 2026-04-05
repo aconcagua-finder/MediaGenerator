@@ -106,6 +106,21 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
     }
 
     // OpenRouter: per-image или per-megapixel
+    // BFL: per-megapixel с width/height
+    if (provider === "bfl") {
+      const p = pricing as { firstMP?: number; extraMP?: number; perMP?: number }
+      const w = parseInt((params.width || paramsSchema?.width?.default || "1024") as string, 10)
+      const h = parseInt((params.height || paramsSchema?.height?.default || "1024") as string, 10)
+      const mp = (w * h) / 1_000_000
+      let pricePerImage: number
+      if (p.perMP) {
+        pricePerImage = p.perMP * mp
+      } else {
+        pricePerImage = (p.firstMP || 0) + Math.max(0, mp - 1) * (p.extraMP || 0)
+      }
+      return { amount: pricePerImage * n, exact: true }
+    }
+
     if (provider === "openrouter") {
       const p = pricing as {
         perImage?: number

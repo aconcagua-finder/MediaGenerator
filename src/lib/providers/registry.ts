@@ -2,6 +2,7 @@ import type { ImageProvider } from "./types"
 import { openaiProvider } from "./openai"
 import { xaiProvider } from "./xai"
 import { openrouterProvider } from "./openrouter"
+import { bflProvider } from "./bfl"
 
 /**
  * Реестр провайдеров.
@@ -11,6 +12,7 @@ const providers: Record<string, ImageProvider> = {
   openai: openaiProvider,
   xai: xaiProvider,
   openrouter: openrouterProvider,
+  bfl: bflProvider,
 }
 
 export function getProvider(id: string): ImageProvider {
@@ -44,5 +46,9 @@ export const PROVIDER_INFO: Record<string, { name: string; description: string }
   openrouter: {
     name: "OpenRouter",
     description: "Агрегатор — Gemini, FLUX, Seedream и другие",
+  },
+  bfl: {
+    name: "Black Forest Labs",
+    description: "FLUX напрямую — safety_tolerance, максимальный контроль",
   },
 }

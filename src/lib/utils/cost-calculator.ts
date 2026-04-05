@@ -87,6 +87,25 @@ export function calculateCost(
       }
       break
     }
+
+    case "bfl": {
+      const w = parseInt((params.width as string) || "1024", 10)
+      const h = parseInt((params.height as string) || "1024", 10)
+      const mp = (w * h) / 1_000_000
+
+      if (model === "flux-2-pro") {
+        pricePerImage = 0.03 + Math.max(0, mp - 1) * 0.015
+      } else if (model === "flux-2-max") {
+        pricePerImage = 0.07 + Math.max(0, mp - 1) * 0.03
+      } else if (model === "flux-2-flex") {
+        pricePerImage = 0.06 * mp
+      } else if (model === "flux-2-klein-4b") {
+        pricePerImage = 0.014 * Math.max(1, mp)
+      } else {
+        pricePerImage = 0.03
+      }
+      break
+    }
   }
 
   return pricePerImage * count

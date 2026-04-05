@@ -378,4 +378,138 @@ export const SEED_MODELS: SeedModel[] = [
     },
     pricing: { perImage: 0.04 },
   },
+
+  // === Black Forest Labs (прямой API) ===
+  {
+    provider: "bfl",
+    modelId: "flux-2-pro",
+    displayName: "FLUX.2 Pro (BFL)",
+    description: "Прямой API. Высокое качество, safety_tolerance 0-5.",
+    paramsSchema: {
+      width: {
+        type: "select",
+        label: "Ширина",
+        options: ["512", "768", "1024", "1280", "1536"],
+        default: "1024",
+      },
+      height: {
+        type: "select",
+        label: "Высота",
+        options: ["512", "768", "1024", "1280", "1536"],
+        default: "1024",
+      },
+      safety_tolerance: {
+        type: "select",
+        label: "Модерация (0-5)",
+        options: ["0", "1", "2", "3", "4", "5"],
+        default: "5",
+      },
+      output_format: {
+        type: "select",
+        label: "Формат",
+        options: ["png", "jpeg", "webp"],
+        default: "png",
+      },
+    },
+    pricing: { firstMP: 0.03, extraMP: 0.015 },
+  },
+  {
+    provider: "bfl",
+    modelId: "flux-2-max",
+    displayName: "FLUX.2 Max (BFL)",
+    description: "Прямой API. Максимальное качество FLUX.",
+    paramsSchema: {
+      width: {
+        type: "select",
+        label: "Ширина",
+        options: ["512", "768", "1024", "1280", "1536"],
+        default: "1024",
+      },
+      height: {
+        type: "select",
+        label: "Высота",
+        options: ["512", "768", "1024", "1280", "1536"],
+        default: "1024",
+      },
+      safety_tolerance: {
+        type: "select",
+        label: "Модерация (0-5)",
+        options: ["0", "1", "2", "3", "4", "5"],
+        default: "5",
+      },
+      output_format: {
+        type: "select",
+        label: "Формат",
+        options: ["png", "jpeg", "webp"],
+        default: "png",
+      },
+    },
+    pricing: { firstMP: 0.07, extraMP: 0.03 },
+  },
+  {
+    provider: "bfl",
+    modelId: "flux-2-flex",
+    displayName: "FLUX.2 Flex (BFL)",
+    description: "Прямой API. Гибкий формат, контроль модерации.",
+    paramsSchema: {
+      width: {
+        type: "select",
+        label: "Ширина",
+        options: ["512", "768", "1024", "1280", "1536"],
+        default: "1024",
+      },
+      height: {
+        type: "select",
+        label: "Высота",
+        options: ["512", "768", "1024", "1280", "1536"],
+        default: "1024",
+      },
+      safety_tolerance: {
+        type: "select",
+        label: "Модерация (0-5)",
+        options: ["0", "1", "2", "3", "4", "5"],
+        default: "5",
+      },
+      output_format: {
+        type: "select",
+        label: "Формат",
+        options: ["png", "jpeg", "webp"],
+        default: "png",
+      },
+    },
+    pricing: { perMP: 0.06 },
+  },
+  {
+    provider: "bfl",
+    modelId: "flux-2-klein-4b",
+    displayName: "FLUX.2 Klein 4B (BFL)",
+    description: "Прямой API. Быстрая и дешёвая, real-time.",
+    paramsSchema: {
+      width: {
+        type: "select",
+        label: "Ширина",
+        options: ["512", "768", "1024", "1280"],
+        default: "1024",
+      },
+      height: {
+        type: "select",
+        label: "Высота",
+        options: ["512", "768", "1024", "1280"],
+        default: "1024",
+      },
+      safety_tolerance: {
+        type: "select",
+        label: "Модерация (0-5)",
+        options: ["0", "1", "2", "3", "4", "5"],
+        default: "5",
+      },
+      output_format: {
+        type: "select",
+        label: "Формат",
+        options: ["png", "jpeg", "webp"],
+        default: "png",
+      },
+    },
+    pricing: { firstMP: 0.014, extraMP: 0.014 },
+  },
 ]
