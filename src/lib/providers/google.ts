@@ -92,15 +92,28 @@ export const googleProvider: ImageProvider = {
               const mimeType = part.inlineData.mimeType || "image/png"
               const format = mimeType.split("/")[1] || "png"
 
-              // Размеры из image_size
+              // Размеры из image_size + aspect_ratio
               const sizeMap: Record<string, number> = { "512": 512, "0.5K": 512, "1K": 1024, "2K": 2048, "4K": 4096 }
-              const dim = sizeMap[(params.image_size as string) || "1K"] || 1024
+              const baseDim = sizeMap[(params.image_size as string) || "1K"] || 1024
+              const ar = (params.aspect_ratio as string) || "1:1"
+              const [arW, arH] = ar.split(":").map(Number)
+              let width = baseDim
+              let height = baseDim
+              if (arW && arH) {
+                if (arW > arH) {
+                  width = baseDim
+                  height = Math.round(baseDim * (arH / arW))
+                } else {
+                  height = baseDim
+                  width = Math.round(baseDim * (arW / arH))
+                }
+              }
 
               allImages.push({
                 data: imageData,
                 format,
-                width: dim,
-                height: dim,
+                width,
+                height,
               })
             }
           }
