@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import type { GenerationWithImages } from "@/lib/actions/generations"
 import { deleteGenerations } from "@/lib/actions/generations"
@@ -36,6 +37,9 @@ interface HistoryTableProps {
   generations: GenerationWithImages[]
   onRegenerate: (gen: GenerationWithImages) => void
   showUser?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (id: string) => void
+  onRefresh?: () => void
 }
 
 const statusMap: Record<string, { label: string; icon: React.ReactNode; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -71,7 +75,7 @@ function formatDate(date: Date) {
   })
 }
 
-export function HistoryTable({ generations, onRegenerate, showUser = false }: HistoryTableProps) {
+export function HistoryTable({ generations, onRegenerate, showUser = false, selectedIds, onToggleSelect, onRefresh }: HistoryTableProps) {
   const [detailGen, setDetailGen] = useState<GenerationWithImages | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -82,8 +86,7 @@ export function HistoryTable({ generations, onRegenerate, showUser = false }: Hi
       if (result.deleted > 0) {
         toast.success("Запись удалена из истории")
         setDetailGen(null)
-        // Перезагрузка через window — простейший способ обновить список
-        window.location.reload()
+        onRefresh?.()
       } else {
         toast.error("Не удалось удалить")
       }
@@ -158,6 +161,7 @@ export function HistoryTable({ generations, onRegenerate, showUser = false }: Hi
         <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
+              {onToggleSelect && <TableHead className="w-[40px]" />}
               <TableHead className="w-[140px]">Дата</TableHead>
               {showUser && <TableHead className="w-[120px]">Пользователь</TableHead>}
               <TableHead className="w-auto">Промпт</TableHead>
@@ -180,6 +184,23 @@ export function HistoryTable({ generations, onRegenerate, showUser = false }: Hi
                   className="cursor-pointer hover:bg-white/[0.03]"
                   onClick={() => setDetailGen(gen)}
                 >
+                  {onToggleSelect && (
+                    <TableCell>
+                      <div
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onToggleSelect(gen.id)
+                        }}
+                      >
+                        <Checkbox
+                          checked={selectedIds?.has(gen.id) || false}
+                          tabIndex={-1}
+                          className="pointer-events-none size-4"
+                        />
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(gen.createdAt)}
                   </TableCell>
