@@ -15,6 +15,7 @@ interface ParamSchema {
     label: string
     options: string[]
     default: string
+    hint?: string
   }
 }
 
@@ -34,15 +35,20 @@ export function ParamPanel({ schema, values, onChange }: ParamPanelProps) {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid items-end gap-4 sm:grid-cols-2">
       {Object.entries(schema).map(([key, param]) => {
         if (param.type !== "select") return null
 
         const currentValue = values[key] || param.default
 
         return (
-          <div key={key} className="space-y-2">
-            <Label className="text-sm font-medium text-neutral-400">{param.label}</Label>
+          <div key={key} className="space-y-1.5">
+            <div>
+              <Label className="block text-sm font-medium leading-tight text-neutral-400">{param.label}</Label>
+              {param.hint && (
+                <p className="mt-0.5 text-[11px] leading-tight text-neutral-600">{param.hint}</p>
+              )}
+            </div>
             <Select
               value={currentValue}
               onValueChange={(v) => v && onChange(key, v)}

@@ -49,6 +49,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Модерация",
         options: ["low", "auto"],
         default: "low",
+        hint: "low — мягче, auto — стандартная",
       },
     },
     pricing: {
@@ -92,6 +93,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Модерация",
         options: ["low", "auto"],
         default: "low",
+        hint: "low — мягче, auto — стандартная",
       },
     },
     pricing: {
@@ -135,6 +137,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Модерация",
         options: ["low", "auto"],
         default: "low",
+        hint: "low — мягче, auto — стандартная",
       },
     },
     pricing: {
@@ -400,9 +403,10 @@ export const SEED_MODELS: SeedModel[] = [
       },
       safety_tolerance: {
         type: "select",
-        label: "Модерация (0-5)",
+        label: "Фильтр (0-5)",
         options: ["0", "1", "2", "3", "4", "5"],
         default: "5",
+        hint: "0 — строго, 5 — мягче всего",
       },
       output_format: {
         type: "select",
@@ -439,9 +443,10 @@ export const SEED_MODELS: SeedModel[] = [
       },
       safety_tolerance: {
         type: "select",
-        label: "Модерация (0-5)",
+        label: "Фильтр (0-5)",
         options: ["0", "1", "2", "3", "4", "5"],
         default: "5",
+        hint: "0 — строго, 5 — мягче всего",
       },
       output_format: {
         type: "select",
@@ -478,9 +483,10 @@ export const SEED_MODELS: SeedModel[] = [
       },
       safety_tolerance: {
         type: "select",
-        label: "Модерация (0-5)",
+        label: "Фильтр (0-5)",
         options: ["0", "1", "2", "3", "4", "5"],
         default: "5",
+        hint: "0 — строго, 5 — мягче всего",
       },
       output_format: {
         type: "select",
@@ -517,9 +523,10 @@ export const SEED_MODELS: SeedModel[] = [
       },
       safety_tolerance: {
         type: "select",
-        label: "Модерация (0-5)",
+        label: "Фильтр (0-5)",
         options: ["0", "1", "2", "3", "4", "5"],
         default: "5",
+        hint: "0 — строго, 5 — мягче всего",
       },
       output_format: {
         type: "select",
@@ -561,6 +568,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Фильтр",
         options: ["off", "low", "medium", "strict"],
         default: "off",
+        hint: "off — без фильтра, strict — максимум",
       },
     },
     pricing: { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
@@ -588,6 +596,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Фильтр",
         options: ["off", "low", "medium", "strict"],
         default: "off",
+        hint: "off — без фильтра, strict — максимум",
       },
     },
     pricing: { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
@@ -615,6 +624,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Фильтр",
         options: ["off", "low", "medium", "strict"],
         default: "off",
+        hint: "off — без фильтра, strict — максимум",
       },
     },
     pricing: { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
