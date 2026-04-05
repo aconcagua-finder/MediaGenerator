@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useTransition } from "react"
+import { useState, useCallback, useTransition, useEffect } from "react"
 import { toast } from "sonner"
 import { FolderOpen } from "lucide-react"
 import { ImageGrid } from "./image-grid"
@@ -26,6 +26,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   getImages,
   moveImages,
@@ -37,6 +46,9 @@ import {
   createFolder,
   renameFolder,
   deleteFolder,
+  setFolderPassword,
+  removeFolderPassword,
+  verifyFolderPassword,
   type FolderItem,
 } from "@/lib/actions/folders"
 
@@ -54,7 +66,10 @@ export function LibraryView({
   const [images, setImages] = useState(initialImages)
   const [total, setTotal] = useState(initialTotal)
   const [folders, setFolders] = useState(initialFolders)
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    return localStorage.getItem("mg_activeFolder") || null
+  })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [lightboxImage, setLightboxImage] =
     useState<ImageWithGeneration | null>(null)
@@ -63,6 +78,12 @@ export function LibraryView({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
+  const [passwordDialogMode, setPasswordDialogMode] = useState<"set" | "remove" | "verify" | null>(null)
+  const [passwordTargetId, setPasswordTargetId] = useState<string | null>(null)
+  const [passwordInput, setPasswordInput] = useState("")
+  const [passwordConfirm, setPasswordConfirm] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [unlockedFolders, setUnlockedFolders] = useState<Set<string>>(new Set())
 
   // Загрузка изображений для текущей папки
   const refreshImages = useCallback(
@@ -85,9 +106,34 @@ export function LibraryView({
     setFolders(result)
   }, [])
 
-  // Выбор папки
+  // Загрузить сохранённую папку при монтировании
+  useEffect(() => {
+    if (activeFolderId) {
+      startTransition(() => { refreshImages(activeFolderId) })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Выбор папки (с проверкой пароля)
   function handleSelectFolder(id: string | null) {
+    // Проверяем: есть ли пароль и разблокирована ли
+    if (id && id !== "root") {
+      const folder = folders.find((f) => f.id === id)
+      if (folder?.hasPassword && !unlockedFolders.has(id)) {
+        setPasswordTargetId(id)
+        setPasswordDialogMode("verify")
+        setPasswordInput("")
+        setPasswordError("")
+        return
+      }
+    }
+
     setActiveFolderId(id)
+    if (id) {
+      localStorage.setItem("mg_activeFolder", id)
+    } else {
+      localStorage.removeItem("mg_activeFolder")
+    }
     startTransition(() => {
       refreshImages(id)
     })
@@ -189,6 +235,70 @@ export function LibraryView({
     })
   }
 
+  // Пароль: установить
+  function handleOpenSetPassword(id: string) {
+    setPasswordTargetId(id)
+    setPasswordDialogMode("set")
+    setPasswordInput("")
+    setPasswordConfirm("")
+    setPasswordError("")
+  }
+
+  // Пароль: снять
+  function handleOpenRemovePassword(id: string) {
+    setPasswordTargetId(id)
+    setPasswordDialogMode("remove")
+    setPasswordInput("")
+    setPasswordError("")
+  }
+
+  async function handlePasswordSubmit() {
+    if (!passwordTargetId) return
+
+    if (passwordDialogMode === "set") {
+      if (passwordInput.length < 4) {
+        setPasswordError("Минимум 4 символа")
+        return
+      }
+      if (passwordInput !== passwordConfirm) {
+        setPasswordError("Пароли не совпадают")
+        return
+      }
+      startTransition(async () => {
+        await setFolderPassword(passwordTargetId, passwordInput)
+        toast.success("Пароль установлен")
+        setPasswordDialogMode(null)
+        await refreshFolders()
+      })
+    } else if (passwordDialogMode === "remove") {
+      startTransition(async () => {
+        const result = await removeFolderPassword(passwordTargetId, passwordInput)
+        if (!result.success) {
+          setPasswordError(result.error || "Неверный пароль")
+          return
+        }
+        toast.success("Пароль снят")
+        setPasswordDialogMode(null)
+        await refreshFolders()
+      })
+    } else if (passwordDialogMode === "verify") {
+      startTransition(async () => {
+        const result = await verifyFolderPassword(passwordTargetId, passwordInput)
+        if (!result.success) {
+          setPasswordError(result.error || "Неверный пароль")
+          return
+        }
+        // Разблокируем папку на текущую сессию
+        setUnlockedFolders((prev) => new Set(prev).add(passwordTargetId))
+        setPasswordDialogMode(null)
+        // Теперь открываем папку
+        setActiveFolderId(passwordTargetId)
+        localStorage.setItem("mg_activeFolder", passwordTargetId)
+        startTransition(() => { refreshImages(passwordTargetId) })
+      })
+    }
+  }
+
   async function handleDeleteFolder(id: string) {
     startTransition(async () => {
       await deleteFolder(id)
@@ -212,6 +322,8 @@ export function LibraryView({
           onCreateFolder={handleCreateFolder}
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
+          onSetPassword={handleOpenSetPassword}
+          onRemovePassword={handleOpenRemovePassword}
         />
       </div>
 
@@ -322,6 +434,63 @@ export function LibraryView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Диалог пароля */}
+      <Dialog
+        open={passwordDialogMode !== null}
+        onOpenChange={(open) => { if (!open) setPasswordDialogMode(null) }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {passwordDialogMode === "set" && "Установить пароль"}
+              {passwordDialogMode === "remove" && "Снять пароль"}
+              {passwordDialogMode === "verify" && "Введите пароль"}
+            </DialogTitle>
+            <DialogDescription>
+              {passwordDialogMode === "set" && (
+                "Пароль нельзя будет восстановить. Если забудете — придётся удалить папку."
+              )}
+              {passwordDialogMode === "remove" && "Введите текущий пароль для снятия защиты."}
+              {passwordDialogMode === "verify" && "Эта папка защищена паролем."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input
+              type="password"
+              placeholder="Пароль"
+              value={passwordInput}
+              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError("") }}
+              onKeyDown={(e) => { if (e.key === "Enter") handlePasswordSubmit() }}
+              autoFocus
+            />
+            {passwordDialogMode === "set" && (
+              <Input
+                type="password"
+                placeholder="Подтвердите пароль"
+                value={passwordConfirm}
+                onChange={(e) => { setPasswordConfirm(e.target.value); setPasswordError("") }}
+                onKeyDown={(e) => { if (e.key === "Enter") handlePasswordSubmit() }}
+              />
+            )}
+            {passwordError && (
+              <p className="text-sm text-destructive">{passwordError}</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordDialogMode(null)}>
+              Отмена
+            </Button>
+            <Button onClick={handlePasswordSubmit} disabled={isPending}>
+              {passwordDialogMode === "set" && "Установить"}
+              {passwordDialogMode === "remove" && "Снять пароль"}
+              {passwordDialogMode === "verify" && "Открыть"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

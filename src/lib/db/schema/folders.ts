@@ -5,6 +5,7 @@ export const folders = pgTable("folders", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   parentId: uuid("parent_id"),
+  passwordHash: text("password_hash"), // null = без пароля
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),

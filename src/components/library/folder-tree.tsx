@@ -9,6 +9,8 @@ import {
   Trash2,
   ChevronRight,
   Images,
+  Lock,
+  LockOpen,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +31,8 @@ interface FolderTreeProps {
   onCreateFolder: (name: string, parentId?: string | null) => void
   onRenameFolder: (id: string, name: string) => void
   onDeleteFolder: (id: string) => void
+  onSetPassword?: (id: string) => void
+  onRemovePassword?: (id: string) => void
 }
 
 export function FolderTree({
@@ -38,6 +42,8 @@ export function FolderTree({
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
+  onSetPassword,
+  onRemovePassword,
 }: FolderTreeProps) {
   const [isCreating, setIsCreating] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
@@ -133,6 +139,8 @@ export function FolderTree({
             onRenameSubmit={handleRenameSubmit}
             onCancelEdit={() => setEditingId(null)}
             onDelete={onDeleteFolder}
+            onSetPassword={onSetPassword}
+            onRemovePassword={onRemovePassword}
             depth={0}
           />
         ))}
@@ -173,6 +181,8 @@ function FolderNode({
   onRenameSubmit,
   onCancelEdit,
   onDelete,
+  onSetPassword,
+  onRemovePassword,
   depth,
 }: {
   folder: FolderItem
@@ -186,6 +196,8 @@ function FolderNode({
   onRenameSubmit: (id: string) => void
   onCancelEdit: () => void
   onDelete: (id: string) => void
+  onSetPassword?: (id: string) => void
+  onRemovePassword?: (id: string) => void
   depth: number
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
@@ -241,12 +253,38 @@ function FolderNode({
                   className="h-6 text-sm"
                 />
               ) : (
-                <span className="truncate">{folder.name}</span>
+                <>
+                  <span className="truncate">{folder.name}</span>
+                  {folder.hasPassword && <Lock className="size-3 shrink-0 text-neutral-500" />}
+                </>
               )}
             </button>
             {/* Кнопки при ховере */}
             {!isEditing && (
               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/folder:opacity-100">
+                {folder.hasPassword ? (
+                  <button
+                    className="flex size-5 items-center justify-center rounded text-neutral-500 hover:bg-white/10 hover:text-foreground"
+                    title="Снять пароль"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRemovePassword?.(folder.id)
+                    }}
+                  >
+                    <LockOpen className="size-3" />
+                  </button>
+                ) : (
+                  <button
+                    className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                    title="Установить пароль"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSetPassword?.(folder.id)
+                    }}
+                  >
+                    <Lock className="size-3" />
+                  </button>
+                )}
                 <button
                   className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground"
                   title="Переименовать"
@@ -306,6 +344,8 @@ function FolderNode({
             onRenameSubmit={onRenameSubmit}
             onCancelEdit={onCancelEdit}
             onDelete={onDelete}
+            onSetPassword={onSetPassword}
+            onRemovePassword={onRemovePassword}
             depth={depth + 1}
           />
         ))}

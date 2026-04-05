@@ -142,3 +142,29 @@ export async function getGenerations(opts: {
     total: countResult[0]?.count ?? 0,
   }
 }
+
+/**
+ * Удалить записи генераций из истории (без удаления файлов из S3).
+ * Изображения в библиотеке остаются.
+ */
+export async function deleteGenerations(generationIds: string[]) {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) throw new Error("Не авторизован")
+
+  if (generationIds.length === 0) return { deleted: 0 }
+
+  const isAdmin = session.user.role === "admin"
+
+  // Удаляем только свои (или все, если админ)
+  const conditions = [inArray(generations.id, generationIds)]
+  if (!isAdmin) {
+    conditions.push(eq(generations.userId, session.user.id))
+  }
+
+  const result = await db
+    .delete(generations)
+    .where(and(...conditions))
+    .returning({ id: generations.id })
+
+  return { deleted: result.length }
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import {
   CheckCircle2,
   XCircle,
@@ -8,6 +8,7 @@ import {
   Loader2,
   Copy,
   RotateCw,
+  Trash2,
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import type { GenerationWithImages } from "@/lib/actions/generations"
+import { deleteGenerations } from "@/lib/actions/generations"
 
 interface HistoryTableProps {
   generations: GenerationWithImages[]
@@ -72,6 +74,21 @@ function formatDate(date: Date) {
 export function HistoryTable({ generations, onRegenerate, showUser = false }: HistoryTableProps) {
   const [detailGen, setDetailGen] = useState<GenerationWithImages | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handleDeleteGeneration(id: string) {
+    startTransition(async () => {
+      const result = await deleteGenerations([id])
+      if (result.deleted > 0) {
+        toast.success("Запись удалена из истории")
+        setDetailGen(null)
+        // Перезагрузка через window — простейший способ обновить список
+        window.location.reload()
+      } else {
+        toast.error("Не удалось удалить")
+      }
+    })
+  }
 
   if (generations.length === 0) {
     return (
@@ -338,14 +355,23 @@ export function HistoryTable({ generations, onRegenerate, showUser = false }: Hi
                   </div>
                 )}
 
-                {/* Повторить */}
-                <div className="flex justify-center pt-2">
+                {/* Действия */}
+                <div className="flex items-center justify-center gap-3 pt-2">
                   <Button
                     className="gap-2"
                     onClick={() => onRegenerate(detailGen)}
                   >
                     <RotateCw className="size-4" />
-                    Повторить с теми же параметрами
+                    Повторить
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="gap-2 text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteGeneration(detailGen.id)}
+                    disabled={isPending}
+                  >
+                    <Trash2 className="size-4" />
+                    Удалить из истории
                   </Button>
                 </div>
               </div>
