@@ -282,7 +282,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
 
   if (noProviders) {
     return (
-      <div className="rounded-lg border border-white/[0.08] py-12 text-center">
+      <div className="rounded-lg border border-white/[0.12] py-12 text-center">
         <p className="text-neutral-500">
           Нет доступных моделей. Обратитесь к администратору.
         </p>
@@ -294,7 +294,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       {/* Left — prompt and results */}
       <div className="space-y-6">
-        <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-5">
+        <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <PromptInput
             value={prompt}
             onChange={setPrompt}
@@ -309,7 +309,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-neutral-500">Количество</Label>
                 <Select value={count} onValueChange={(v) => v && setCount(v)}>
-                  <SelectTrigger className="w-20 border-white/[0.08] bg-white/[0.02]">
+                  <SelectTrigger className="w-20 border-white/[0.12] bg-white/[0.02]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -355,7 +355,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
               {results.map((img) => (
                 <button
                   key={img.id}
-                  className="group relative mb-3 w-full break-inside-avoid overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.02] transition-all hover:border-x-blue/40"
+                  className="group relative mb-3 w-full break-inside-avoid overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.02] transition-all hover:border-x-blue/40"
                   onClick={() => setSelectedImage(img)}
                 >
                   <img
@@ -373,7 +373,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
 
       {/* Right panel — model & params */}
       <div className="space-y-6">
-        <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-5">
+        <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <h3 className="mb-4 text-sm font-bold text-white">Модель</h3>
           <ModelSelector
             models={models}
@@ -384,7 +384,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
           />
         </div>
 
-        <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-5">
+        <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <h3 className="mb-4 text-sm font-bold text-white">Параметры</h3>
           <ParamPanel
             schema={paramsSchema}
@@ -395,7 +395,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
 
         {/* Стоимость */}
         {costEstimate !== null && (
-          <div className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.02] px-5 py-3">
+          <div className="flex items-center justify-between rounded-lg border border-white/[0.12] bg-white/[0.02] px-5 py-3">
             <div className="flex items-center gap-2 text-sm text-neutral-400">
               <DollarSign className="size-4" />
               <span>Стоимость</span>

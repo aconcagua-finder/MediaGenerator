@@ -136,7 +136,7 @@ export function HistoryView({
 
       {/* Панель массовых действий */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-2">
+        <div className="flex items-center gap-2 rounded-lg border border-white/[0.12] bg-white/[0.02] px-4 py-2">
           <span className="text-sm font-medium">
             Выбрано: {selectedIds.size}
           </span>

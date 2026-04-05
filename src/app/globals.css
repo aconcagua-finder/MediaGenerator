@@ -119,9 +119,9 @@
   /* Destructive */
   --destructive: oklch(0.65 0.22 25);
 
-  /* Ultra-thin borders — rgb format for hsl() compat in shadcn */
-  --border: rgb(255 255 255 / 8%);
-  --input: rgb(255 255 255 / 8%);
+  /* Borders — rgb format for hsl() compat in shadcn */
+  --border: rgb(255 255 255 / 12%);
+  --input: rgb(255 255 255 / 12%);
 
   /* Ring: accent blue glow */
   --ring: oklch(0.65 0.18 240);
@@ -140,7 +140,7 @@
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgb(255 255 255 / 5%);
   --sidebar-accent-foreground: #e5e5e5;
-  --sidebar-border: rgb(255 255 255 / 8%);
+  --sidebar-border: rgb(255 255 255 / 12%);
   --sidebar-ring: #1D9BF0;
 }
 
