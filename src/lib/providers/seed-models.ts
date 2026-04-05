@@ -44,6 +44,12 @@ export const SEED_MODELS: SeedModel[] = [
         options: ["opaque", "transparent"],
         default: "opaque",
       },
+      moderation: {
+        type: "select",
+        label: "Модерация",
+        options: ["low", "auto"],
+        default: "low",
+      },
     },
     pricing: {
       low:    { "1024x1024": 0.009, wide: 0.013 },
@@ -81,6 +87,12 @@ export const SEED_MODELS: SeedModel[] = [
         options: ["opaque", "transparent"],
         default: "opaque",
       },
+      moderation: {
+        type: "select",
+        label: "Модерация",
+        options: ["low", "auto"],
+        default: "low",
+      },
     },
     pricing: {
       low:    { "1024x1024": 0.011, wide: 0.016 },
@@ -117,6 +129,12 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Фон",
         options: ["opaque", "transparent"],
         default: "opaque",
+      },
+      moderation: {
+        type: "select",
+        label: "Модерация",
+        options: ["low", "auto"],
+        default: "low",
       },
     },
     pricing: {
