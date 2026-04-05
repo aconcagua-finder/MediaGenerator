@@ -106,6 +106,14 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
     }
 
     // OpenRouter: per-image или per-megapixel
+    // Google: per-image по размеру
+    if (provider === "google") {
+      const p = pricing as Record<string, number>
+      const imgSize = (params.image_size || paramsSchema?.image_size?.default || "1K") as string
+      const price = p[imgSize] || p["1K"] || 0.04
+      return { amount: price * n, exact: true }
+    }
+
     // BFL: per-megapixel с width/height
     if (provider === "bfl") {
       const p = pricing as { firstMP?: number; extraMP?: number; perMP?: number }

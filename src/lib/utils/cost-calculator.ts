@@ -88,6 +88,18 @@ export function calculateCost(
       break
     }
 
+    case "google": {
+      const imgSize = (params.image_size as string) || "1K"
+      const googlePrices: Record<string, Record<string, number>> = {
+        "gemini-3.1-flash-image-preview": { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
+        "gemini-3-pro-image-preview": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
+        "gemini-2.5-flash-image": { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
+      }
+      const mp = googlePrices[model] || googlePrices["gemini-2.5-flash-image"]
+      pricePerImage = mp[imgSize] || mp["1K"] || 0.04
+      break
+    }
+
     case "bfl": {
       const w = parseInt((params.width as string) || "1024", 10)
       const h = parseInt((params.height as string) || "1024", 10)

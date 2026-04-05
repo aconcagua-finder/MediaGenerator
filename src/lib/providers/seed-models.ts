@@ -512,4 +512,87 @@ export const SEED_MODELS: SeedModel[] = [
     },
     pricing: { firstMP: 0.014, extraMP: 0.014 },
   },
+
+  // === Google AI (прямой API) ===
+  {
+    provider: "google",
+    modelId: "gemini-3.1-flash-image-preview",
+    displayName: "Gemini 3.1 Flash Image",
+    description: "Новейшая Google. Быстрая, до 4K, safety настраивается.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "4:5", "5:4"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["512", "1K", "2K", "4K"],
+        default: "1K",
+      },
+      safety: {
+        type: "select",
+        label: "Модерация",
+        options: ["BLOCK_NONE", "BLOCK_ONLY_HIGH", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_LOW_AND_ABOVE"],
+        default: "BLOCK_NONE",
+      },
+    },
+    pricing: { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
+  },
+  {
+    provider: "google",
+    modelId: "gemini-3-pro-image-preview",
+    displayName: "Gemini 3 Pro Image",
+    description: "Google Pro. Максимальное качество, до 4K.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "4:5", "5:4"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["1K", "2K", "4K"],
+        default: "1K",
+      },
+      safety: {
+        type: "select",
+        label: "Модерация",
+        options: ["BLOCK_NONE", "BLOCK_ONLY_HIGH", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_LOW_AND_ABOVE"],
+        default: "BLOCK_NONE",
+      },
+    },
+    pricing: { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
+  },
+  {
+    provider: "google",
+    modelId: "gemini-2.5-flash-image",
+    displayName: "Gemini 2.5 Flash Image",
+    description: "Google. Стабильная, быстрая генерация.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["1K", "2K", "4K"],
+        default: "1K",
+      },
+      safety: {
+        type: "select",
+        label: "Модерация",
+        options: ["BLOCK_NONE", "BLOCK_ONLY_HIGH", "BLOCK_MEDIUM_AND_ABOVE", "BLOCK_LOW_AND_ABOVE"],
+        default: "BLOCK_NONE",
+      },
+    },
+    pricing: { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
+  },
 ]

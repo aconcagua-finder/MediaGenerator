@@ -3,6 +3,7 @@ import { openaiProvider } from "./openai"
 import { xaiProvider } from "./xai"
 import { openrouterProvider } from "./openrouter"
 import { bflProvider } from "./bfl"
+import { googleProvider } from "./google"
 
 /**
  * Реестр провайдеров.
@@ -13,6 +14,7 @@ const providers: Record<string, ImageProvider> = {
   xai: xaiProvider,
   openrouter: openrouterProvider,
   bfl: bflProvider,
+  google: googleProvider,
 }
 
 export function getProvider(id: string): ImageProvider {
@@ -50,5 +52,9 @@ export const PROVIDER_INFO: Record<string, { name: string; description: string }
   bfl: {
     name: "Black Forest Labs",
     description: "FLUX напрямую — safety_tolerance, максимальный контроль",
+  },
+  google: {
+    name: "Google AI",
+    description: "Gemini — прямой API, настройка safety filters",
   },
 }
