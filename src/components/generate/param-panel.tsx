@@ -15,7 +15,7 @@ interface ParamSchema {
     label: string
     options: string[]
     default: string
-    hint?: string
+    optionLabels?: Record<string, string>
   }
 }
 
@@ -43,23 +43,20 @@ export function ParamPanel({ schema, values, onChange }: ParamPanelProps) {
 
         return (
           <div key={key} className="space-y-1.5">
-            <div>
-              <Label className="block text-sm font-medium leading-tight text-neutral-400">{param.label}</Label>
-              {param.hint && (
-                <p className="mt-0.5 text-[11px] leading-tight text-neutral-600">{param.hint}</p>
-              )}
-            </div>
+            <Label className="block text-sm font-medium leading-tight text-neutral-400">{param.label}</Label>
             <Select
               value={currentValue}
               onValueChange={(v) => v && onChange(key, v)}
             >
               <SelectTrigger className="w-full border-white/[0.08] bg-white/[0.02]">
-                <SelectValue />
+                <SelectValue>
+                  {param.optionLabels?.[currentValue] || currentValue}
+                </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="!w-auto min-w-[180px]">
                 {param.options.map((opt) => (
                   <SelectItem key={opt} value={opt}>
-                    {opt}
+                    {param.optionLabels?.[opt] || opt}
                   </SelectItem>
                 ))}
               </SelectContent>

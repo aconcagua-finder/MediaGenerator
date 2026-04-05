@@ -49,7 +49,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Модерация",
         options: ["low", "auto"],
         default: "low",
-        hint: "low — мягче, auto — стандартная",
+        optionLabels: { "low": "low — мягкая", "auto": "auto — стандартная" },
       },
     },
     pricing: {
@@ -93,7 +93,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Модерация",
         options: ["low", "auto"],
         default: "low",
-        hint: "low — мягче, auto — стандартная",
+        optionLabels: { "low": "low — мягкая", "auto": "auto — стандартная" },
       },
     },
     pricing: {
@@ -137,7 +137,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Модерация",
         options: ["low", "auto"],
         default: "low",
-        hint: "low — мягче, auto — стандартная",
+        optionLabels: { "low": "low — мягкая", "auto": "auto — стандартная" },
       },
     },
     pricing: {
@@ -403,10 +403,10 @@ export const SEED_MODELS: SeedModel[] = [
       },
       safety_tolerance: {
         type: "select",
-        label: "Фильтр (0-5)",
+        label: "Фильтр",
         options: ["0", "1", "2", "3", "4", "5"],
         default: "5",
-        hint: "0 — строго, 5 — мягче всего",
+        optionLabels: { "0": "0 — строго", "1": "1", "2": "2 — средне", "3": "3", "4": "4", "5": "5 — мягко" },
       },
       output_format: {
         type: "select",
@@ -443,10 +443,10 @@ export const SEED_MODELS: SeedModel[] = [
       },
       safety_tolerance: {
         type: "select",
-        label: "Фильтр (0-5)",
+        label: "Фильтр",
         options: ["0", "1", "2", "3", "4", "5"],
         default: "5",
-        hint: "0 — строго, 5 — мягче всего",
+        optionLabels: { "0": "0 — строго", "1": "1", "2": "2 — средне", "3": "3", "4": "4", "5": "5 — мягко" },
       },
       output_format: {
         type: "select",
@@ -483,10 +483,10 @@ export const SEED_MODELS: SeedModel[] = [
       },
       safety_tolerance: {
         type: "select",
-        label: "Фильтр (0-5)",
+        label: "Фильтр",
         options: ["0", "1", "2", "3", "4", "5"],
         default: "5",
-        hint: "0 — строго, 5 — мягче всего",
+        optionLabels: { "0": "0 — строго", "1": "1", "2": "2 — средне", "3": "3", "4": "4", "5": "5 — мягко" },
       },
       output_format: {
         type: "select",
@@ -523,10 +523,10 @@ export const SEED_MODELS: SeedModel[] = [
       },
       safety_tolerance: {
         type: "select",
-        label: "Фильтр (0-5)",
+        label: "Фильтр",
         options: ["0", "1", "2", "3", "4", "5"],
         default: "5",
-        hint: "0 — строго, 5 — мягче всего",
+        optionLabels: { "0": "0 — строго", "1": "1", "2": "2 — средне", "3": "3", "4": "4", "5": "5 — мягко" },
       },
       output_format: {
         type: "select",
@@ -568,7 +568,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Фильтр",
         options: ["off", "low", "medium", "strict"],
         default: "off",
-        hint: "off — без фильтра, strict — максимум",
+        optionLabels: { "off": "off — без фильтра", "low": "low — мягкий", "medium": "medium — средний", "strict": "strict — строгий" },
       },
     },
     pricing: { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
@@ -596,7 +596,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Фильтр",
         options: ["off", "low", "medium", "strict"],
         default: "off",
-        hint: "off — без фильтра, strict — максимум",
+        optionLabels: { "off": "off — без фильтра", "low": "low — мягкий", "medium": "medium — средний", "strict": "strict — строгий" },
       },
     },
     pricing: { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
@@ -624,7 +624,7 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Фильтр",
         options: ["off", "low", "medium", "strict"],
         default: "off",
-        hint: "off — без фильтра, strict — максимум",
+        optionLabels: { "off": "off — без фильтра", "low": "low — мягкий", "medium": "medium — средний", "strict": "strict — строгий" },
       },
     },
     pricing: { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
