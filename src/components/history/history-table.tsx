@@ -78,6 +78,7 @@ function formatDate(date: Date) {
 export function HistoryTable({ generations, onRegenerate, showUser = false, selectedIds, onToggleSelect, onRefresh }: HistoryTableProps) {
   const [detailGen, setDetailGen] = useState<GenerationWithImages | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function handleDeleteGeneration(id: string) {
@@ -364,13 +365,18 @@ export function HistoryTable({ generations, onRegenerate, showUser = false, sele
                     <span className="text-sm font-medium">Изображения</span>
                     <div className="mt-2 grid grid-cols-3 gap-2">
                       {detailGen.images.map((img) => (
-                        <img
+                        <button
                           key={img.id}
-                          src={`/api/images/${img.id}`}
-                          alt="Generated"
-                          className="aspect-square rounded-md object-cover"
-                          loading="lazy"
-                        />
+                          className="overflow-hidden rounded-md transition-all hover:ring-2 hover:ring-x-blue/50"
+                          onClick={() => setLightboxUrl(`/api/images/${img.id}`)}
+                        >
+                          <img
+                            src={`/api/images/${img.id}`}
+                            alt="Generated"
+                            className="aspect-square w-full object-cover"
+                            loading="lazy"
+                          />
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -400,6 +406,21 @@ export function HistoryTable({ generations, onRegenerate, showUser = false, sele
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Лайтбокс для просмотра изображения */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="Preview"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </>
   )
 }
