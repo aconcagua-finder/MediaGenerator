@@ -188,6 +188,17 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
     setParams((prev) => ({ ...prev, [key]: value }))
   }, [])
 
+  // Escape закрывает лайтбокс
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && selectedImage) {
+        setSelectedImage(null)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [selectedImage])
+
   async function handleGenerate() {
     if (!prompt.trim()) {
       toast.error("Введите промпт")
@@ -203,6 +214,9 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
 
     setIsGenerating(true)
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 300_000) // 5 минут
+
     try {
       const finalParams: Record<string, string> = {}
       if (paramsSchema) {
@@ -214,6 +228,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           provider,
           model: modelId,
@@ -251,10 +266,14 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
         description: `Сгенерировано ${data.images.length} изобр. — $${data.cost?.toFixed(3) || "?"}`,
       })
     } catch (error) {
-      toast.error("Сетевая ошибка", {
-        description: error instanceof Error ? error.message : "Не удалось подключиться к серверу",
-      })
+      const msg = error instanceof Error ? error.message : "Не удалось подключиться к серверу"
+      if (msg.includes("abort")) {
+        toast.error("Таймаут", { description: "Генерация заняла слишком много времени. Попробуйте меньше изображений." })
+      } else {
+        toast.error("Сетевая ошибка", { description: msg })
+      }
     } finally {
+      clearTimeout(timeoutId)
       setIsGenerating(false)
     }
   }

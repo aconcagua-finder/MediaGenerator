@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
 import {
   CheckCircle2,
   XCircle,
@@ -80,6 +80,17 @@ export function HistoryTable({ generations, onRegenerate, showUser = false, sele
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  // Escape закрывает лайтбокс
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (lightboxUrl) setLightboxUrl(null)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [lightboxUrl])
 
   function handleDeleteGeneration(id: string) {
     startTransition(async () => {

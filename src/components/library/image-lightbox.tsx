@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { X, Download, FolderInput, Trash2, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +20,14 @@ export function ImageLightbox({
   onDelete,
   onMove,
 }: ImageLightboxProps) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
+
   function copyPrompt() {
     navigator.clipboard.writeText(image.generation.prompt)
     toast.success("Промпт скопирован")
