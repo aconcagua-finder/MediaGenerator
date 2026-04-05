@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { createPortal } from "react-dom"
 import { X, Download, FolderInput, Trash2, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -33,7 +34,7 @@ export function ImageLightbox({
     toast.success("Промпт скопирован")
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       onClick={onClose}
@@ -76,7 +77,7 @@ export function ImageLightbox({
                 <Copy className="size-3" />
               </Button>
             </div>
-            <p className="text-sm leading-relaxed">
+            <p className="text-sm leading-relaxed max-h-[30vh] overflow-y-auto">
               {image.generation.prompt}
             </p>
           </div>
@@ -156,6 +157,7 @@ export function ImageLightbox({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
