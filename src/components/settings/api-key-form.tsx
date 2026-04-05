@@ -30,7 +30,7 @@ export function ApiKeyForm({ initialKeys }: ApiKeyFormProps) {
   const [showKey, setShowKey] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const providers = ["openai", "xai", "openrouter"] as const
+  const providers = ["openai", "xai", "openrouter", "bfl"] as const
 
   function handleSave(provider: string) {
     if (!inputValue.trim()) return
