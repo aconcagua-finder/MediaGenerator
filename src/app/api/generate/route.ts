@@ -49,15 +49,21 @@ export async function POST(request: NextRequest) {
       .from(user)
       .where(eq(user.id, session.user.id))
 
+    // Провайдеры с бесплатным API — не считаем в бюджет
+    const freeProviders = ["google"]
+    const isFreeProvider = freeProviders.includes(provider)
+
     if (!isAdmin && userData) {
-      // 3a. Проверка бюджетного лимита
-      const spent = parseFloat(userData.totalSpent) || 0
-      const limit = parseFloat(userData.costLimit) || 0
-      if (limit > 0 && spent >= limit) {
-        return NextResponse.json(
-          { error: `Лимит бюджета исчерпан ($${limit.toFixed(2)}). Обратитесь к администратору.` },
-          { status: 429 }
-        )
+      // 3a. Проверка бюджетного лимита (пропускаем для бесплатных провайдеров)
+      if (!isFreeProvider) {
+        const spent = parseFloat(userData.totalSpent) || 0
+        const limit = parseFloat(userData.costLimit) || 0
+        if (limit > 0 && spent >= limit) {
+          return NextResponse.json(
+            { error: `Лимит бюджета исчерпан ($${limit.toFixed(2)}). Попробуйте Google AI — он бесплатный.` },
+            { status: 429 }
+          )
+        }
       }
 
       // 3b. Проверка дневного лимита
@@ -182,8 +188,8 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(generations.id, generation.id))
 
-      // 10. Обновить totalSpent пользователя
-      if (cost > 0) {
+      // 10. Обновить totalSpent пользователя (не для бесплатных провайдеров)
+      if (cost > 0 && !isFreeProvider) {
         await db
           .update(user)
           .set({

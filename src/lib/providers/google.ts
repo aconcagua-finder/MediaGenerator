@@ -4,6 +4,14 @@ const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 const TIMEOUT = 180_000
 
 // Модели с поддержкой генерации изображений
+// Маппинг коротких лейблов → API значений
+const SAFETY_MAP: Record<string, string> = {
+  "off": "BLOCK_NONE",
+  "low": "BLOCK_ONLY_HIGH",
+  "medium": "BLOCK_MEDIUM_AND_ABOVE",
+  "strict": "BLOCK_LOW_AND_ABOVE",
+}
+
 const IMAGE_MODELS = [
   "gemini-3.1-flash-image-preview",
   "gemini-3-pro-image-preview",
@@ -30,10 +38,10 @@ export const googleProvider: ImageProvider = {
           imageConfig: {} as Record<string, string>,
         },
         safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: params.safety || "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: params.safety || "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: params.safety || "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: params.safety || "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: SAFETY_MAP[(params.safety as string) || "off"] || "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: SAFETY_MAP[(params.safety as string) || "off"] || "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: SAFETY_MAP[(params.safety as string) || "off"] || "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: SAFETY_MAP[(params.safety as string) || "off"] || "BLOCK_NONE" },
         ],
       }
 

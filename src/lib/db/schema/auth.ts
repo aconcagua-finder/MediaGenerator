@@ -20,7 +20,7 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").notNull().default("user"), // admin | user
   dailyLimit: integer("daily_limit").notNull().default(50),
-  costLimit: numeric("cost_limit", { precision: 10, scale: 4 }).notNull().default("0.3000"),
+  costLimit: numeric("cost_limit", { precision: 10, scale: 4 }).notNull().default("0.1000"),
   totalSpent: numeric("total_spent", { precision: 10, scale: 4 }).notNull().default("0.0000"),
   maxGenerations: integer("max_generations"), // null = без ограничений
   banned: boolean("banned").default(false),
