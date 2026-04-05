@@ -68,7 +68,15 @@ export function LibraryView({
   const [folders, setFolders] = useState(initialFolders)
   const [activeFolderId, setActiveFolderId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
-    return localStorage.getItem("mg_activeFolder") || null
+    const saved = localStorage.getItem("mg_activeFolder")
+    if (!saved) return null
+    // Не восстанавливаем зашифрованные папки — требуют пароль
+    const folder = initialFolders.find((f) => f.id === saved)
+    if (folder?.hasPassword) {
+      localStorage.removeItem("mg_activeFolder")
+      return null
+    }
+    return saved
   })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [lightboxImage, setLightboxImage] =
@@ -129,7 +137,9 @@ export function LibraryView({
     }
 
     setActiveFolderId(id)
-    if (id) {
+    // Не сохраняем зашифрованные папки — при возврате потребуется пароль
+    const folder = id ? folders.find((f) => f.id === id) : null
+    if (id && !folder?.hasPassword) {
       localStorage.setItem("mg_activeFolder", id)
     } else {
       localStorage.removeItem("mg_activeFolder")
@@ -291,9 +301,9 @@ export function LibraryView({
         // Разблокируем папку на текущую сессию
         setUnlockedFolders((prev) => new Set(prev).add(passwordTargetId))
         setPasswordDialogMode(null)
-        // Теперь открываем папку
+        // Теперь открываем папку (не сохраняем в localStorage — зашифрованная)
         setActiveFolderId(passwordTargetId)
-        localStorage.setItem("mg_activeFolder", passwordTargetId)
+        localStorage.removeItem("mg_activeFolder")
         startTransition(() => { refreshImages(passwordTargetId) })
       })
     }
