@@ -48,7 +48,7 @@ export async function getGenerations(opts: {
   const isAdmin = session.user.role === "admin"
   const viewAll = isAdmin && showAll
 
-  const conditions = []
+  const conditions = [eq(generations.hidden, false)]
 
   // Обычный пользователь видит только свои генерации
   if (!viewAll) {
@@ -144,8 +144,8 @@ export async function getGenerations(opts: {
 }
 
 /**
- * Удалить записи генераций из истории (без удаления файлов из S3).
- * Изображения в библиотеке остаются.
+ * Скрыть записи генераций из истории (soft delete).
+ * Изображения в библиотеке и S3 остаются нетронутыми.
  */
 export async function deleteGenerations(generationIds: string[]) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -155,14 +155,14 @@ export async function deleteGenerations(generationIds: string[]) {
 
   const isAdmin = session.user.role === "admin"
 
-  // Удаляем только свои (или все, если админ)
   const conditions = [inArray(generations.id, generationIds)]
   if (!isAdmin) {
     conditions.push(eq(generations.userId, session.user.id))
   }
 
   const result = await db
-    .delete(generations)
+    .update(generations)
+    .set({ hidden: true })
     .where(and(...conditions))
     .returning({ id: generations.id })
 
