@@ -28,13 +28,13 @@ export default function RootLayout({
     <html
       lang="ru"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`dark ${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="min-h-screen bg-background text-foreground antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
-          enableSystem
+          forcedTheme="dark"
           disableTransitionOnChange
         >
           {children}
