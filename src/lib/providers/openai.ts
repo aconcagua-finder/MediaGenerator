@@ -28,7 +28,14 @@ export const openaiProvider: ImageProvider = {
     }
 
     if (params.output_format) body.output_format = params.output_format
-    if (params.background) body.background = params.background
+    // GPT Image 2 не принимает background=transparent (отвечает 400).
+    // Тихо игнорируем эту опцию для несовместимых моделей.
+    if (params.background) {
+      const allowTransparent = model !== "gpt-image-2"
+      if (params.background !== "transparent" || allowTransparent) {
+        body.background = params.background
+      }
+    }
     if (params.moderation) body.moderation = params.moderation
 
     const controller = new AbortController()

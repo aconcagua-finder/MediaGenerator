@@ -38,12 +38,8 @@ export const SEED_MODELS: SeedModel[] = [
         options: ["png", "jpeg", "webp"],
         default: "png",
       },
-      background: {
-        type: "select",
-        label: "Фон",
-        options: ["opaque", "transparent"],
-        default: "opaque",
-      },
+      // GPT Image 2 не поддерживает transparent background (отвечает 400),
+      // поэтому опция фона тут отсутствует. Для прозрачного фона — gpt-image-1.5.
       moderation: {
         type: "select",
         label: "Модерация",
@@ -194,14 +190,35 @@ export const SEED_MODELS: SeedModel[] = [
   // === xAI ===
   {
     provider: "xai",
-    modelId: "grok-imagine-image",
-    displayName: "Grok Imagine",
-    description: "Стандартная модель xAI. Быстрая генерация.",
+    modelId: "grok-imagine-image-quality",
+    displayName: "Grok Imagine Quality",
+    description: "Новый флагман xAI (заменил Pro). Лучшее качество за $0.05/изображение.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
         label: "Соотношение сторон",
-        options: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2"],
+        options: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2"],
+        default: "1:1",
+      },
+      resolution: {
+        type: "select",
+        label: "Разрешение",
+        options: ["1k", "2k"],
+        default: "1k",
+      },
+    },
+    pricing: { perImage: 0.05 },
+  },
+  {
+    provider: "xai",
+    modelId: "grok-imagine-image",
+    displayName: "Grok Imagine",
+    description: "Стандартная модель xAI. Быстрая, дешёвая ($0.02/изображение).",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2"],
         default: "1:1",
       },
       resolution: {
@@ -213,28 +230,6 @@ export const SEED_MODELS: SeedModel[] = [
     },
     pricing: { perImage: 0.02 },
   },
-  {
-    provider: "xai",
-    modelId: "grok-imagine-image-pro",
-    displayName: "Grok Imagine Pro",
-    description: "Модель высокого качества xAI.",
-    paramsSchema: {
-      aspect_ratio: {
-        type: "select",
-        label: "Соотношение сторон",
-        options: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2"],
-        default: "1:1",
-      },
-      resolution: {
-        type: "select",
-        label: "Разрешение",
-        options: ["1k", "2k"],
-        default: "1k",
-      },
-    },
-    pricing: { perImage: 0.07 },
-  },
-
   // === OpenRouter ===
   {
     provider: "openrouter",
@@ -458,12 +453,6 @@ export const SEED_MODELS: SeedModel[] = [
         options: ["png", "jpeg", "webp"],
         default: "png",
       },
-      transparent_bg: {
-        type: "select",
-        label: "Прозрачный фон",
-        options: ["false", "true"],
-        default: "false",
-      },
     },
     pricing: { firstMP: 0.03, extraMP: 0.015 },
   },
@@ -497,12 +486,6 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Формат",
         options: ["png", "jpeg", "webp"],
         default: "png",
-      },
-      transparent_bg: {
-        type: "select",
-        label: "Прозрачный фон",
-        options: ["false", "true"],
-        default: "false",
       },
     },
     pricing: { firstMP: 0.07, extraMP: 0.03 },
@@ -538,12 +521,6 @@ export const SEED_MODELS: SeedModel[] = [
         options: ["png", "jpeg", "webp"],
         default: "png",
       },
-      transparent_bg: {
-        type: "select",
-        label: "Прозрачный фон",
-        options: ["false", "true"],
-        default: "false",
-      },
     },
     pricing: { perMP: 0.06 },
   },
@@ -577,12 +554,6 @@ export const SEED_MODELS: SeedModel[] = [
         label: "Формат",
         options: ["png", "jpeg", "webp"],
         default: "png",
-      },
-      transparent_bg: {
-        type: "select",
-        label: "Прозрачный фон",
-        options: ["false", "true"],
-        default: "false",
       },
     },
     pricing: { firstMP: 0.014, extraMP: 0.014 },

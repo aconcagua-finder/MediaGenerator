@@ -33,7 +33,7 @@ const OPENAI_PRICES: Record<OpenAIModel, Record<OpenAIQuality, { standard: numbe
 
 const XAI_PRICES: Record<string, number> = {
   "grok-imagine-image": 0.02,
-  "grok-imagine-image-pro": 0.07,
+  "grok-imagine-image-quality": 0.05,
 }
 
 /**

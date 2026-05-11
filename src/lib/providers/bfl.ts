@@ -50,7 +50,6 @@ export const bflProvider: ImageProvider = {
       }
 
       if (params.seed) body.seed = parseInt(params.seed as string, 10)
-      if (params.transparent_bg === "true") body.transparent_bg = true
 
       // 1. Submit task
       const submitRes = await fetch(`${API_BASE}/${endpoint}`, {
