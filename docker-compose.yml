@@ -1,3 +1,11 @@
+# Шаблон логирования — переиспользуется всеми сервисами.
+# Ограничивает размер логов: максимум 3 файла по 10МБ = 30МБ на контейнер.
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # ===== PostgreSQL =====
   postgres:
@@ -8,7 +16,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres_password}
       POSTGRES_DB: ${POSTGRES_DB:-mediagenerator}
     ports:
-      - "5432:5432"
+      - "5437:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +24,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging: *default-logging
 
   # ===== MinIO (S3-совместимое хранилище) =====
   minio:
@@ -35,6 +50,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging: *default-logging
 
   # ===== Next.js App =====
   app:
@@ -53,6 +75,14 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    # Next.js в проде: ~300-500МБ. В dev было бы нужно 1G+
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 128M
+    logging: *default-logging
 
   # ===== Cron — периодическая проверка моделей (раз в сутки) =====
   cron:
@@ -72,6 +102,13 @@ services:
         done
     env_file:
       - .env
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 16M
+    logging: *default-logging
 
 volumes:
   postgres_data:

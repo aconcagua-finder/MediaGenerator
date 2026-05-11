@@ -3,12 +3,17 @@
  * Цены актуальны на апрель 2026.
  */
 
-type OpenAIModel = "gpt-image-1.5" | "gpt-image-1" | "gpt-image-1-mini"
+type OpenAIModel = "gpt-image-2" | "gpt-image-1.5" | "gpt-image-1" | "gpt-image-1-mini"
 type OpenAIQuality = "low" | "medium" | "high"
 type OpenAISize = "1024x1024" | "1536x1024" | "1024x1536" | "1792x1024" | "1024x1792"
 
 // Цены OpenAI: model -> quality -> size category -> price
 const OPENAI_PRICES: Record<OpenAIModel, Record<OpenAIQuality, { standard: number; wide: number }>> = {
+  "gpt-image-2": {
+    low:    { standard: 0.006, wide: 0.009 },
+    medium: { standard: 0.053, wide: 0.080 },
+    high:   { standard: 0.211, wide: 0.317 },
+  },
   "gpt-image-1.5": {
     low:    { standard: 0.009, wide: 0.013 },
     medium: { standard: 0.034, wide: 0.050 },

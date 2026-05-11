@@ -1,6 +1,6 @@
 "use client"
 
-import { Download, FolderInput, Trash2 } from "lucide-react"
+import { Download, FolderInput, Trash2, Wand2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   ContextMenu,
@@ -18,6 +18,7 @@ interface ImageGridProps {
   onOpenLightbox: (image: ImageWithGeneration) => void
   onDelete: (ids: string[]) => void
   onMove: (ids: string[]) => void
+  onEdit: (image: ImageWithGeneration) => void
 }
 
 export function ImageGrid({
@@ -27,6 +28,7 @@ export function ImageGrid({
   onOpenLightbox,
   onDelete,
   onMove,
+  onEdit,
 }: ImageGridProps) {
   if (images.length === 0) {
     return (
@@ -47,6 +49,7 @@ export function ImageGrid({
           onOpenLightbox={() => onOpenLightbox(img)}
           onDelete={() => onDelete([img.id])}
           onMove={() => onMove([img.id])}
+          onEdit={() => onEdit(img)}
         />
       ))}
     </div>
@@ -60,6 +63,7 @@ function ImageCard({
   onOpenLightbox,
   onDelete,
   onMove,
+  onEdit,
 }: {
   image: ImageWithGeneration
   isSelected: boolean
@@ -67,6 +71,7 @@ function ImageCard({
   onOpenLightbox: () => void
   onDelete: () => void
   onMove: () => void
+  onEdit: () => void
 }) {
   // Aspect ratio из метаданных, fallback на 1:1
   const w = image.width || 1024
@@ -122,6 +127,10 @@ function ImageCard({
       <ContextMenuContent>
         <ContextMenuItem onClick={onOpenLightbox}>
           Просмотр
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onEdit}>
+          <Wand2 className="mr-2 size-4" />
+          Редактировать
         </ContextMenuItem>
         <ContextMenuItem
           onClick={() => {

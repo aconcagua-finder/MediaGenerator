@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo, useEffect } from "react"
-import { Sparkles, Loader2, DollarSign, RotateCcw } from "lucide-react"
+import { Sparkles, Loader2, DollarSign, RotateCcw, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -15,6 +15,7 @@ import { ModelSelector } from "./model-selector"
 import { ParamPanel } from "./param-panel"
 import { PromptInput } from "./prompt-input"
 import { StyleSelector, getStyleSuffix } from "./style-selector"
+import { ImageEditDialog } from "./image-edit-dialog"
 import { toast } from "sonner"
 
 interface Model {
@@ -74,6 +75,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [results, setResults] = useState<GeneratedImage[]>([])
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
+  const [editingImage, setEditingImage] = useState<GeneratedImage | null>(null)
 
   const currentModel = models[provider]?.find((m) => m.modelId === modelId)
   const paramsSchema = currentModel?.paramsSchema as Record<string, {
@@ -343,7 +345,14 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
         {/* Results */}
         {(results.length > 0 || isGenerating) && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-neutral-400">Результаты</h3>
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-medium text-neutral-400">Результаты</h3>
+              {results.length > 0 && (
+                <p className="text-[11px] text-neutral-500">
+                  Наведи на картинку — появится <Wand2 className="inline size-3" /> «Править» и скачать
+                </p>
+              )}
+            </div>
             <div className="columns-2 gap-3 sm:columns-3">
               {isGenerating &&
                 Array.from({ length: parseInt(count) }).map((_, i) => (
@@ -353,18 +362,54 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
                   />
                 ))}
               {results.map((img) => (
-                <button
+                <div
                   key={img.id}
                   className="group relative mb-3 w-full break-inside-avoid overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.02] transition-all hover:border-x-blue/40"
-                  onClick={() => setSelectedImage(img)}
                 >
-                  <img
-                    src={img.url}
-                    alt="Generated"
-                    className="w-full"
-                    style={{ aspectRatio: `${img.width} / ${img.height}` }}
-                  />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImage(img)}
+                    className="block w-full"
+                    aria-label="Открыть изображение"
+                  >
+                    <img
+                      src={img.url}
+                      alt="Generated"
+                      className="w-full"
+                      style={{ aspectRatio: `${img.width} / ${img.height}` }}
+                    />
+                  </button>
+
+                  {/* Плавающие кнопки действий — всегда видны на мобиле, hover на десктопе */}
+                  <div className="absolute right-2 top-2 flex gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingImage(img)
+                      }}
+                      className="flex items-center gap-1 rounded-full bg-black/75 px-2.5 py-1.5 text-xs font-medium text-white shadow-md backdrop-blur-sm transition-colors hover:bg-x-blue"
+                      title="Редактировать"
+                    >
+                      <Wand2 className="size-3.5" />
+                      <span className="hidden lg:inline">Править</span>
+                    </button>
+                    <a
+                      href={img.url}
+                      download={`image-${img.id}.png`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex size-7 items-center justify-center rounded-full bg-black/75 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-white/[0.18]"
+                      title="Скачать"
+                      aria-label="Скачать"
+                    >
+                      <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -431,7 +476,17 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
               alt="Generated"
               className="max-h-[85vh] rounded-lg object-contain"
             />
-            <div className="mt-3 flex justify-center gap-3">
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => {
+                  setEditingImage(selectedImage)
+                  setSelectedImage(null)
+                }}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white/[0.08] px-4 text-sm font-medium text-white transition-colors hover:bg-white/[0.14]"
+              >
+                <Wand2 className="size-4" />
+                Редактировать
+              </button>
               <a
                 href={selectedImage.url}
                 download={`image-${selectedImage.id}.png`}
@@ -450,6 +505,19 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Диалог правки */}
+      {editingImage && (
+        <ImageEditDialog
+          image={editingImage}
+          hasOpenAIKey={!!hasApiKeys.openai}
+          hasOpenRouterKey={!!hasApiKeys.openrouter}
+          onClose={() => setEditingImage(null)}
+          onEditComplete={(newImages) => {
+            setResults((prev) => [...newImages, ...prev])
+          }}
+        />
       )}
     </div>
   )

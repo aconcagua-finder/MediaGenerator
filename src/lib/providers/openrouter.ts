@@ -1,4 +1,4 @@
-import type { ImageProvider, GenerateRequest, GenerateResult, ModelInfo } from "./types"
+import type { ImageProvider, GenerateRequest, GenerateResult, ModelInfo, EditRequest } from "./types"
 import { calculateCost } from "../utils/cost-calculator"
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -167,6 +167,133 @@ export const openrouterProvider: ImageProvider = {
 
       const cost = calculateCost("openrouter", model, params, count)
 
+      return { images, cost, rawResponse: data }
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  },
+
+  async edit(request: EditRequest): Promise<GenerateResult> {
+    // Правка через OpenRouter chat/completions с прикреплённым изображением.
+    // Модели вроде Gemini Nano Banana и GPT-5 Image — мультимодальные:
+    // им можно дать картинку и текст-инструкцию, они вернут обновлённое изображение.
+    const { model, prompt, params, count, apiKey, image, imageMimeType } = request
+
+    const dataUrl = `data:${imageMimeType};base64,${image.toString("base64")}`
+
+    const body: Record<string, unknown> = {
+      model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+      modalities: ["image", "text"],
+      n: count,
+    }
+
+    const imageConfig: Record<string, unknown> = {}
+    if (params.aspect_ratio) imageConfig.aspect_ratio = params.aspect_ratio
+    if (params.image_size) imageConfig.image_size = params.image_size
+    if (Object.keys(imageConfig).length > 0) {
+      body.image_config = imageConfig
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT)
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "X-Title": "MediaGenerator Edit",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        const msg = (error as { error?: { message?: string } })?.error?.message
+          || `OpenRouter edit ошибка: ${response.status}`
+        throw new Error(msg)
+      }
+
+      const data = await response.json() as {
+        error?: { message?: string; code?: number }
+        choices?: Array<{
+          message?: {
+            content?: Array<{ type: string; image_url?: { url: string } }> | string | null
+            images?: Array<{ type?: string; image_url?: { url: string } }>
+          }
+        }>
+      }
+
+      if (data.error) {
+        throw new Error(data.error.message || `OpenRouter ошибка: ${data.error.code}`)
+      }
+
+      // Размер: пытаемся определить из ответа, иначе берём из исходника
+      const aspectRatio = (params.aspect_ratio as string) || "1:1"
+      const imageSize = (params.image_size as string) || "1K"
+      const baseDims = ASPECT_RATIO_SIZES[aspectRatio] || ASPECT_RATIO_SIZES["1:1"]
+      const multiplier = SIZE_MULTIPLIER[imageSize] || 1
+
+      const images: GenerateResult["images"] = []
+      for (const choice of (data.choices || [])) {
+        const message = choice.message
+        if (!message) continue
+
+        const imageUrls: string[] = []
+        if (Array.isArray(message.images)) {
+          for (const img of message.images) {
+            if (img.image_url?.url) imageUrls.push(img.image_url.url)
+          }
+        }
+        if (Array.isArray(message.content)) {
+          for (const part of message.content) {
+            if (part.type === "image_url" && part.image_url?.url) {
+              imageUrls.push(part.image_url.url)
+            }
+          }
+        }
+
+        for (const url of imageUrls) {
+          let imageData: Buffer
+          if (url.startsWith("data:")) {
+            const base64 = url.split(",")[1]
+            if (!base64) continue
+            imageData = Buffer.from(base64, "base64")
+          } else {
+            const imgResponse = await fetch(url)
+            if (!imgResponse.ok) continue
+            const arrayBuffer = await imgResponse.arrayBuffer()
+            imageData = Buffer.from(arrayBuffer)
+          }
+          let format = "png"
+          const mimeMatch = url.match(/data:image\/(\w+);/)
+          if (mimeMatch) format = mimeMatch[1]
+          images.push({
+            data: imageData,
+            format,
+            width: Math.round(baseDims.width * multiplier),
+            height: Math.round(baseDims.height * multiplier),
+          })
+        }
+      }
+
+      if (images.length === 0) {
+        throw new Error(`${model}: модель не вернула отредактированное изображение. Попробуйте другую модель.`)
+      }
+
+      const cost = calculateCost("openrouter", model, params, count)
       return { images, cost, rawResponse: data }
     } finally {
       clearTimeout(timeoutId)

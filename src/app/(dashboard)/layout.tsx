@@ -38,7 +38,7 @@ export default async function DashboardLayout({
               <div className="absolute -right-[50px] top-[20%] h-[500px] w-[500px] rounded-full bg-[#7B61FF]/15 blur-[160px]" />
               <div className="absolute -bottom-[100px] left-[20%] h-[500px] w-[500px] rounded-full bg-[#1D9BF0]/10 blur-[150px]" />
             </div>
-            <div className="relative z-0">
+            <div className="relative z-0 flex min-h-0 flex-1 flex-col">
               {children}
             </div>
           </main>

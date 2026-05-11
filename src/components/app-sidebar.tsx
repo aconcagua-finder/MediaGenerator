@@ -8,6 +8,9 @@ import {
   HistoryIcon,
   SettingsIcon,
   SparklesIcon,
+  MessageSquareIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
 } from "lucide-react"
 import { NavUser } from "@/components/nav-user"
 import { Badge } from "@/components/ui/badge"
@@ -22,10 +25,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 const navItems = [
   { title: "Генерация", href: "/generate", icon: SparklesIcon },
+  { title: "Чат", href: "/chat", icon: MessageSquareIcon },
   { title: "Библиотека", href: "/library", icon: ImagesIcon },
   { title: "История", href: "/history", icon: HistoryIcon },
   { title: "Настройки", href: "/settings", icon: SettingsIcon },
@@ -40,27 +45,55 @@ export function AppSidebar({
   unreadNotificationCount?: number
 }) {
   const pathname = usePathname()
+  const { toggleSidebar } = useSidebar()
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <SidebarMenu>
+        {/* Логотип + кнопка свернуть справа.
+            При свёрнутом сайдбаре (data-collapsible="icon") кнопка скрывается,
+            а ниже появляется отдельный пункт "Развернуть". */}
+        <div className="flex items-center gap-1">
+          <SidebarMenu className="min-w-0 flex-1">
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" render={<Link href="/" />}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/logo.webp"
+                  alt="MediaGenerator"
+                  width={32}
+                  height={32}
+                  className="size-8 shrink-0 rounded-lg"
+                />
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-bold">MediaGenerator</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    Генерация изображений
+                  </span>
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label="Свернуть меню"
+            title="Свернуть меню"
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/[0.06] hover:text-white group-data-[collapsible=icon]:hidden"
+          >
+            <PanelLeftCloseIcon className="size-4" />
+          </button>
+        </div>
+        {/* Кнопка развернуть — видима ТОЛЬКО когда сайдбар свёрнут */}
+        <SidebarMenu className="hidden group-data-[collapsible=icon]:block">
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo.webp"
-                alt="MediaGenerator"
-                width={32}
-                height={32}
-                className="size-8 shrink-0 rounded-lg"
-              />
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-bold">MediaGenerator</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  Генерация изображений
-                </span>
-              </div>
+            <SidebarMenuButton
+              onClick={toggleSidebar}
+              tooltip="Развернуть меню"
+              className="text-neutral-400 hover:text-white"
+            >
+              <PanelLeftOpenIcon />
+              <span>Развернуть</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -10,6 +10,21 @@ export interface GenerateRequest {
   apiKey: string
 }
 
+export interface EditRequest {
+  model: string
+  prompt: string
+  params: Record<string, unknown>
+  count: number
+  apiKey: string
+  /** Исходное изображение для правки */
+  image: Buffer
+  /** MIME-тип исходного изображения */
+  imageMimeType: string
+  /** Опциональная маска (белое = заменить). Если не задана — модель решает сама. */
+  mask?: Buffer
+  maskMimeType?: string
+}
+
 export interface GeneratedImage {
   data: Buffer
   format: string  // png, jpeg, webp
@@ -36,6 +51,9 @@ export interface ImageProvider {
 
   /** Генерация изображений */
   generate(request: GenerateRequest): Promise<GenerateResult>
+
+  /** Редактирование изображения (опционально, не все провайдеры поддерживают) */
+  edit?(request: EditRequest): Promise<GenerateResult>
 
   /** Список доступных моделей (для проверки обновлений) */
   listModels(apiKey: string): Promise<ModelInfo[]>

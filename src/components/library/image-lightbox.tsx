@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { createPortal } from "react-dom"
-import { X, Download, FolderInput, Trash2, Copy } from "lucide-react"
+import { X, Download, FolderInput, Trash2, Copy, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
@@ -13,6 +13,7 @@ interface ImageLightboxProps {
   onClose: () => void
   onDelete: () => void
   onMove: () => void
+  onEdit: () => void
 }
 
 export function ImageLightbox({
@@ -20,6 +21,7 @@ export function ImageLightbox({
   onClose,
   onDelete,
   onMove,
+  onEdit,
 }: ImageLightboxProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -115,6 +117,14 @@ export function ImageLightbox({
           {/* Действия */}
           <div className="mt-auto flex flex-col gap-2">
             <Button
+              size="sm"
+              onClick={onEdit}
+              className="bg-x-blue text-white hover:bg-x-blue-hover"
+            >
+              <Wand2 className="mr-2 size-4" />
+              Редактировать
+            </Button>
+            <Button
               variant="outline"
               size="sm"
               onClick={() => {
@@ -145,6 +155,13 @@ export function ImageLightbox({
 
         {/* Мобильные кнопки под изображением */}
         <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-2 p-3 md:hidden">
+          <button
+            onClick={onEdit}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-x-blue px-3 text-sm font-medium text-white hover:bg-x-blue-hover"
+          >
+            <Wand2 className="size-3.5" />
+            Редактировать
+          </button>
           <a
             href={`/api/images/${image.id}`}
             download={`image-${image.id}.${image.format || "png"}`}

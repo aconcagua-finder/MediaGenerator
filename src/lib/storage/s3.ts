@@ -70,6 +70,31 @@ export async function download(key: string): Promise<{
 }
 
 /**
+ * Скачать файл из S3 в Buffer — для случаев когда нужны сырые байты
+ * (например, переотправить в провайдер для правки).
+ */
+export async function downloadBuffer(key: string): Promise<{
+  buffer: Buffer
+  contentType: string
+}> {
+  const response = await s3.send(
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    })
+  )
+  const body = response.Body as { transformToByteArray?: () => Promise<Uint8Array> } | null
+  if (!body?.transformToByteArray) {
+    throw new Error("S3: пустой ответ при скачивании файла")
+  }
+  const bytes = await body.transformToByteArray()
+  return {
+    buffer: Buffer.from(bytes),
+    contentType: response.ContentType || "application/octet-stream",
+  }
+}
+
+/**
  * Удалить файл из S3
  */
 export async function remove(key: string): Promise<void> {

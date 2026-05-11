@@ -16,6 +16,50 @@ export const SEED_MODELS: SeedModel[] = [
   // === OpenAI ===
   {
     provider: "openai",
+    modelId: "gpt-image-2",
+    displayName: "GPT Image 2",
+    description: "Новейшая модель OpenAI (апр 2026). O-series reasoning, 2K, точный текст, лучшая в семействе.",
+    paramsSchema: {
+      size: {
+        type: "select",
+        label: "Размер",
+        options: ["1024x1024", "1536x1024", "1024x1536", "1792x1024", "1024x1792"],
+        default: "1024x1024",
+      },
+      quality: {
+        type: "select",
+        label: "Качество",
+        options: ["low", "medium", "high"],
+        default: "medium",
+      },
+      output_format: {
+        type: "select",
+        label: "Формат",
+        options: ["png", "jpeg", "webp"],
+        default: "png",
+      },
+      background: {
+        type: "select",
+        label: "Фон",
+        options: ["opaque", "transparent"],
+        default: "opaque",
+      },
+      moderation: {
+        type: "select",
+        label: "Модерация",
+        options: ["low", "auto"],
+        default: "low",
+        optionLabels: { "low": "low — мягкая", "auto": "auto — стандартная" },
+      },
+    },
+    pricing: {
+      low:    { "1024x1024": 0.006, wide: 0.009 },
+      medium: { "1024x1024": 0.053, wide: 0.080 },
+      high:   { "1024x1024": 0.211, wide: 0.317 },
+    },
+  },
+  {
+    provider: "openai",
     modelId: "gpt-image-1.5",
     displayName: "GPT Image 1.5",
     description: "Флагманская модель OpenAI. Лучшее качество и следование промпту.",

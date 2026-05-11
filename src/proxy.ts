@@ -29,10 +29,9 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Все пути кроме:
-     * - _next/static, _next/image (статика Next.js)
-     * - favicon.ico, robots.txt и т.д.
+     * Все пути кроме статики, иначе браузер не увидит фавикон/логотип/иконки
+     * на /login и других публичных страницах.
      */
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|logo.webp|logo.png|robots.txt).*)",
   ],
 }

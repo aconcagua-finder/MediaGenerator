@@ -8,6 +8,7 @@ import { FolderTree } from "./folder-tree"
 import { BulkActionsBar } from "./bulk-actions-bar"
 import { MoveToFolderDialog } from "./move-to-folder-dialog"
 import { ImageLightbox } from "./image-lightbox"
+import { ImageEditDialog } from "@/components/generate/image-edit-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -56,12 +57,16 @@ interface LibraryViewProps {
   initialImages: ImageWithGeneration[]
   initialTotal: number
   initialFolders: FolderItem[]
+  hasOpenAIKey: boolean
+  hasOpenRouterKey: boolean
 }
 
 export function LibraryView({
   initialImages,
   initialTotal,
   initialFolders,
+  hasOpenAIKey,
+  hasOpenRouterKey,
 }: LibraryViewProps) {
   const [images, setImages] = useState(initialImages)
   const [total, setTotal] = useState(initialTotal)
@@ -80,6 +85,8 @@ export function LibraryView({
   })
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [lightboxImage, setLightboxImage] =
+    useState<ImageWithGeneration | null>(null)
+  const [editingImage, setEditingImage] =
     useState<ImageWithGeneration | null>(null)
   const [moveDialogOpen, setMoveDialogOpen] = useState(false)
   const [moveTargetIds, setMoveTargetIds] = useState<string[]>([])
@@ -388,6 +395,7 @@ export function LibraryView({
           onOpenLightbox={setLightboxImage}
           onDelete={(ids) => handleOpenDeleteDialog(ids)}
           onMove={(ids) => handleOpenMoveDialog(ids)}
+          onEdit={(img) => setEditingImage(img)}
         />
 
         {/* Подсчёт */}
@@ -408,6 +416,32 @@ export function LibraryView({
           }}
           onMove={() => {
             handleOpenMoveDialog([lightboxImage.id])
+          }}
+          onEdit={() => {
+            setEditingImage(lightboxImage)
+            setLightboxImage(null)
+          }}
+        />
+      )}
+
+      {/* Диалог редактирования */}
+      {editingImage && (
+        <ImageEditDialog
+          image={{
+            id: editingImage.id,
+            url: `/api/images/${editingImage.id}`,
+            width: editingImage.width || 1024,
+            height: editingImage.height || 1024,
+          }}
+          hasOpenAIKey={hasOpenAIKey}
+          hasOpenRouterKey={hasOpenRouterKey}
+          onClose={() => setEditingImage(null)}
+          onEditComplete={() => {
+            toast.success("Новый вариант создан", {
+              description: "Откройте корневую папку, чтобы найти результат.",
+            })
+            // обновим список — вдруг изображение легло в текущую папку (если правка наследует папку)
+            refreshImages(activeFolderId)
           }}
         />
       )}
