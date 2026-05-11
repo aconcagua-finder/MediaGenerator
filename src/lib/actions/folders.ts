@@ -167,6 +167,54 @@ export async function verifyFolderPassword(folderId: string, password: string) {
 }
 
 /**
+ * Сбросить пароль папки через подтверждение паролем аккаунта.
+ * Используется, когда юзер забыл пароль от папки — без этого
+ * пути её было бы только удалить (изображения улетают в корень).
+ */
+export async function resetFolderPasswordWithAccount(
+  folderId: string,
+  accountPassword: string
+) {
+  const hdrs = await headers()
+  const session = await auth.api.getSession({ headers: hdrs })
+  if (!session?.user) throw new Error("Не авторизован")
+
+  // Проверяем пароль аккаунта через Better Auth
+  try {
+    const result = await auth.api.verifyPassword({
+      body: { password: accountPassword },
+      headers: hdrs,
+    })
+    // Better Auth возвращает { valid: true } при успехе, иначе бросает ошибку
+    const ok = (result as { valid?: boolean; status?: boolean })?.valid
+      ?? (result as { status?: boolean })?.status
+    if (ok === false) {
+      return { success: false, error: "Неверный пароль аккаунта" }
+    }
+  } catch {
+    return { success: false, error: "Неверный пароль аккаунта" }
+  }
+
+  // Проверяем что папка принадлежит пользователю и сбрасываем хэш
+  const updated = await db
+    .update(folders)
+    .set({ passwordHash: null })
+    .where(
+      and(
+        eq(folders.id, folderId),
+        eq(folders.userId, session.user.id)
+      )
+    )
+    .returning({ id: folders.id })
+
+  if (updated.length === 0) {
+    return { success: false, error: "Папка не найдена" }
+  }
+
+  return { success: true }
+}
+
+/**
  * Удалить папку (изображения перемещаются в корень)
  */
 export async function deleteFolder(folderId: string) {

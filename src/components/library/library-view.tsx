@@ -50,6 +50,7 @@ import {
   setFolderPassword,
   removeFolderPassword,
   verifyFolderPassword,
+  resetFolderPasswordWithAccount,
   type FolderItem,
 } from "@/lib/actions/folders"
 
@@ -93,7 +94,7 @@ export function LibraryView({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
-  const [passwordDialogMode, setPasswordDialogMode] = useState<"set" | "remove" | "verify" | null>(null)
+  const [passwordDialogMode, setPasswordDialogMode] = useState<"set" | "remove" | "verify" | "forgot" | null>(null)
   const [passwordTargetId, setPasswordTargetId] = useState<string | null>(null)
   const [passwordInput, setPasswordInput] = useState("")
   const [passwordConfirm, setPasswordConfirm] = useState("")
@@ -313,6 +314,25 @@ export function LibraryView({
         localStorage.removeItem("mg_activeFolder")
         startTransition(() => { refreshImages(passwordTargetId) })
       })
+    } else if (passwordDialogMode === "forgot") {
+      // Сброс пароля папки через пароль аккаунта (если юзер забыл)
+      startTransition(async () => {
+        const result = await resetFolderPasswordWithAccount(passwordTargetId, passwordInput)
+        if (!result.success) {
+          setPasswordError(result.error || "Не удалось сбросить пароль")
+          return
+        }
+        toast.success("Пароль папки сброшен", {
+          description: "Папка теперь без защиты. Можете задать новый пароль в её меню.",
+        })
+        // Разблокируем папку и открываем
+        setUnlockedFolders((prev) => new Set(prev).add(passwordTargetId))
+        setPasswordDialogMode(null)
+        setActiveFolderId(passwordTargetId)
+        localStorage.removeItem("mg_activeFolder")
+        await refreshFolders()
+        startTransition(() => { refreshImages(passwordTargetId) })
+      })
     }
   }
 
@@ -490,20 +510,24 @@ export function LibraryView({
               {passwordDialogMode === "set" && "Установить пароль"}
               {passwordDialogMode === "remove" && "Снять пароль"}
               {passwordDialogMode === "verify" && "Введите пароль"}
+              {passwordDialogMode === "forgot" && "Сбросить пароль папки"}
             </DialogTitle>
             <DialogDescription>
               {passwordDialogMode === "set" && (
-                "Пароль нельзя будет восстановить. Если забудете — придётся удалить папку."
+                "Пароль нельзя будет восстановить, но можно сбросить через пароль аккаунта."
               )}
               {passwordDialogMode === "remove" && "Введите текущий пароль для снятия защиты."}
               {passwordDialogMode === "verify" && "Эта папка защищена паролем."}
+              {passwordDialogMode === "forgot" && (
+                "Введите пароль от вашего аккаунта — мы проверим что это вы и снимем пароль с папки. Содержимое папки сохранится."
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <Input
               type="password"
-              placeholder="Пароль"
+              placeholder={passwordDialogMode === "forgot" ? "Пароль аккаунта" : "Пароль"}
               value={passwordInput}
               onChange={(e) => { setPasswordInput(e.target.value); setPasswordError("") }}
               onKeyDown={(e) => { if (e.key === "Enter") handlePasswordSubmit() }}
@@ -521,6 +545,20 @@ export function LibraryView({
             {passwordError && (
               <p className="text-sm text-destructive">{passwordError}</p>
             )}
+            {/* Ссылка "Забыл пароль?" — в режимах verify и remove */}
+            {(passwordDialogMode === "verify" || passwordDialogMode === "remove") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPasswordDialogMode("forgot")
+                  setPasswordInput("")
+                  setPasswordError("")
+                }}
+                className="text-xs text-neutral-500 transition-colors hover:text-x-blue hover:underline"
+              >
+                Забыл пароль от папки?
+              </button>
+            )}
           </div>
 
           <DialogFooter>
@@ -531,6 +569,7 @@ export function LibraryView({
               {passwordDialogMode === "set" && "Установить"}
               {passwordDialogMode === "remove" && "Снять пароль"}
               {passwordDialogMode === "verify" && "Открыть"}
+              {passwordDialogMode === "forgot" && "Сбросить пароль"}
             </Button>
           </DialogFooter>
         </DialogContent>
