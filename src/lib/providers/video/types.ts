@@ -51,4 +51,10 @@ export interface VideoProvider {
   submit(request: VideoSubmitRequest): Promise<VideoSubmitResult>
   /** Опросить статус задачи */
   poll(providerJobId: string, apiKey: string): Promise<VideoPollResult>
+  /** Скачать готовые байты видео (авторизованно) */
+  fetchVideo(
+    providerJobId: string,
+    apiKey: string,
+    index?: number
+  ): Promise<{ buffer: Buffer; contentType: string }>
 }

@@ -156,10 +156,12 @@ export async function GET(
     }
 
     try {
-      // Скачиваем mp4 и кладём в S3 (CDN-ссылки провайдера временные)
-      const resp = await fetch(poll.videoUrls[0])
-      if (!resp.ok) throw new Error(`Не удалось скачать видео (${resp.status})`)
-      const buf = Buffer.from(await resp.arrayBuffer())
+      // Скачиваем mp4 авторизованно (unsigned_urls без ключа отдают 401) и кладём в S3
+      const { buffer: buf } = await getVideoProvider(gen.provider).fetchVideo(
+        gen.providerJobId,
+        apiKey,
+        0
+      )
 
       await ensureBucket()
       const s3Key = `videos/${gen.id}/0.mp4`

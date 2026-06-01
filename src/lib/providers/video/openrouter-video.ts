@@ -122,4 +122,31 @@ export const openrouterVideoProvider: VideoProvider = {
       clearTimeout(timeoutId)
     }
   },
+
+  async fetchVideo(
+    providerJobId: string,
+    apiKey: string,
+    index = 0
+  ): Promise<{ buffer: Buffer; contentType: string }> {
+    // ВАЖНО: `unsigned_urls` из ответа требуют авторизацию (голый fetch → 401),
+    // поэтому забираем байты через авторизованный эндпоинт /content с ключом.
+    const url = `${SUBMIT_URL}/${providerJobId}/content?index=${index}`
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 120_000)
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        throw new Error(`Не удалось скачать видео (${response.status})`)
+      }
+      const buffer = Buffer.from(await response.arrayBuffer())
+      const contentType = response.headers.get("content-type") || "video/mp4"
+      return { buffer, contentType }
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  },
 }
