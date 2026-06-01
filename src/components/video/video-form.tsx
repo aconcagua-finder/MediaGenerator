@@ -20,6 +20,7 @@ import {
   defaultVideoParams,
   estimateVideoCost,
   DEFAULT_VIDEO_MODEL,
+  RUSSIAN_SPEECH_INFO,
 } from "@/lib/providers/video-models"
 import { toast } from "sonner"
 
@@ -341,6 +342,31 @@ export function VideoForm({ hasOpenRouterKey }: VideoFormProps) {
         <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <h3 className="mb-4 text-sm font-bold text-white">Модель</h3>
           <VideoModelSelector selectedModel={modelId} onModelChange={handleModelChange} />
+          {/* Индикатор русской озвучки выбранной модели */}
+          <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-snug">
+            <span
+              className={`mt-1 size-1.5 shrink-0 rounded-full ${
+                model.supportsAudio ? RUSSIAN_SPEECH_INFO[model.russianSpeech].dot : "bg-neutral-600"
+              }`}
+            />
+            <span className={model.supportsAudio ? RUSSIAN_SPEECH_INFO[model.russianSpeech].text : "text-neutral-500"}>
+              {model.supportsAudio
+                ? RUSSIAN_SPEECH_INFO[model.russianSpeech].label
+                : "Без звука — озвучку добавляйте отдельно"}
+              {model.supportsAudio && model.russianSpeech !== "good" && (
+                <>
+                  {" · для русской речи — "}
+                  <button
+                    type="button"
+                    onClick={() => handleModelChange("google/veo-3.1-fast")}
+                    className="text-x-blue hover:underline"
+                  >
+                    Veo 3.1 Fast
+                  </button>
+                </>
+              )}
+            </span>
+          </p>
         </div>
 
         <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">

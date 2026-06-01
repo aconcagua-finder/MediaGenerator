@@ -7,7 +7,7 @@
  * (`usage.cost`) после генерации; здесь — для оценки в UI ДО запуска.
  *
  * Источник capabilities (длительности/разрешения/i2v/звук): openrouter.ai
- * `GET /api/v1/videos/models` — проверено май-июнь 2026.
+ * `GET /api/v1/videos/models` — проверено июнь 2026.
  */
 
 export type VideoVendor =
@@ -20,6 +20,14 @@ export type VideoVendor =
   | "alibaba"
 
 export type VideoMode = "t2v" | "i2v"
+
+/**
+ * Поддержка русской речи в озвучке:
+ * - good — уверенно озвучивает на русском (Veo)
+ * - partial — иногда/частично, лучше проверить
+ * - none — озвучивает не на русском (англ/кит) или вообще без звука
+ */
+export type RussianSpeech = "good" | "partial" | "none"
 
 export interface VideoModel {
   /** ID модели в OpenRouter (передаётся в поле `model`) */
@@ -34,6 +42,8 @@ export interface VideoModel {
   modes: VideoMode[]
   /** Поддерживает ли генерацию звука */
   supportsAudio: boolean
+  /** Умеет ли озвучивать на русском (для звуковых моделей) */
+  russianSpeech: RussianSpeech
   /** Допустимые длительности клипа в секундах */
   durations: number[]
   /** Допустимые разрешения (значение поля `resolution`) */
@@ -55,6 +65,7 @@ export const VIDEO_MODELS: VideoModel[] = [
     description: "ByteDance — топ качества (лидер арены). Динамика, детали, звук. Отличный баланс цены и качества.",
     modes: ["t2v", "i2v"],
     supportsAudio: true,
+    russianSpeech: "none",
     durations: [4, 8, 12],
     resolutions: ["480p", "720p", "1080p"],
     aspectRatios: ["16:9", "9:16", "1:1"],
@@ -65,9 +76,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "google/veo-3.1",
     name: "Veo 3.1",
     vendor: "google",
-    description: "Google — кинематографичное видео с нативным синхронным звуком, до 4K. Премиум-качество.",
+    description: "Google — кинематографичное видео с нативным синхронным звуком, до 4K. Лучшее для русской озвучки.",
     modes: ["t2v", "i2v"],
     supportsAudio: true,
+    russianSpeech: "good",
     durations: [4, 6, 8],
     resolutions: ["720p", "1080p", "4K"],
     aspectRatios: ["16:9", "9:16"],
@@ -78,9 +90,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "kwaivgi/kling-v3.0-pro",
     name: "Kling 3.0 Pro",
     vendor: "kuaishou",
-    description: "Kuaishou — топовая модель, плавное движение и звук. Хороша для людей и сложных сцен.",
+    description: "Kuaishou — топовая модель, плавное движение и звук. Озвучка только англ/кит/яп/кор/исп.",
     modes: ["t2v", "i2v"],
     supportsAudio: true,
+    russianSpeech: "none",
     durations: [5, 10],
     resolutions: ["720p"],
     aspectRatios: ["16:9", "9:16", "1:1"],
@@ -91,9 +104,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "openai/sora-2-pro",
     name: "Sora 2 Pro",
     vendor: "openai",
-    description: "OpenAI — премиум-генерация со звуком, длинные клипы. Дорого, но очень качественно.",
+    description: "OpenAI — премиум со звуком, длинные клипы. Русский — частично (мультиязычная озвучка).",
     modes: ["t2v"],
     supportsAudio: true,
+    russianSpeech: "partial",
     durations: [4, 8, 12],
     resolutions: ["720p", "1080p"],
     aspectRatios: ["16:9", "9:16"],
@@ -105,21 +119,37 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "google/veo-3.1-fast",
     name: "Veo 3.1 Fast",
     vendor: "google",
-    description: "Google — качество Veo дешевле и быстрее, со звуком. Хороший выбор по умолчанию для Veo.",
+    description: "Google — качество Veo дешевле и быстрее, со звуком. Хорошо озвучивает на русском.",
     modes: ["t2v", "i2v"],
     supportsAudio: true,
+    russianSpeech: "good",
     durations: [4, 6, 8],
     resolutions: ["720p", "1080p", "4K"],
     aspectRatios: ["16:9", "9:16"],
     pricePerSecond: 0.15,
   },
   {
+    id: "google/veo-3.1-lite",
+    name: "Veo 3.1 Lite",
+    vendor: "google",
+    description: "Google — самый дешёвый Veo со звуком и русской озвучкой. Лучший бюджетный вариант для речи.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: true,
+    russianSpeech: "good",
+    durations: [4, 6, 8],
+    resolutions: ["720p", "1080p"],
+    aspectRatios: ["16:9", "9:16"],
+    pricePerSecond: 0.05,
+    isNew: true,
+  },
+  {
     id: "kwaivgi/kling-v3.0-std",
     name: "Kling 3.0 Std",
     vendor: "kuaishou",
-    description: "Kuaishou — стандартная версия Kling, дешевле Pro. Звук, i2v.",
+    description: "Kuaishou — стандартная версия Kling, дешевле Pro. Звук, i2v. Без русской озвучки.",
     modes: ["t2v", "i2v"],
     supportsAudio: true,
+    russianSpeech: "none",
     durations: [5, 10],
     resolutions: ["720p"],
     aspectRatios: ["16:9", "9:16", "1:1"],
@@ -129,9 +159,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "minimax/hailuo-2.3",
     name: "Hailuo 2.3",
     vendor: "minimax",
-    description: "MiniMax — выразительное движение и эмоции, 1080p. Без звука.",
+    description: "MiniMax — выразительное движение и эмоции, 1080p. Без звука (озвучку добавляйте отдельно).",
     modes: ["t2v", "i2v"],
     supportsAudio: false,
+    russianSpeech: "none",
     durations: [6, 10],
     resolutions: ["1080p"],
     aspectRatios: ["16:9"],
@@ -141,9 +172,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "alibaba/wan-2.6",
     name: "Wan 2.6",
     vendor: "alibaba",
-    description: "Alibaba — недорогая модель со звуком. Хороша для простых сцен и массовой генерации.",
+    description: "Alibaba — недорогая модель со звуком. Русский — не гарантирован.",
     modes: ["t2v", "i2v"],
     supportsAudio: true,
+    russianSpeech: "partial",
     durations: [5, 10],
     resolutions: ["720p", "1080p"],
     aspectRatios: ["16:9", "9:16"],
@@ -155,9 +187,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "x-ai/grok-imagine-video",
     name: "Grok Imagine Video",
     vendor: "xai",
-    description: "xAI — быстрая и дешёвая генерация коротких клипов. Без звука.",
+    description: "xAI — быстрая и дешёвая генерация коротких клипов. Без русской озвучки.",
     modes: ["t2v"],
     supportsAudio: false,
+    russianSpeech: "none",
     durations: [5, 10],
     resolutions: ["480p", "720p"],
     aspectRatios: ["16:9", "9:16", "1:1"],
@@ -174,6 +207,13 @@ export const VIDEO_VENDOR_COLORS: Record<VideoVendor, { dot: string; text: strin
   kuaishou:  { dot: "bg-orange-400", text: "text-orange-300", label: "Kuaishou" },
   minimax:   { dot: "bg-cyan-400", text: "text-cyan-300", label: "MiniMax" },
   alibaba:   { dot: "bg-amber-400", text: "text-amber-300", label: "Alibaba" },
+}
+
+/** Подписи/цвета для индикатора русской озвучки */
+export const RUSSIAN_SPEECH_INFO: Record<RussianSpeech, { label: string; short: string; dot: string; text: string }> = {
+  good:    { label: "Озвучивает на русском", short: "RU озвучка", dot: "bg-emerald-400", text: "text-emerald-300" },
+  partial: { label: "Русская озвучка частично — лучше проверить", short: "RU частично", dot: "bg-amber-400", text: "text-amber-300" },
+  none:    { label: "Озвучивает не на русском (англ/кит)", short: "не RU", dot: "bg-neutral-500", text: "text-neutral-500" },
 }
 
 /** Модель по умолчанию — топ качества при адекватной цене */

@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { VIDEO_MODELS, VIDEO_VENDOR_COLORS, type VideoVendor } from "@/lib/providers/video-models"
+import { VIDEO_MODELS, VIDEO_VENDOR_COLORS, RUSSIAN_SPEECH_INFO, type VideoVendor } from "@/lib/providers/video-models"
 
 interface VideoModelSelectorProps {
   selectedModel: string
@@ -85,8 +85,12 @@ export function VideoModelSelector({ selectedModel, onModelChange }: VideoModelS
                       <span className="rounded bg-white/[0.05] px-1.5 py-0.5">
                         {m.resolutions[m.resolutions.length - 1]}
                       </span>
-                      {m.supportsAudio && (
-                        <span className="rounded bg-white/[0.05] px-1.5 py-0.5">звук</span>
+                      {m.supportsAudio ? (
+                        <span className={`rounded bg-white/[0.05] px-1.5 py-0.5 ${RUSSIAN_SPEECH_INFO[m.russianSpeech].text}`}>
+                          звук · {RUSSIAN_SPEECH_INFO[m.russianSpeech].short}
+                        </span>
+                      ) : (
+                        <span className="rounded bg-white/[0.05] px-1.5 py-0.5">без звука</span>
                       )}
                       {m.modes.includes("i2v") && (
                         <span className="rounded bg-white/[0.05] px-1.5 py-0.5">из картинки</span>
