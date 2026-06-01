@@ -70,7 +70,11 @@ export function LibraryTabs({
           hasOpenRouterKey={hasOpenRouterKey}
         />
       ) : (
-        <VideoLibrary initialVideos={initialVideos} initialTotal={initialVideoTotal} />
+        <VideoLibrary
+          initialVideos={initialVideos}
+          initialTotal={initialVideoTotal}
+          initialFolders={initialFolders}
+        />
       )}
     </div>
   )

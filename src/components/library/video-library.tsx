@@ -1,9 +1,21 @@
 "use client"
 
 import { useState, useCallback, useTransition } from "react"
-import Link from "next/link"
 import { toast } from "sonner"
-import { Download, Trash2, Volume2, VolumeX, Film } from "lucide-react"
+import { FolderOpen } from "lucide-react"
+import { VideoGrid } from "./video-grid"
+import { FolderTree } from "./folder-tree"
+import { BulkActionsBar } from "./bulk-actions-bar"
+import { MoveToFolderDialog } from "./move-to-folder-dialog"
+import { VideoLightbox } from "./video-lightbox"
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,123 +26,260 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { getVideos, deleteVideos, type VideoLibraryItem } from "@/lib/actions/videos"
+import {
+  getVideos,
+  moveVideos,
+  deleteVideos,
+  type VideoLibraryItem,
+} from "@/lib/actions/videos"
+import {
+  getFolders,
+  createFolder,
+  renameFolder,
+  deleteFolder,
+  type FolderItem,
+} from "@/lib/actions/folders"
 
 interface VideoLibraryProps {
   initialVideos: VideoLibraryItem[]
   initialTotal: number
+  initialFolders: FolderItem[]
 }
 
-export function VideoLibrary({ initialVideos, initialTotal }: VideoLibraryProps) {
+export function VideoLibrary({
+  initialVideos,
+  initialTotal,
+  initialFolders,
+}: VideoLibraryProps) {
   const [videos, setVideos] = useState(initialVideos)
   const [total, setTotal] = useState(initialTotal)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [, startTransition] = useTransition()
+  const [folders, setFolders] = useState(initialFolders)
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [lightboxVideo, setLightboxVideo] = useState<VideoLibraryItem | null>(null)
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false)
+  const [moveTargetIds, setMoveTargetIds] = useState<string[]>([])
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([])
+  const [isPending, startTransition] = useTransition()
 
-  const refresh = useCallback(async () => {
-    const result = await getVideos({})
+  // Запароленные папки управляются во вкладке «Фото»; здесь их прячем
+  const visibleFolders = folders.filter((f) => !f.hasPassword)
+
+  const refreshVideos = useCallback(async (folderId: string | null) => {
+    const folderParam =
+      folderId === "root" ? null : folderId === null ? undefined : folderId
+    const result = await getVideos({ folderId: folderParam as string | null | undefined })
     setVideos(result.items)
     setTotal(result.total)
+    setSelectedIds(new Set())
   }, [])
 
-  function handleDelete() {
-    if (!deleteId) return
-    const id = deleteId
-    startTransition(async () => {
-      await deleteVideos([id])
-      toast.success("Видео удалено")
-      setDeleteId(null)
-      await refresh()
+  const refreshFolders = useCallback(async () => {
+    setFolders(await getFolders())
+  }, [])
+
+  function handleSelectFolder(id: string | null) {
+    setActiveFolderId(id)
+    startTransition(() => {
+      refreshVideos(id)
     })
   }
 
-  if (videos.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-white/[0.12] py-16 text-center">
-        <Film className="size-8 text-neutral-600" />
-        <p className="text-sm text-neutral-500">Здесь появятся ваши видео</p>
-        <Link
-          href="/video"
-          className="rounded-full bg-x-blue px-4 py-1.5 text-sm font-bold text-white transition-colors hover:bg-x-blue-hover"
-        >
-          Сгенерировать видео
-        </Link>
-      </div>
-    )
+  function handleToggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleSelectAll() {
+    setSelectedIds(new Set(videos.map((v) => v.id)))
+  }
+  function handleDeselectAll() {
+    setSelectedIds(new Set())
+  }
+
+  function handleOpenMoveDialog(ids: string[]) {
+    setMoveTargetIds(ids)
+    setMoveDialogOpen(true)
+  }
+
+  async function handleMove(folderId: string | null) {
+    startTransition(async () => {
+      await moveVideos(moveTargetIds, folderId)
+      toast.success("Перемещено")
+      await refreshVideos(activeFolderId)
+    })
+  }
+
+  async function handleCreateAndMove(folderName: string) {
+    startTransition(async () => {
+      const folder = await createFolder(folderName)
+      await moveVideos(moveTargetIds, folder.id)
+      toast.success(`Создана папка «${folderName}» и перемещено`)
+      await refreshFolders()
+      await refreshVideos(activeFolderId)
+    })
+  }
+
+  function handleOpenDeleteDialog(ids: string[]) {
+    setDeleteTargetIds(ids)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleDelete() {
+    startTransition(async () => {
+      const result = await deleteVideos(deleteTargetIds)
+      toast.success(`Удалено: ${result.deleted}`)
+      setDeleteDialogOpen(false)
+      if (lightboxVideo && deleteTargetIds.includes(lightboxVideo.id)) {
+        setLightboxVideo(null)
+      }
+      await refreshVideos(activeFolderId)
+    })
+  }
+
+  function handleBulkDownload() {
+    for (const id of selectedIds) {
+      const link = document.createElement("a")
+      link.href = `/api/videos/${id}`
+      link.download = `video-${id}.mp4`
+      link.click()
+    }
+    toast.success(`Скачивание ${selectedIds.size} видео`)
+  }
+
+  async function handleCreateFolder(name: string) {
+    startTransition(async () => {
+      await createFolder(name)
+      toast.success(`Папка «${name}» создана`)
+      await refreshFolders()
+    })
+  }
+
+  async function handleRenameFolder(id: string, name: string) {
+    startTransition(async () => {
+      await renameFolder(id, name)
+      await refreshFolders()
+    })
+  }
+
+  async function handleDeleteFolder(id: string) {
+    startTransition(async () => {
+      await deleteFolder(id)
+      toast.success("Папка удалена")
+      if (activeFolderId === id) {
+        setActiveFolderId(null)
+        await refreshVideos(null)
+      }
+      await refreshFolders()
+    })
   }
 
   return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {videos.map((v) => {
-          const aspect =
-            v.width && v.height ? `${v.width} / ${v.height}` : "16 / 9"
-          return (
-            <div
-              key={v.id}
-              className="group overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.02]"
-            >
-              <video
-                src={`/api/videos/${v.id}`}
-                controls
-                preload="metadata"
-                playsInline
-                className="w-full bg-black"
-                style={{ aspectRatio: aspect }}
-              />
-              <div className="flex items-center gap-2 px-3 py-2">
-                <p
-                  className="min-w-0 flex-1 truncate text-xs text-neutral-400"
-                  title={v.generation.prompt}
-                >
-                  {v.generation.prompt}
-                </p>
-                {v.durationSeconds != null && (
-                  <span className="shrink-0 text-[11px] text-neutral-500">
-                    {v.durationSeconds}с
-                  </span>
-                )}
-                {v.hasAudio ? (
-                  <Volume2 className="size-3.5 shrink-0 text-neutral-500" />
-                ) : (
-                  <VolumeX className="size-3.5 shrink-0 text-neutral-600" />
-                )}
-                <a
-                  href={`/api/videos/${v.id}`}
-                  download={`video-${v.id}.mp4`}
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white transition-colors hover:bg-x-blue"
-                  title="Скачать"
-                  aria-label="Скачать"
-                >
-                  <Download className="size-3.5" />
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setDeleteId(v.id)}
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-neutral-400 transition-colors hover:bg-red-500/80 hover:text-white"
-                  title="Удалить"
-                  aria-label="Удалить"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            </div>
-          )
-        })}
+    <div className="flex h-full gap-4">
+      {/* Левая панель — папки (десктоп) */}
+      <div className="hidden w-56 shrink-0 md:block">
+        <FolderTree
+          folders={visibleFolders}
+          activeFolderId={activeFolderId}
+          onSelectFolder={handleSelectFolder}
+          onCreateFolder={handleCreateFolder}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolder}
+          allLabel="Все видео"
+        />
       </div>
 
-      {total > 0 && (
-        <p className="text-center text-xs text-muted-foreground">
-          Показано {videos.length} из {total}
-        </p>
+      {/* Основная область */}
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        {/* Мобильная кнопка папок */}
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger
+              render={
+                <Button variant="outline" size="sm">
+                  <FolderOpen className="mr-2 size-4" />
+                  Папки
+                </Button>
+              }
+            />
+            <SheetContent side="left" className="w-64 p-4">
+              <SheetHeader>
+                <SheetTitle>Папки</SheetTitle>
+              </SheetHeader>
+              <div className="mt-4">
+                <FolderTree
+                  folders={visibleFolders}
+                  activeFolderId={activeFolderId}
+                  onSelectFolder={handleSelectFolder}
+                  onCreateFolder={handleCreateFolder}
+                  onRenameFolder={handleRenameFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  allLabel="Все видео"
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        <BulkActionsBar
+          selectedCount={selectedIds.size}
+          onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
+          onDelete={() => handleOpenDeleteDialog([...selectedIds])}
+          onMove={() => handleOpenMoveDialog([...selectedIds])}
+          onDownload={handleBulkDownload}
+        />
+
+        <VideoGrid
+          videos={videos}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onOpenLightbox={setLightboxVideo}
+          onDelete={(ids) => handleOpenDeleteDialog(ids)}
+          onMove={(ids) => handleOpenMoveDialog(ids)}
+        />
+
+        {total > 0 && (
+          <p className="text-center text-xs text-muted-foreground">
+            Показано {videos.length} из {total}
+          </p>
+        )}
+      </div>
+
+      {/* Лайтбокс с деталями */}
+      {lightboxVideo && (
+        <VideoLightbox
+          video={lightboxVideo}
+          onClose={() => setLightboxVideo(null)}
+          onDelete={() => handleOpenDeleteDialog([lightboxVideo.id])}
+          onMove={() => handleOpenMoveDialog([lightboxVideo.id])}
+        />
       )}
 
-      <AlertDialog open={deleteId !== null} onOpenChange={(open) => { if (!open) setDeleteId(null) }}>
+      {/* Диалог перемещения */}
+      <MoveToFolderDialog
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
+        folders={visibleFolders}
+        onMove={handleMove}
+        onCreateAndMove={handleCreateAndMove}
+        imageCount={moveTargetIds.length}
+        nounOne="видео"
+        nounMany="видео"
+      />
+
+      {/* Подтверждение удаления */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить видео?</AlertDialogTitle>
             <AlertDialogDescription>
-              Видео будет удалено безвозвратно. Это действие нельзя отменить.
+              Будет удалено {deleteTargetIds.length} видео. Это действие нельзя отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -138,12 +287,13 @@ export function VideoLibrary({ initialVideos, initialTotal }: VideoLibraryProps)
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleDelete}
+              disabled={isPending}
             >
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   )
 }

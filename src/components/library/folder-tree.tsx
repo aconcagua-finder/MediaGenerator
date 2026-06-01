@@ -33,6 +33,8 @@ interface FolderTreeProps {
   onDeleteFolder: (id: string) => void
   onSetPassword?: (id: string) => void
   onRemovePassword?: (id: string) => void
+  /** Подпись кнопки «Все» (по умолчанию для изображений) */
+  allLabel?: string
 }
 
 export function FolderTree({
@@ -44,6 +46,7 @@ export function FolderTree({
   onDeleteFolder,
   onSetPassword,
   onRemovePassword,
+  allLabel = "Все изображения",
 }: FolderTreeProps) {
   const [isCreating, setIsCreating] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
@@ -105,7 +108,7 @@ export function FolderTree({
           onClick={() => onSelectFolder(null)}
         >
           <Images className="size-4 shrink-0" />
-          <span>Все изображения</span>
+          <span>{allLabel}</span>
         </button>
 
         {/* "Без папки" */}
