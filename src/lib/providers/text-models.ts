@@ -25,6 +25,13 @@ export interface TextModel {
   isNew?: boolean
   /** Поддерживает ли модель потоковую передачу */
   streaming: boolean
+  /**
+   * Принимает ли модель картинки во входе (vision). Используется
+   * для активации paste/drop-вложений в чате. Источник правды:
+   * `VISION_TEXT_MODELS` в `@/lib/capabilities` — здесь дублируем
+   * как удобный флаг для UI.
+   */
+  supportsVision?: boolean
 }
 
 export const TEXT_MODELS: TextModel[] = [
@@ -35,9 +42,10 @@ export const TEXT_MODELS: TextModel[] = [
     vendor: "anthropic",
     description: "Универсальная — отличный баланс качества и цены. Лучший выбор по умолчанию.",
     category: "balanced",
-    contextTokens: 1_100_000,
+    contextTokens: 1_000_000,
     pricing: { input: 3.0, output: 15.0 },
     streaming: true,
+    supportsVision: true,
   },
   {
     id: "openai/gpt-5.4",
@@ -48,6 +56,7 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 1_050_000,
     pricing: { input: 2.5, output: 15.0 },
     streaming: true,
+    supportsVision: true,
   },
 
   // ===== Для сложных задач (smart, reasoning) =====
@@ -61,16 +70,19 @@ export const TEXT_MODELS: TextModel[] = [
     pricing: { input: 5.0, output: 30.0 },
     isNew: true,
     streaming: true,
+    supportsVision: true,
   },
   {
-    id: "anthropic/claude-opus-4.7",
-    name: "Claude Opus 4.7",
+    id: "anthropic/claude-opus-4.8",
+    name: "Claude Opus 4.8",
     vendor: "anthropic",
-    description: "Топ от Anthropic. Глубокий анализ, длинные рассуждения, сложные задачи.",
+    description: "Топ от Anthropic (май 2026). Глубокий анализ, длинные рассуждения, сложные задачи.",
     category: "smart",
-    contextTokens: 1_100_000,
+    contextTokens: 1_000_000,
     pricing: { input: 5.0, output: 25.0 },
+    isNew: true,
     streaming: true,
+    supportsVision: true,
   },
   {
     id: "google/gemini-3.1-pro-preview",
@@ -81,9 +93,22 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 1_049_000,
     pricing: { input: 2.0, output: 12.0 },
     streaming: true,
+    supportsVision: true,
   },
 
   // ===== Быстрые и дешёвые =====
+  {
+    id: "google/gemini-3.5-flash",
+    name: "Gemini 3.5 Flash",
+    vendor: "google",
+    description: "Новейшая Flash от Google (май 2026). 1M контекст, баланс цены и качества — между Haiku и Sonnet.",
+    category: "fast",
+    contextTokens: 1_049_000,
+    pricing: { input: 1.5, output: 9.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
   {
     id: "anthropic/claude-haiku-4.5",
     name: "Claude Haiku 4.5",
@@ -93,6 +118,7 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 200_000,
     pricing: { input: 1.0, output: 5.0 },
     streaming: true,
+    supportsVision: true,
   },
   {
     id: "openai/gpt-5-mini",
@@ -103,16 +129,18 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 400_000,
     pricing: { input: 0.25, output: 2.0 },
     streaming: true,
+    supportsVision: true,
   },
   {
     id: "google/gemini-3-flash-preview",
     name: "Gemini 3 Flash",
     vendor: "google",
-    description: "Самая быстрая Google. 1M контекст, идеально для черновиков и идей.",
+    description: "Быстрая Google. 1M контекст, дешевле Gemini 3.5 Flash, ниже качество.",
     category: "fast",
     contextTokens: 1_049_000,
     pricing: { input: 0.5, output: 3.0 },
     streaming: true,
+    supportsVision: true,
   },
   {
     id: "google/gemini-3.1-flash-lite",
@@ -123,29 +151,44 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 1_049_000,
     pricing: { input: 0.25, output: 1.5 },
     streaming: true,
+    supportsVision: true,
   },
 
   // ===== Альтернативы =====
   {
-    id: "x-ai/grok-4.20",
-    name: "Grok 4.20",
+    id: "x-ai/grok-4.3",
+    name: "Grok 4.3",
     vendor: "xai",
-    description: "Свежий Grok с multi-agent режимом. Свежие данные из X, прямолинейный стиль.",
+    description: "Новейший Grok (апр 2026). 1M контекст, очень быстрый, дешевле Haiku по выходу.",
     category: "alt",
-    contextTokens: 2_000_000,
+    contextTokens: 1_000_000,
     pricing: { input: 1.25, output: 2.5 },
     isNew: true,
     streaming: true,
+    supportsVision: true,
   },
   {
-    id: "x-ai/grok-4-fast",
-    name: "Grok 4 Fast",
+    id: "x-ai/grok-4.20-multi-agent",
+    name: "Grok 4.20 Multi-Agent",
     vendor: "xai",
-    description: "Быстрый Grok. 2M контекст по цене Haiku — отличный для длинных диалогов.",
+    description: "Топовый Grok с мульти-агентным режимом. 2M контекст, лучше Grok 4.20 в reasoning.",
     category: "alt",
     contextTokens: 2_000_000,
-    pricing: { input: 0.2, output: 0.5 },
+    pricing: { input: 2.0, output: 6.0 },
+    isNew: true,
     streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "x-ai/grok-4.20",
+    name: "Grok 4.20",
+    vendor: "xai",
+    description: "Базовый Grok с большим контекстом. Свежие данные из X, прямолинейный стиль.",
+    category: "alt",
+    contextTokens: 2_000_000,
+    pricing: { input: 1.25, output: 2.5 },
+    streaming: true,
+    supportsVision: true,
   },
   {
     id: "deepseek/deepseek-v4-pro",

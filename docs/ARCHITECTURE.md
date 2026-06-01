@@ -233,6 +233,40 @@ MediaGenerator/
 | metadata | jsonb | Доп. метаданные от API |
 | created_at | timestamp | Когда создано |
 
+### video_generations (раздел «Видео»)
+Асинхронный провайдер (OpenRouter) — хранится `provider_job_id` для опроса.
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | uuid PK | ID генерации видео |
+| user_id | text FK → users | Владелец |
+| provider | text | Всегда `openrouter` |
+| model | text | ID видеомодели (напр. `bytedance/seedance-2.0`) |
+| prompt | text | Текстовый промпт |
+| mode | text | `t2v` / `i2v` |
+| params | jsonb | duration, resolution, aspect_ratio, generate_audio |
+| status | text | pending / processing / saving / done / error |
+| provider_job_id | text | ID задачи на стороне OpenRouter |
+| cost | numeric(10,4) | Факт после генерации (`usage.cost`) |
+| error_message | text | Текст ошибки |
+| hidden | boolean | Скрыто из истории |
+| created_at / completed_at | timestamp | Время |
+
+### videos
+Готовые mp4-файлы (зеркало `images`).
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | uuid PK | ID видео |
+| video_generation_id | uuid FK → video_generations | К какой генерации относится |
+| folder_id | uuid FK → folders (nullable) | Папка (задел под библиотеку) |
+| s3_key / s3_url | text | Путь/URL в S3/MinIO |
+| duration_seconds | integer | Длительность клипа |
+| width / height | integer | Размеры (из resolution + aspect) |
+| format | text | mp4 |
+| has_audio | boolean | Со звуком ли |
+| size_bytes | integer | Размер файла |
+| metadata | jsonb | Доп. метаданные |
+| created_at | timestamp | Когда создано |
+
 ### folders
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -274,6 +308,82 @@ MediaGenerator/
 | model_id | text | Для какой модели |
 | params | jsonb | Сохранённые параметры по умолчанию |
 | updated_at | timestamp | Когда обновлено |
+
+### content_rubrics (раздел «Публикации»)
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | uuid PK | ID рубрики |
+| slug | text UNIQUE | Стабильный ключ (`base_real_work`, …) |
+| title | text | Название для UI |
+| description | text | Краткое описание |
+| is_active | boolean | Видна ли пользователям |
+| is_builtin | boolean | Системная рубрика — нельзя удалить |
+| settings | jsonb | Модели и параметры pipeline |
+| prompts | jsonb | Шаблоны промптов (Perplexity / Reddit / writer) |
+| created_at / updated_at | timestamp | |
+
+### content_settings
+Глобальные системные промпты (key/value): `topic_selection_system`,
+`web_context_compression_system`. Редактируются админом в UI рубрик.
+
+### content_runs
+Запуски pipeline. Все артефакты по шагам — в `artifacts` (jsonb),
+расход по этапам — в `costs` (jsonb), статус идёт по `status`/`stage`
+(`perplexity → reddit → topic → compression → writing → done` или `error`).
+
+### content_topics
+История сгенерированных тем для topic-guard. При `published=true` тема
+попадает в «запретный список» для следующих запусков (окно настраивается).
+
+### monitoring_templates (раздел «Мониторинг»)
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | uuid PK | |
+| slug | text UNIQUE? | NULL для пользовательских, `olga` для builtin |
+| title / description | text | |
+| is_builtin / is_active | boolean | |
+| mode | text | `feed` (без AI) или `topics` (AI-классификация) |
+| sources | jsonb | Массив `{id, type: telegram|website, url, label, feedUrl?, disabled?}` |
+| topics | jsonb | Массив `{id, name, description}` для mode=topics |
+| classifier | jsonb | `{model, batchSize, keepNonMatches}` — OpenRouter (default: `anthropic/claude-sonnet-4.6`) |
+| default_interval_days | int | По умолчанию собирать за N дней |
+| tg_max_pages | int | Глубина Telegram-пагинации (default 5 = ~100 постов/канал, max 15) |
+| schedule | jsonb | `{enabled, intervalHours (≥24), hourUtc}` |
+| last_run_at / next_run_at | timestamp | Авто-расчёт для cron-tick. Manual run НЕ двигает `next_run_at`. |
+| created_by | text FK → user | |
+
+### monitoring_runs
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | uuid PK | |
+| template_id | uuid FK → monitoring_templates | |
+| user_id | text FK → user | |
+| trigger | text | `manual` / `scheduled` |
+| status | text | `pending → fetching → classifying → done` или `error` |
+| mode | text | Снимок mode на момент запуска |
+| period_from / period_to | timestamp | Окно поиска |
+| sources_total / succeeded / failed | int | |
+| items_found / items_matched | int | |
+| cost | numeric | $ за классификацию |
+| artifacts | jsonb | `sourceLog` (журнал по каждому источнику) + `classifierLog` |
+| viewed_at | timestamp | Для сброса badge сайдбара |
+
+### monitoring_items
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | uuid PK | |
+| run_id | uuid FK → monitoring_runs | |
+| source_id / source_type / source_url / source_label | text | Снимок источника |
+| post_url | text | Прямая ссылка на пост / статью |
+| source_post_id | text | Для дедупа между запусками |
+| published_at | timestamp | Из RSS `pubDate`, или из URL `/YYYY/MM/DD/`, или DD.MM.YYYY в title/description. NULL → UI «дата неизвестна» |
+| title / content / excerpt | text | |
+| images | jsonb | `[{url, width?, height?}]` (для TG — `cdn4.telesco.pe`, имеют TTL ~24-48ч) |
+| match_type | text | `close` / `indirect` / `none` для topics-режима, NULL для feed |
+| match_topic_id / match_topic_name / match_reason | text | Решение классификатора |
+| is_favorite / favorited_at | boolean / timestamp | Помечено пользователем в избранное (страница `/monitoring/favorites`) |
+| engagement | jsonb | `{views?, reactionsTotal?, reactions?: [{emoji,count}], comments?, forwards?}`. TG отдаёт всё, RSS обычно только `comments` (через `slash:comments`). Пусто для большинства сайтов. |
+| engagement_score | int | Численный показатель «горячести»: `views + reactions*15 + forwards*20 + comments*30`. Индекс `(run_id, engagement_score)` — для сортировки «по вовлечённости». Порог 1500 = бейдж «горячее». |
 
 ---
 
@@ -360,6 +470,59 @@ MediaGenerator/
     │
     ▼ Response:
     {generation_id, images: [{id, url, width, height}]}
+```
+
+### Генерация видео (async)
+
+```
+Пользователь
+    │
+    ▼ POST /api/video/generate {model, prompt, params, uploadId?}
+    │ Server: auth + бюджет/лимиты + ключ OpenRouter
+    │         → video_generations (status: processing) → submit job в OpenRouter
+    │         → возврат {videoGenerationId}
+    │
+    ▼ Клиент опрашивает GET /api/video/[id]/status каждые ~3с
+    │ Server: poll OpenRouter
+    │   completed → скачать mp4 → S3 (videos/{genId}/0.mp4) → запись videos
+    │            → status: done, списать usage.cost в user.total_spent
+    │   failed    → status: error
+    │
+    ▼ <video controls src="/api/videos/[id]">  (Range/206 для перемотки)
+```
+
+### Мониторинг
+
+```
+Пользователь → POST /api/monitoring/runs {templateId, intervalDays}
+    │
+    ▼ Server:
+    1. Создание monitoring_runs (status: pending)
+    2. safeRunPipeline() — асинхронно, без ожидания клиентом
+    │
+    ▼ Pipeline (status: fetching):
+    3. Параллельный fetch всех активных источников:
+       - telegram → t.me/s/{handle} (HTML, до 5 страниц через ?before),
+         параллельно вытаскиваются views/reactions/forwards/comments
+       - website  → discoverFeedUrl() → RSS/Atom + parseFeed(),
+         комментарии берутся из `slash:comments` если есть
+    4. Дедуп постов по (sourceId + sourcePostId)
+    5. sourceLog в artifacts — статус каждого источника
+    6. computeEngagementScore() считает «горячесть» для сортировки
+    │
+    ▼ Если mode=topics (status: classifying):
+    6. classifyPosts() — батчи по 8 через OpenRouter Haiku 4.5
+       JSON-output: [{index, match_type, topic_id, reason}]
+    7. Считаем cost, добавляем в user.totalSpent
+    │
+    ▼ Сохранение:
+    8. INSERT в monitoring_items
+    9. UPDATE monitoring_runs (status: done, items_found, items_matched)
+   10. UPDATE monitoring_templates (last_run_at, next_run_at)
+
+cron-tick (каждые 15 минут):
+    GET monitoring_templates WHERE is_active AND next_run_at <= now()
+    → стартует новый run с trigger=scheduled
 ```
 
 ### Проверка обновлений моделей (cron, ежедневно)

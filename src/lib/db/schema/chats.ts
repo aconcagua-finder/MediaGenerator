@@ -15,6 +15,17 @@ export const chats = pgTable("chats", {
   index("idx_chats_updated_at").on(table.updatedAt),
 ])
 
+/**
+ * Один элемент вложения у сообщения. Ссылка на uploads.id и закэшированные
+ * параметры для рендера без лишнего JOIN.
+ */
+export interface ChatAttachment {
+  uploadId: string
+  mimeType: string
+  width?: number | null
+  height?: number | null
+}
+
 export const chatMessages = pgTable("chat_messages", {
   id: uuid("id").primaryKey().defaultRandom(),
   chatId: uuid("chat_id").notNull().references(() => chats.id, { onDelete: "cascade" }),
@@ -24,6 +35,8 @@ export const chatMessages = pgTable("chat_messages", {
   tokensIn: integer("tokens_in"),
   tokensOut: integer("tokens_out"),
   cost: numeric("cost", { precision: 10, scale: 6 }),
+  /** Вложения пользователя — картинки, прикреплённые к сообщению. NULL = их нет. */
+  attachments: jsonb("attachments").$type<ChatAttachment[]>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_chat_messages_chat_id").on(table.chatId),

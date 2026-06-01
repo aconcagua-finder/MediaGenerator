@@ -45,9 +45,23 @@ export async function POST(request: NextRequest) {
         costLimit: user.costLimit,
         totalSpent: user.totalSpent,
         maxGenerations: user.maxGenerations,
+        banned: user.banned,
+        banReason: user.banReason,
       })
       .from(user)
       .where(eq(user.id, session.user.id))
+
+    // 3-pre. Блокировка имеет приоритет над всеми лимитами
+    if (userData?.banned) {
+      return NextResponse.json(
+        {
+          error: userData.banReason
+            ? `Аккаунт заблокирован: ${userData.banReason}`
+            : "Аккаунт заблокирован",
+        },
+        { status: 403 }
+      )
+    }
 
     // Провайдеры с бесплатным API — не считаем в бюджет
     const freeProviders = ["google"]

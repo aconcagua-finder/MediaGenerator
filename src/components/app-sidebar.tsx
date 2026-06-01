@@ -8,7 +8,10 @@ import {
   HistoryIcon,
   SettingsIcon,
   SparklesIcon,
+  VideoIcon,
   MessageSquareIcon,
+  NewspaperIcon,
+  RadarIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
 } from "lucide-react"
@@ -29,8 +32,11 @@ import {
 } from "@/components/ui/sidebar"
 
 const navItems = [
-  { title: "Генерация", href: "/generate", icon: SparklesIcon },
+  { title: "Генерация контента", href: "/generate", icon: SparklesIcon },
+  { title: "Видео", href: "/video", icon: VideoIcon },
   { title: "Чат", href: "/chat", icon: MessageSquareIcon },
+  { title: "Публикации", href: "/publications", icon: NewspaperIcon },
+  { title: "Мониторинг", href: "/monitoring", icon: RadarIcon },
   { title: "Библиотека", href: "/library", icon: ImagesIcon },
   { title: "История", href: "/history", icon: HistoryIcon },
   { title: "Настройки", href: "/settings", icon: SettingsIcon },
@@ -39,10 +45,12 @@ const navItems = [
 export function AppSidebar({
   user,
   unreadNotificationCount = 0,
+  unreadMonitoringCount = 0,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: { name: string; email: string; role: string }
   unreadNotificationCount?: number
+  unreadMonitoringCount?: number
 }) {
   const pathname = usePathname()
   const { toggleSidebar } = useSidebar()
@@ -68,7 +76,7 @@ export function AppSidebar({
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-bold">MediaGenerator</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    Генерация изображений
+                    Генерация контента
                   </span>
                 </div>
               </SidebarMenuButton>
@@ -119,6 +127,15 @@ export function AppSidebar({
                           className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-xs"
                         >
                           {unreadNotificationCount}
+                        </Badge>
+                      )}
+                    {item.href === "/monitoring" &&
+                      unreadMonitoringCount > 0 && (
+                        <Badge
+                          variant="default"
+                          className="ml-auto h-5 min-w-5 rounded-full bg-sky-500/85 px-1.5 text-xs text-white hover:bg-sky-500"
+                        >
+                          {unreadMonitoringCount}
                         </Badge>
                       )}
                   </SidebarMenuButton>

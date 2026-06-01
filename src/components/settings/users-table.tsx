@@ -209,10 +209,10 @@ export function UsersTable({ users }: { users: UserRow[] }) {
             <TableRow>
               <TableHead>Пользователь</TableHead>
               <TableHead>Роль</TableHead>
-              <TableHead>Лимит/день</TableHead>
-              <TableHead>Бюджет</TableHead>
-              <TableHead>Потрачено</TableHead>
-              <TableHead>Макс. генераций</TableHead>
+              <TableHead title="Дневной лимит генераций картинок (UTC)">Картинок/день</TableHead>
+              <TableHead title="Общий бюджет: картинки + чат с текстом">Бюджет</TableHead>
+              <TableHead title="Сколько уже потрачено из бюджета (картинки + чат)">Потрачено</TableHead>
+              <TableHead title="Максимум генераций картинок за всё время. ∞ — без ограничения">Макс. картинок</TableHead>
               <TableHead>Статус</TableHead>
               <TableHead className="text-right">Действия</TableHead>
             </TableRow>
@@ -345,7 +345,8 @@ export function UsersTable({ users }: { users: UserRow[] }) {
           <DialogHeader>
             <DialogTitle>Заблокировать пользователя</DialogTitle>
             <DialogDescription>
-              {banDialogUser?.name} ({banDialogUser?.email}) не сможет генерировать изображения.
+              {banDialogUser?.name} ({banDialogUser?.email}) не сможет генерировать
+              картинки и пользоваться чатом.
             </DialogDescription>
           </DialogHeader>
           <Textarea

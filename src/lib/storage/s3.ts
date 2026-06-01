@@ -95,6 +95,37 @@ export async function downloadBuffer(key: string): Promise<{
 }
 
 /**
+ * Скачать файл из S3 потоком с поддержкой Range (HTTP 206).
+ * Нужно для перемотки видео в <video> — браузер шлёт `Range: bytes=...`.
+ * Без range отдаётся весь объект (200).
+ */
+export async function downloadStream(
+  key: string,
+  range?: string
+): Promise<{
+  body: ReadableStream
+  contentType: string | undefined
+  contentLength: number | undefined
+  contentRange: string | undefined
+  statusCode: number
+}> {
+  const response = await s3.send(
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Range: range,
+    })
+  )
+  return {
+    body: response.Body as unknown as ReadableStream,
+    contentType: response.ContentType,
+    contentLength: response.ContentLength,
+    contentRange: response.ContentRange,
+    statusCode: range && response.ContentRange ? 206 : 200,
+  }
+}
+
+/**
  * Удалить файл из S3
  */
 export async function remove(key: string): Promise<void> {

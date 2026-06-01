@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server"
 import { eq, and, gte, sql } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { generations, images, user } from "@/lib/db/schema"
+import { generations, images, uploads, user } from "@/lib/db/schema"
 import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { getProvider } from "@/lib/providers/registry"
 import { upload, ensureBucket, downloadBuffer } from "@/lib/storage/s3"
+import { IMAGE_INPUT_MODELS } from "@/lib/capabilities"
 import { headers } from "next/headers"
 
 interface EditBody {
-  imageId: string
+  /** Источник: либо ID картинки из библиотеки, либо ID свежезагруженного upload */
+  imageId?: string
+  uploadId?: string
   prompt: string
   provider?: string
   model?: string
@@ -17,20 +20,8 @@ interface EditBody {
   count?: number
 }
 
-// Какие модели мы умеем редактировать
-const EDIT_CAPABLE_MODELS: Record<string, string[]> = {
-  // Через OpenAI Images API (/v1/images/edits)
-  openai: ["gpt-image-2", "gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"],
-  // Через OpenRouter chat completions с image input — мультимодальные модели
-  openrouter: [
-    "google/gemini-3.1-flash-image-preview",  // Nano Banana 2
-    "google/gemini-3-pro-image-preview",       // Nano Banana Pro
-    "google/gemini-2.5-flash-image",           // Nano Banana
-    "openai/gpt-5-image",
-    "openai/gpt-5-image-mini",
-    "openai/gpt-5.4-image-2",
-  ],
-}
+// Какие модели мы умеем редактировать — единый источник правды в capabilities
+const EDIT_CAPABLE_MODELS = IMAGE_INPUT_MODELS
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,15 +31,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as EditBody
-    const { imageId, prompt } = body
+    const { imageId, uploadId, prompt } = body
     const editProvider = body.provider || "openai"
     const editModel = body.model || "gpt-image-2"
     const editParams = body.params || {}
     const count = Math.min(Math.max(body.count || 1, 1), 4)
 
-    if (!imageId || !prompt?.trim()) {
+    if (!prompt?.trim()) {
+      return NextResponse.json({ error: "prompt обязателен" }, { status: 400 })
+    }
+    if (!imageId && !uploadId) {
       return NextResponse.json(
-        { error: "imageId и prompt обязательны" },
+        { error: "Нужен imageId (из библиотеки) или uploadId (загруженная картинка)" },
+        { status: 400 }
+      )
+    }
+    if (imageId && uploadId) {
+      return NextResponse.json(
+        { error: "Передавайте только imageId ИЛИ uploadId, не оба" },
         { status: 400 }
       )
     }
@@ -62,26 +62,56 @@ export async function POST(request: NextRequest) {
 
     const isAdmin = session.user.role === "admin"
 
-    // Найти исходное изображение и проверить доступ
-    const [src] = await db
-      .select({
-        id: images.id,
-        s3Key: images.s3Key,
-        format: images.format,
-        width: images.width,
-        height: images.height,
-        folderId: images.folderId,
-        generationUserId: generations.userId,
-      })
-      .from(images)
-      .innerJoin(generations, eq(images.generationId, generations.id))
-      .where(eq(images.id, imageId))
-
-    if (!src) {
-      return NextResponse.json({ error: "Изображение не найдено" }, { status: 404 })
+    // Источник: либо ранее сгенерированная картинка, либо пользовательский upload.
+    // Унифицируем в одной структуре чтобы дальше работать одинаково.
+    let src: {
+      s3Key: string
+      format: string | null
+      folderId: string | null
     }
-    if (src.generationUserId !== session.user.id && !isAdmin) {
-      return NextResponse.json({ error: "Нет доступа" }, { status: 403 })
+    let parentImageId: string | null = null
+
+    if (imageId) {
+      const [row] = await db
+        .select({
+          id: images.id,
+          s3Key: images.s3Key,
+          format: images.format,
+          folderId: images.folderId,
+          generationUserId: generations.userId,
+        })
+        .from(images)
+        .innerJoin(generations, eq(images.generationId, generations.id))
+        .where(eq(images.id, imageId))
+
+      if (!row) {
+        return NextResponse.json({ error: "Изображение не найдено" }, { status: 404 })
+      }
+      if (row.generationUserId !== session.user.id && !isAdmin) {
+        return NextResponse.json({ error: "Нет доступа" }, { status: 403 })
+      }
+      src = { s3Key: row.s3Key, format: row.format, folderId: row.folderId }
+      parentImageId = imageId
+    } else {
+      const [row] = await db
+        .select({
+          id: uploads.id,
+          s3Key: uploads.s3Key,
+          mimeType: uploads.mimeType,
+          userId: uploads.userId,
+        })
+        .from(uploads)
+        .where(eq(uploads.id, uploadId!))
+
+      if (!row) {
+        return NextResponse.json({ error: "Загруженный файл не найден" }, { status: 404 })
+      }
+      if (row.userId !== session.user.id && !isAdmin) {
+        return NextResponse.json({ error: "Нет доступа к файлу" }, { status: 403 })
+      }
+      // mimeType → format ("image/png" → "png")
+      const format = row.mimeType.split("/")[1] || null
+      src = { s3Key: row.s3Key, format, folderId: null }
     }
 
     // Лимиты
@@ -91,9 +121,22 @@ export async function POST(request: NextRequest) {
         costLimit: user.costLimit,
         totalSpent: user.totalSpent,
         maxGenerations: user.maxGenerations,
+        banned: user.banned,
+        banReason: user.banReason,
       })
       .from(user)
       .where(eq(user.id, session.user.id))
+
+    if (userData?.banned) {
+      return NextResponse.json(
+        {
+          error: userData.banReason
+            ? `Аккаунт заблокирован: ${userData.banReason}`
+            : "Аккаунт заблокирован",
+        },
+        { status: 403 }
+      )
+    }
 
     if (!isAdmin && userData) {
       const spent = parseFloat(userData.totalSpent) || 0
@@ -156,7 +199,12 @@ export async function POST(request: NextRequest) {
         provider: editProvider,
         model: editModel,
         prompt: editPrompt,
-        params: { ...editParams, _edit: true, parentImageId: imageId },
+        params: {
+          ...editParams,
+          _edit: true,
+          // Для трассировки: либо родитель в библиотеке, либо upload-источник
+          ...(parentImageId ? { parentImageId } : { uploadId }),
+        },
         status: "processing",
         imagesCount: count,
       })
@@ -190,9 +238,10 @@ export async function POST(request: NextRequest) {
             height: img.height,
             format: img.format,
             sizeBytes: img.data.length,
-            // Наследуем папку оригинала — чтобы правленые варианты лежали рядом с источником
+            // Наследуем папку оригинала, если он из библиотеки.
+            // Для upload-источников folderId == null — попадает в корень.
             folderId: src.folderId,
-            parentImageId: imageId,
+            parentImageId,
             editPrompt,
           })
           .returning({ id: images.id })

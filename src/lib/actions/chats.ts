@@ -40,6 +40,8 @@ export async function getChat(chatId: string) {
     .where(eq(chatMessages.chatId, chatId))
     .orderBy(chatMessages.createdAt)
 
+  // attachments — это JSONB-массив объектов { uploadId, mimeType, width, height }.
+  // Возвращаем как есть — фронт сам рендерит миниатюры через /api/uploads/{id}.
   return { chat, messages }
 }
 

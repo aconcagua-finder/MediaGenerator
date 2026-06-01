@@ -20,9 +20,9 @@ export default async function GeneratePage() {
   return (
     <div className="space-y-6 py-6">
       <div>
-        <h1 className="text-xl font-bold text-white">Генерация</h1>
+        <h1 className="text-xl font-bold text-white">Генерация контента</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Создавайте изображения с помощью нейросетей
+          Создавайте изображения с помощью нейросетей. Для текста — раздел «Чат».
         </p>
       </div>
 

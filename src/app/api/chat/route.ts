@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { eq, and, sql } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { chats, chatMessages } from "@/lib/db/schema"
+import { chats, chatMessages, user, type ChatAttachment } from "@/lib/db/schema"
 import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { getTextModel } from "@/lib/providers/text-models"
+import { supportsVision } from "@/lib/capabilities"
+import { buildOpenRouterMessages } from "@/lib/chat-payload"
+import { calculateChatCost, isOverBudget } from "@/lib/utils/chat-cost"
+import { fetchUploadBuffers, resolveUserUploads } from "@/lib/uploads-helper"
 import { headers } from "next/headers"
 
 /**
@@ -69,6 +73,8 @@ interface ChatBody {
   chatId: string
   /** Содержимое нового сообщения пользователя */
   userMessage: string
+  /** ID вложенных пользователем картинок (paste/drop/picker → /api/uploads) */
+  attachmentIds?: string[]
 }
 
 export const runtime = "nodejs"
@@ -81,10 +87,16 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json()) as ChatBody
-  const { chatId, userMessage } = body
+  const { chatId, userMessage, attachmentIds } = body
 
-  if (!chatId || !userMessage?.trim()) {
-    return NextResponse.json({ error: "chatId и сообщение обязательны" }, { status: 400 })
+  if (!chatId) {
+    return NextResponse.json({ error: "chatId обязателен" }, { status: 400 })
+  }
+  const hasAttachments = Array.isArray(attachmentIds) && attachmentIds.length > 0
+  // Если есть вложение — текст может быть пустым ("посмотри на скрин"),
+  // в этом случае подставим минимальный плейсхолдер.
+  if (!userMessage?.trim() && !hasAttachments) {
+    return NextResponse.json({ error: "Нужно сообщение или вложение" }, { status: 400 })
   }
 
   // Получить чат и проверить владельца
@@ -100,6 +112,75 @@ export async function POST(request: NextRequest) {
   const model = getTextModel(chat.model)
   if (!model) {
     return NextResponse.json({ error: `Модель ${chat.model} не настроена` }, { status: 400 })
+  }
+
+  // Проверка лимитов и блокировки — то же, что в /api/generate и /api/edit.
+  // Чат тоже стоит денег (токены), поэтому участвует в общем `costLimit`.
+  const isAdmin = session.user.role === "admin"
+  const [userData] = await db
+    .select({
+      banned: user.banned,
+      banReason: user.banReason,
+      costLimit: user.costLimit,
+      totalSpent: user.totalSpent,
+    })
+    .from(user)
+    .where(eq(user.id, session.user.id))
+
+  if (userData?.banned) {
+    return NextResponse.json(
+      {
+        error: userData.banReason
+          ? `Аккаунт заблокирован: ${userData.banReason}`
+          : "Аккаунт заблокирован",
+      },
+      { status: 403 }
+    )
+  }
+
+  if (!isAdmin && userData) {
+    const spent = parseFloat(userData.totalSpent) || 0
+    const limit = parseFloat(userData.costLimit) || 0
+    if (isOverBudget(spent, limit)) {
+      return NextResponse.json(
+        {
+          error: `Бюджет исчерпан ($${limit.toFixed(2)}). Обратитесь к админу, чтобы поднять лимит.`,
+        },
+        { status: 429 }
+      )
+    }
+  }
+
+  const modelHasVision = supportsVision(chat.model)
+  if (hasAttachments && !modelHasVision) {
+    return NextResponse.json(
+      {
+        error:
+          `Модель ${model.name} не работает с картинками. ` +
+          `Переключитесь на vision-модель (например, Claude Sonnet 4.6, GPT-5.4 или Gemini 3 Flash) и повторите.`,
+      },
+      { status: 400 }
+    )
+  }
+
+  // Разрешаем вложения и подтягиваем data-url для отправки в провайдер.
+  let attachmentsForMessage: ChatAttachment[] | null = null
+  const dataUrlMap = new Map<string, string>()
+  if (hasAttachments) {
+    const resolved = await resolveUserUploads(attachmentIds!, session.user.id)
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.message }, { status: 400 })
+    }
+    const buffers = await fetchUploadBuffers(resolved.rows)
+    attachmentsForMessage = resolved.rows.map((r) => ({
+      uploadId: r.id,
+      mimeType: r.mimeType,
+      width: r.width,
+      height: r.height,
+    }))
+    resolved.rows.forEach((r, i) => {
+      dataUrlMap.set(r.id, buffers[i].dataUrl)
+    })
   }
 
   // API ключ OpenRouter
@@ -118,27 +199,55 @@ export async function POST(request: NextRequest) {
     .where(eq(chatMessages.chatId, chatId))
   const isFirstMessage = existingMsgCount === 0
 
-  // Сохраняем сообщение пользователя
+  // Сохраняем сообщение пользователя (с вложениями, если есть)
   await db.insert(chatMessages).values({
     chatId,
     role: "user",
     content: userMessage.trim(),
+    attachments: attachmentsForMessage,
   })
 
-  // Собираем историю
+  // Собираем историю — пред. сообщения могут содержать свои вложения,
+  // их тоже надо отправить (vision-модель ожидает увидеть полный контекст).
   const history = await db
-    .select({ role: chatMessages.role, content: chatMessages.content })
+    .select({
+      role: chatMessages.role,
+      content: chatMessages.content,
+      attachments: chatMessages.attachments,
+    })
     .from(chatMessages)
     .where(eq(chatMessages.chatId, chatId))
     .orderBy(chatMessages.createdAt)
 
-  const messages: Array<{ role: string; content: string }> = []
-  if (chat.systemPrompt?.trim()) {
-    messages.push({ role: "system", content: chat.systemPrompt.trim() })
+  // Для предыдущих сообщений с вложениями нужно тоже подтянуть data-url
+  if (modelHasVision) {
+    const allAttachmentIds: string[] = []
+    for (const m of history) {
+      for (const att of m.attachments ?? []) {
+        if (!dataUrlMap.has(att.uploadId)) {
+          allAttachmentIds.push(att.uploadId)
+        }
+      }
+    }
+    if (allAttachmentIds.length > 0) {
+      const resolved = await resolveUserUploads(allAttachmentIds, session.user.id)
+      if (resolved.ok) {
+        const buffers = await fetchUploadBuffers(resolved.rows)
+        resolved.rows.forEach((r, i) => {
+          dataUrlMap.set(r.id, buffers[i].dataUrl)
+        })
+      }
+      // Если часть прошлых вложений недоступна — молча игнорируем,
+      // не блокируем новый запрос из-за чужой ошибки в истории.
+    }
   }
-  for (const m of history) {
-    messages.push({ role: m.role, content: m.content })
-  }
+
+  const messages = buildOpenRouterMessages({
+    systemPrompt: chat.systemPrompt,
+    history,
+    attachmentDataUrls: dataUrlMap,
+    modelSupportsVision: modelHasVision,
+  })
 
   const settings = (chat.settings || {}) as Record<string, unknown>
   const temperature = typeof settings.temperature === "number" ? settings.temperature : 0.7
@@ -275,8 +384,7 @@ export async function POST(request: NextRequest) {
       } finally {
         // Сохранить ответ ассистента в БД (даже если поток оборвался — пишем то, что успели)
         if (fullResponse.trim()) {
-          const inputCost = (tokensIn / 1_000_000) * model.pricing.input
-          const outputCost = (tokensOut / 1_000_000) * model.pricing.output
+          const totalCost = calculateChatCost(tokensIn, tokensOut, model.pricing)
           await db.insert(chatMessages).values({
             chatId,
             role: "assistant",
@@ -284,9 +392,21 @@ export async function POST(request: NextRequest) {
             model: chat.model,
             tokensIn: tokensIn || null,
             tokensOut: tokensOut || null,
-            cost: (inputCost + outputCost).toFixed(6),
+            cost: totalCost.toFixed(6),
           })
           await db.update(chats).set({ updatedAt: new Date() }).where(eq(chats.id, chatId))
+
+          // Учёт расхода в общем бюджете пользователя — тот же `totalSpent`,
+          // что и для генерации/edit. Админ от этого не страдает (его лимиты не проверяются),
+          // но мы всё равно фиксируем расход — для аналитики и истории.
+          if (totalCost > 0) {
+            await db
+              .update(user)
+              .set({
+                totalSpent: sql`${user.totalSpent}::numeric + ${totalCost.toFixed(6)}::numeric`,
+              })
+              .where(eq(user.id, session.user.id))
+          }
 
           // Авто-название для первого диалога. Не блокируем долго —
           // ставим внутренний таймаут на 5с и продолжаем закрывать стрим.

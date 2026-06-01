@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Send, Loader2, Settings2, Copy, Check, RotateCw, Trash2 } from "lucide-react"
+import { Send, Loader2, Settings2, Copy, Check, RotateCw, Trash2, ImagePlus } from "lucide-react"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
 import {
@@ -23,7 +23,16 @@ import {
   formatContext,
   type TextModel,
 } from "@/lib/providers/text-models"
+import { useImageAttachments } from "@/hooks/use-image-attachments"
+import { AttachmentTray } from "@/components/shared/attachment-tray"
 import { MarkdownContent } from "./markdown-content"
+
+interface ChatAttachmentRef {
+  uploadId: string
+  mimeType: string
+  width?: number | null
+  height?: number | null
+}
 
 interface ChatMessage {
   id: string
@@ -33,6 +42,7 @@ interface ChatMessage {
   tokensIn: number | null
   tokensOut: number | null
   createdAt: Date
+  attachments?: ChatAttachmentRef[] | null
 }
 
 interface ChatData {
@@ -65,6 +75,8 @@ type UiMessage = {
   model?: string | null
   /** Ошибка от модели — рендерим красным и отдельно */
   error?: string
+  /** Вложения пользователя (только для role=user) */
+  attachments?: ChatAttachmentRef[] | null
 }
 
 export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShellProps) {
@@ -75,6 +87,7 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
       role: m.role as "user" | "assistant",
       content: m.content,
       model: m.model,
+      attachments: m.attachments,
     }))
   )
   const [input, setInput] = useState("")
@@ -82,10 +95,12 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
   const [showSettings, setShowSettings] = useState(false)
   const [copiedUid, setCopiedUid] = useState<string | null>(null)
   const [title, setTitle] = useState(chat.title)
+  const [isDragOver, setIsDragOver] = useState(false)
   const [isPending, startTransition] = useTransition()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const dragCounterRef = useRef(0)
 
   // Локальные настройки (не сохраняются сразу — кнопкой)
   const settings = (chat.settings || {}) as Record<string, unknown>
@@ -99,6 +114,10 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
   )
 
   const currentModel = TEXT_MODELS.find((m) => m.id === model)
+  const visionEnabled = !!currentModel?.supportsVision
+
+  // Хук вложений — paste/drop/picker → загрузка → /api/uploads
+  const att = useImageAttachments({ disabled: !visionEnabled, maxCount: 4 })
 
   // Авто-скролл вниз при новых сообщениях
   useEffect(() => {
@@ -114,7 +133,12 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
   }, [input])
 
   async function handleSend() {
-    if (!input.trim()) return
+    const trimmed = input.trim()
+    if (!trimmed && att.readyIds.length === 0) return
+    if (att.hasUploading) {
+      toast.info("Подождите загрузку картинки")
+      return
+    }
     if (!hasOpenRouterKey) {
       toast.error("Нет API ключа OpenRouter", {
         description: "Добавьте его в Настройках — этот ключ покрывает все текстовые модели.",
@@ -122,14 +146,27 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
       return
     }
 
-    const userText = input.trim()
+    const userText = trimmed
+    const attachmentIds = att.readyIds
+    // Снимок attachments для оптимистичного рендера user-сообщения.
+    const attachmentsSnapshot: ChatAttachmentRef[] = att.attachments
+      .filter((a) => a.status === "ready" && a.serverId)
+      .map((a) => ({
+        uploadId: a.serverId!,
+        mimeType: a.mimeType || "image/png",
+        width: a.width ?? null,
+        height: a.height ?? null,
+      }))
+
     setInput("")
+    att.clear()
     setStreaming(true)
 
     const userMsg: UiMessage = {
       uid: `local-user-${Date.now()}`,
       role: "user",
       content: userText,
+      attachments: attachmentsSnapshot.length > 0 ? attachmentsSnapshot : null,
     }
     const assistantUid = `local-assistant-${Date.now()}`
     const assistantMsg: UiMessage = {
@@ -151,6 +188,7 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
         body: JSON.stringify({
           chatId: chat.id,
           userMessage: userText,
+          attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined,
         }),
       })
 
@@ -523,13 +561,67 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
       </div>
 
       {/* Input */}
-      <div className="shrink-0 border-t border-white/[0.08] bg-black/40 backdrop-blur-sm">
+      <div
+        className="shrink-0 border-t border-white/[0.08] bg-black/40 backdrop-blur-sm"
+        onDragEnter={(e) => {
+          if (!visionEnabled) return
+          // Принимаем drag только если в дате есть файл
+          const hasFiles = e.dataTransfer?.types?.includes("Files")
+          if (!hasFiles) return
+          dragCounterRef.current += 1
+          setIsDragOver(true)
+        }}
+        onDragOver={(e) => {
+          if (!visionEnabled) return
+          if (!e.dataTransfer?.types?.includes("Files")) return
+          e.preventDefault()
+          // copy = курсор показывает копирование, а не запрет
+          if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"
+        }}
+        onDragLeave={() => {
+          if (!visionEnabled) return
+          dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+          if (dragCounterRef.current === 0) setIsDragOver(false)
+        }}
+        onDrop={(e) => {
+          if (!visionEnabled) return
+          e.preventDefault()
+          dragCounterRef.current = 0
+          setIsDragOver(false)
+          const files = e.dataTransfer?.files
+          if (files && files.length > 0) att.addFiles(files, "drop")
+        }}
+      >
         <div className="mx-auto max-w-3xl px-4 py-3">
-          <div className="flex items-end gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.02] p-2">
+          {/* Tray с миниатюрами вложений — рендерим всегда, если есть что показать */}
+          {(att.attachments.length > 0 || visionEnabled) && (
+            <div className="mb-2">
+              <AttachmentTray
+                attachments={att.attachments}
+                onRemove={att.remove}
+                onPick={(files) => att.addFiles(files, "picker")}
+                disabled={!visionEnabled}
+                hint={
+                  att.attachments.length === 0 && visionEnabled
+                    ? "Можно вставить скрин (Cmd/Ctrl+V), перетащить файл сюда или нажать «+»"
+                    : undefined
+                }
+              />
+            </div>
+          )}
+
+          <div
+            className={`relative flex items-end gap-2 rounded-2xl border bg-white/[0.02] p-2 transition-colors ${
+              isDragOver
+                ? "border-x-blue/60 bg-x-blue/[0.06]"
+                : "border-white/[0.12]"
+            }`}
+          >
             <textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onPaste={att.handlePaste}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault()
@@ -538,7 +630,9 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
               }}
               placeholder={
                 hasOpenRouterKey
-                  ? "Спросите что-нибудь… (Enter — отправить, Shift+Enter — новая строка)"
+                  ? visionEnabled
+                    ? "Спросите что-нибудь или вставьте скрин (Cmd/Ctrl+V). Enter — отправить, Shift+Enter — новая строка."
+                    : "Спросите что-нибудь… (Enter — отправить, Shift+Enter — новая строка)"
                   : "Сначала добавьте API ключ OpenRouter в Настройках"
               }
               disabled={streaming}
@@ -547,19 +641,36 @@ export function ChatShell({ chat, initialMessages, hasOpenRouterKey }: ChatShell
             />
             <button
               onClick={handleSend}
-              disabled={streaming || !input.trim() || !hasOpenRouterKey}
+              disabled={
+                streaming ||
+                (!input.trim() && att.readyIds.length === 0) ||
+                att.hasUploading ||
+                !hasOpenRouterKey
+              }
               className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-x-blue text-white transition-colors hover:bg-x-blue-hover active:scale-95 disabled:opacity-40"
               aria-label="Отправить"
+              title={att.hasUploading ? "Идёт загрузка картинки…" : undefined}
             >
-              {streaming ? (
+              {streaming || att.hasUploading ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <Send className="size-4" />
               )}
             </button>
+
+            {isDragOver && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl border-2 border-dashed border-x-blue/60 bg-x-blue/[0.08]">
+                <div className="flex items-center gap-2 text-sm font-medium text-x-blue">
+                  <ImagePlus className="size-4" />
+                  Отпустите, чтобы прикрепить
+                </div>
+              </div>
+            )}
           </div>
           <p className="mt-1.5 px-2 text-[10px] text-neutral-600">
-            Модели могут ошибаться. Проверяйте важные факты.
+            {visionEnabled
+              ? "Модели могут ошибаться. Проверяйте важные факты. Картинки работают только с vision-моделями."
+              : `${currentModel?.name || "Эта модель"} не работает с картинками — переключитесь на Claude/GPT-5/Gemini для вложений.`}
           </p>
         </div>
       </div>
@@ -624,10 +735,30 @@ function MessageBubble({
   const isUser = message.role === "user"
 
   if (isUser) {
+    const attachments = message.attachments ?? []
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-tr-md bg-x-blue/15 px-4 py-3 text-sm text-white">
-          <div className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</div>
+        <div className="max-w-[85%] space-y-2">
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-1.5">
+              {attachments.map((att) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={att.uploadId}
+                  src={`/api/uploads/${att.uploadId}`}
+                  alt="Прикреплено пользователем"
+                  className="max-h-64 max-w-full rounded-lg border border-white/[0.08] object-contain"
+                />
+              ))}
+            </div>
+          )}
+          {message.content && (
+            <div className="rounded-2xl rounded-tr-md bg-x-blue/15 px-4 py-3 text-sm text-white">
+              <div className="whitespace-pre-wrap break-words leading-relaxed">
+                {message.content}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )

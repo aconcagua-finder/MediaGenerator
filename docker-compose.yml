@@ -84,7 +84,10 @@ services:
           memory: 128M
     logging: *default-logging
 
-  # ===== Cron — периодическая проверка моделей (раз в сутки) =====
+  # ===== Cron =====
+  # Два периодических задания:
+  #   1. model-check — раз в 24 часа, обновляет список моделей провайдеров.
+  #   2. monitoring-tick — раз в 15 минут, запускает шаблоны мониторинга по расписанию.
   cron:
     image: alpine:3.20
     restart: unless-stopped
@@ -94,11 +97,17 @@ services:
     command:
       - -c
       - |
-        echo "Cron: model check every 24h"
+        echo "Cron: model-check (24h) + monitoring-tick (15m)"
         sleep 60
+        # Счётчик минут — раз в 1440 минут (24ч) дёргаем model-check.
+        MINUTES=0
         while true; do
-          wget -q -O- --header="Authorization: Bearer $${CRON_SECRET}" --post-data="" http://app:3000/api/cron/model-check || true
-          sleep 86400
+          wget -q -O- --header="Authorization: Bearer $${CRON_SECRET}" --post-data="" http://app:3000/api/cron/monitoring-tick || true
+          if [ $$((MINUTES % 1440)) -eq 0 ]; then
+            wget -q -O- --header="Authorization: Bearer $${CRON_SECRET}" --post-data="" http://app:3000/api/cron/model-check || true
+          fi
+          MINUTES=$$((MINUTES + 15))
+          sleep 900
         done
     env_file:
       - .env

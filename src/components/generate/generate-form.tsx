@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect } from "react"
-import { Sparkles, Loader2, DollarSign, RotateCcw, Wand2 } from "lucide-react"
+import { useState, useCallback, useMemo, useEffect, useRef } from "react"
+import { Sparkles, Loader2, DollarSign, RotateCcw, Wand2, ImagePlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -16,6 +16,9 @@ import { ParamPanel } from "./param-panel"
 import { PromptInput } from "./prompt-input"
 import { StyleSelector, getStyleSuffix } from "./style-selector"
 import { ImageEditDialog } from "./image-edit-dialog"
+import { useImageAttachments } from "@/hooks/use-image-attachments"
+import { AttachmentTray } from "@/components/shared/attachment-tray"
+import { supportsImageInput } from "@/lib/capabilities"
 import { toast } from "sonner"
 
 interface Model {
@@ -76,8 +79,15 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
   const [results, setResults] = useState<GeneratedImage[]>([])
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
   const [editingImage, setEditingImage] = useState<GeneratedImage | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragCounterRef = useRef(0)
 
   const currentModel = models[provider]?.find((m) => m.modelId === modelId)
+  const modelTakesImage = supportsImageInput(provider, modelId)
+
+  // Хук вложений. Для генерации ограничиваем одной картинкой —
+  // /api/edit принимает один источник.
+  const att = useImageAttachments({ disabled: !modelTakesImage, maxCount: 1 })
   const paramsSchema = currentModel?.paramsSchema as Record<string, {
     type: string; label: string; options: string[]; default: string
   }> | null
@@ -214,6 +224,20 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
       return
     }
 
+    if (att.hasUploading) {
+      toast.info("Подождите загрузку картинки")
+      return
+    }
+
+    const uploadId = att.readyIds[0]
+    // Если приложена картинка, но модель не умеет — мягко предупреждаем
+    if (uploadId && !modelTakesImage) {
+      toast.error("Эта модель не работает с референс-картинкой", {
+        description: "Уберите вложение или выберите модель с поддержкой image-input.",
+      })
+      return
+    }
+
     setIsGenerating(true)
 
     const controller = new AbortController()
@@ -227,17 +251,31 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
         }
       }
 
-      const response = await fetch("/api/generate", {
+      // Если приложена картинка — это edit-флоу (image-to-image),
+      // иначе обычная text-to-image генерация
+      const endpoint = uploadId ? "/api/edit" : "/api/generate"
+      const requestBody = uploadId
+        ? {
+            uploadId,
+            prompt: prompt.trim() + getStyleSuffix(style),
+            provider,
+            model: modelId,
+            params: finalParams,
+            count: parseInt(count),
+          }
+        : {
+            provider,
+            model: modelId,
+            prompt: prompt.trim() + getStyleSuffix(style),
+            params: finalParams,
+            count: parseInt(count),
+          }
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({
-          provider,
-          model: modelId,
-          prompt: prompt.trim() + getStyleSuffix(style),
-          params: finalParams,
-          count: parseInt(count),
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
@@ -264,8 +302,13 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
       }
 
       setResults((prev) => [...data.images, ...prev])
+      // После успешной отправки убираем привязанную картинку, чтобы
+      // следующий запрос не унаследовал её случайно.
+      att.clear()
       toast.success("Готово!", {
-        description: `Сгенерировано ${data.images.length} изобр. — $${data.cost?.toFixed(3) || "?"}`,
+        description: uploadId
+          ? `На основе вашей картинки — $${data.cost?.toFixed(3) || "?"}`
+          : `Сгенерировано ${data.images.length} изобр. — $${data.cost?.toFixed(3) || "?"}`,
       })
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Не удалось подключиться к серверу"
@@ -296,13 +339,66 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       {/* Left — prompt and results */}
       <div className="space-y-6">
-        <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
+        <div
+          className={`relative rounded-lg border bg-white/[0.02] p-5 transition-colors ${
+            isDragOver ? "border-x-blue/60 bg-x-blue/[0.04]" : "border-white/[0.12]"
+          }`}
+          onPaste={att.handlePaste}
+          onDragEnter={(e) => {
+            if (!modelTakesImage) return
+            if (!e.dataTransfer?.types?.includes("Files")) return
+            dragCounterRef.current += 1
+            setIsDragOver(true)
+          }}
+          onDragOver={(e) => {
+            if (!modelTakesImage) return
+            if (!e.dataTransfer?.types?.includes("Files")) return
+            e.preventDefault()
+            if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"
+          }}
+          onDragLeave={() => {
+            if (!modelTakesImage) return
+            dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+            if (dragCounterRef.current === 0) setIsDragOver(false)
+          }}
+          onDrop={(e) => {
+            if (!modelTakesImage) return
+            e.preventDefault()
+            dragCounterRef.current = 0
+            setIsDragOver(false)
+            const files = e.dataTransfer?.files
+            if (files && files.length > 0) att.addFiles(files, "drop")
+          }}
+        >
           <PromptInput
             value={prompt}
             onChange={setPrompt}
             onSubmit={handleGenerate}
             disabled={isGenerating}
           />
+
+          {/* Tray вложений — только для моделей с image-input */}
+          {(modelTakesImage || att.attachments.length > 0) && (
+            <div className="mt-3">
+              <AttachmentTray
+                attachments={att.attachments}
+                onRemove={att.remove}
+                onPick={(files) => att.addFiles(files, "picker")}
+                disabled={!modelTakesImage}
+                hint={
+                  att.attachments.length === 0 && modelTakesImage
+                    ? "Прикрепите референс-картинку: paste/перетащить/«+» — модель использует её как основу."
+                    : undefined
+                }
+              />
+              {att.attachments.length > 0 && (
+                <p className="mt-1.5 text-[11px] text-x-blue/80">
+                  Картинка прикреплена — запустится правка/image-to-image.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="mt-3">
             <StyleSelector value={style} onChange={setStyle} />
           </div>
@@ -339,6 +435,15 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
             <p className="mt-3 text-sm text-red-400">
               API ключ для {currentModel?.provider || provider} не настроен. Перейдите в Настройки.
             </p>
+          )}
+
+          {isDragOver && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg border-2 border-dashed border-x-blue/60 bg-x-blue/[0.08]">
+              <div className="flex items-center gap-2 text-sm font-medium text-x-blue">
+                <ImagePlus className="size-4" />
+                Отпустите, чтобы прикрепить как референс
+              </div>
+            </div>
           )}
         </div>
 
