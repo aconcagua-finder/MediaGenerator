@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/sidebar"
 
 const navItems = [
-  { title: "Генерация контента", href: "/generate", icon: SparklesIcon },
+  { title: "Изображения", href: "/generate", icon: SparklesIcon },
   { title: "Видео", href: "/video", icon: VideoIcon },
   { title: "Чат", href: "/chat", icon: MessageSquareIcon },
   { title: "Публикации", href: "/publications", icon: NewspaperIcon },
