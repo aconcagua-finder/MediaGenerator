@@ -23,6 +23,8 @@ export interface VideoLibraryItem {
     model: string
     prompt: string
     params: unknown
+    /** Стоимость генерации видео в USD */
+    cost: number | null
   }
 }
 
@@ -80,6 +82,7 @@ export async function getVideos(opts: {
         model: videoGenerations.model,
         prompt: videoGenerations.prompt,
         params: videoGenerations.params,
+        cost: videoGenerations.cost,
       })
       .from(videos)
       .innerJoin(videoGenerations, eq(videos.videoGenerationId, videoGenerations.id))
@@ -112,6 +115,7 @@ export async function getVideos(opts: {
         model: row.model,
         prompt: row.prompt,
         params: row.params,
+        cost: row.cost != null ? parseFloat(row.cost) : null,
       },
     })),
     total: countResult[0]?.count ?? 0,

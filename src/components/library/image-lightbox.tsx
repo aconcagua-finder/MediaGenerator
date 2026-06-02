@@ -94,6 +94,16 @@ export function ImageLightbox({
               <span className="text-muted-foreground">Провайдер</span>
               <span>{image.generation.provider}</span>
             </div>
+            {image.generation.cost != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Стоимость</span>
+                <span>
+                  {image.generation.cost > 0
+                    ? `$${image.generation.cost.toFixed(3)}`
+                    : "бесплатно"}
+                </span>
+              </div>
+            )}
             {image.width && image.height && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Размер</span>

@@ -23,6 +23,8 @@ export interface ImageWithGeneration {
     model: string
     prompt: string
     params: unknown
+    /** Стоимость за это изображение в USD (для батча — поделена на кол-во) */
+    cost: number | null
   }
 }
 
@@ -87,6 +89,8 @@ export async function getImages(opts: {
         model: generations.model,
         prompt: generations.prompt,
         params: generations.params,
+        cost: generations.cost,
+        imagesCount: generations.imagesCount,
       })
       .from(images)
       .innerJoin(generations, eq(images.generationId, generations.id))
@@ -119,6 +123,12 @@ export async function getImages(opts: {
         model: row.model,
         prompt: row.prompt,
         params: row.params,
+        cost:
+          row.cost != null
+            ? row.imagesCount && row.imagesCount > 1
+              ? parseFloat(row.cost) / row.imagesCount
+              : parseFloat(row.cost)
+            : null,
       },
     })),
     total: countResult[0]?.count ?? 0,

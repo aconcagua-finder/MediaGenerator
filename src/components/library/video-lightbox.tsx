@@ -95,6 +95,16 @@ export function VideoLightbox({ video, onClose, onDelete, onMove }: VideoLightbo
               <span className="text-muted-foreground">Провайдер</span>
               <span>{video.generation.provider}</span>
             </div>
+            {video.generation.cost != null && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Стоимость</span>
+                <span>
+                  {video.generation.cost > 0
+                    ? `$${video.generation.cost.toFixed(3)}`
+                    : "бесплатно"}
+                </span>
+              </div>
+            )}
             {video.durationSeconds != null && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Длительность</span>
