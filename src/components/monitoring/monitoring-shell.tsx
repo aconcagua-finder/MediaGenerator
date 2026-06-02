@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   PlusIcon,
   PlayIcon,
@@ -36,6 +37,7 @@ import { RunDetail } from "./run-detail"
 import { SourcesPanel } from "./sources-panel"
 import { TopicsPanel } from "./topics-panel"
 import { SchedulePanel } from "./schedule-panel"
+import { markAllMonitoringViewed } from "@/lib/actions/monitoring"
 
 interface MonitoringShellProps {
   initialTemplates: TemplateCard[]
@@ -69,6 +71,18 @@ export function MonitoringShell({
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
   const [headerCollapsed, setHeaderCollapsed] = useState(false)
   const [isLaunching, startLaunch] = useTransition()
+  const router = useRouter()
+
+  // При открытии раздела помечаем все запуски просмотренными и обновляем
+  // счётчик-бейдж в сайдбаре (он рендерится в layout — нужен router.refresh).
+  const viewedMarkedRef = useRef(false)
+  useEffect(() => {
+    if (viewedMarkedRef.current) return
+    viewedMarkedRef.current = true
+    markAllMonitoringViewed()
+      .then(() => router.refresh())
+      .catch(() => {})
+  }, [router])
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === selectedTemplateId) ?? null,

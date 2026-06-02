@@ -117,6 +117,12 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
       if (perImage) return { amount: perImage * n, exact: true }
     }
 
+    // Recraft: pricing.perImage — точная цена
+    if (provider === "recraft") {
+      const perImage = (pricing as { perImage?: number }).perImage
+      if (perImage) return { amount: perImage * n, exact: true }
+    }
+
     // OpenRouter: per-image или per-megapixel
     // Google: per-image по размеру
     if (provider === "google") {

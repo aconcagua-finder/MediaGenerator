@@ -5,6 +5,7 @@ import { openrouterProvider } from "./openrouter"
 import { bflProvider } from "./bfl"
 import { googleProvider } from "./google"
 import { perplexityProvider } from "./perplexity"
+import { recraftProvider } from "./recraft"
 
 /**
  * Реестр провайдеров.
@@ -17,6 +18,7 @@ const providers: Record<string, ImageProvider> = {
   bfl: bflProvider,
   google: googleProvider,
   perplexity: perplexityProvider,
+  recraft: recraftProvider,
 }
 
 export function getProvider(id: string): ImageProvider {
@@ -81,10 +83,18 @@ export const PROVIDER_INFO: Record<string, { name: string; description: string; 
     text: "text-cyan-300",
     label: "Perplexity",
   },
+  recraft: {
+    name: "Recraft",
+    description: "Векторная генерация (SVG) — логотипы, иконки, веб-графика. Нужен ключ recraft.ai",
+    dot: "bg-pink-400",
+    text: "text-pink-300",
+    label: "Recraft",
+  },
 }
 
 /** Модели, помеченные как "новинки" в селекторе */
 export const NEW_IMAGE_MODELS = new Set([
   "openai:gpt-image-2",
   "openrouter:openai/gpt-5.4-image-2",
+  "recraft:recraft-v3-vector",
 ])

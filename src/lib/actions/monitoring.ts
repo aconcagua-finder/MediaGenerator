@@ -257,3 +257,16 @@ export async function markRunViewed(runId: string): Promise<void> {
     .where(and(eq(monitoringRuns.id, runId), eq(monitoringRuns.userId, session.user.id)))
   revalidatePath("/monitoring")
 }
+
+/**
+ * Пометить ВСЕ непросмотренные запуски просмотренными — вызывается при открытии
+ * раздела «Мониторинг», чтобы сбросить счётчик-бейдж в сайдбаре.
+ */
+export async function markAllMonitoringViewed(): Promise<void> {
+  const session = await requireSession()
+  await db
+    .update(monitoringRuns)
+    .set({ viewedAt: new Date() })
+    .where(and(eq(monitoringRuns.userId, session.user.id), isNull(monitoringRuns.viewedAt)))
+  revalidatePath("/monitoring")
+}

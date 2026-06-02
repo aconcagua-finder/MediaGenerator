@@ -644,4 +644,35 @@ export const SEED_MODELS: SeedModel[] = [
     },
     pricing: { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
   },
+
+  // === Recraft (прямой API) — векторная генерация SVG ===
+  {
+    provider: "recraft",
+    modelId: "recraft-v3-vector",
+    displayName: "Recraft V3 Вектор (SVG)",
+    description: "Настоящий вектор — SVG для логотипов, иконок, веб-графики. Масштабируется без потерь. Нужен ключ recraft.ai.",
+    paramsSchema: {
+      size: {
+        type: "select",
+        label: "Размер",
+        options: ["1024x1024", "1365x1024", "1024x1365", "1280x1024", "1024x1280"],
+        default: "1024x1024",
+      },
+      substyle: {
+        type: "select",
+        label: "Стиль",
+        options: ["none", "line_art", "hand_drawn", "engraving", "flat_2", "linocut"],
+        default: "none",
+        optionLabels: {
+          none: "Авто",
+          line_art: "Контурный",
+          hand_drawn: "От руки",
+          engraving: "Гравюра",
+          flat_2: "Плоский",
+          linocut: "Линогравюра",
+        },
+      },
+    },
+    pricing: { perImage: 0.08 },
+  },
 ]

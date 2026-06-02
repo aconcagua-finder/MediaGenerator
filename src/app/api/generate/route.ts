@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < result.images.length; i++) {
         const img = result.images[i]
         const s3Key = `generations/${generation.id}/${i}.${img.format}`
-        const contentType = `image/${img.format}`
+        const contentType = img.format === "svg" ? "image/svg+xml" : `image/${img.format}`
 
         await upload(s3Key, img.data, contentType)
 
