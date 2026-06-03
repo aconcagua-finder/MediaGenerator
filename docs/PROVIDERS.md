@@ -205,6 +205,7 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 - `GET /api/v1/videos/{id}/content?index=0` → сырые байты mp4
 - Заголовки те же: `Authorization: Bearer`, `HTTP-Referer`, `X-Title`
 - Тело: `model`, `prompt`, `duration`, `resolution`, `aspect_ratio`, `generate_audio`, `frame_images` (i2v), `seed`
+- ❗ `frame_images` — массив **объектов**, не строк. Каждый: `{ type: "image_url", image_url: { url }, frame_type: "first_frame" | "last_frame" }`. `url` принимает data:-URI или ссылку. Передача массива строк → 400 `expected object, received string` (i2v молча падает, t2v работает). См. `src/lib/providers/video/openrouter-video.ts`.
 
 ### Модели (курировано; цена ≈ за секунду, биллинг по факту `usage.cost`)
 | Модель | t2v/i2v | Звук | Длит., сек | Разрешение | ≈$/сек |

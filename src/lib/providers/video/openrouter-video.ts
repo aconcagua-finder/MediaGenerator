@@ -42,10 +42,20 @@ export const openrouterVideoProvider: VideoProvider = {
     if (params.generate_audio != null) body.generate_audio = params.generate_audio
     if (params.seed != null) body.seed = params.seed
 
-    // image-to-video: первый кадр. OpenRouter принимает в `frame_images`
-    // массив изображений (data:-URI или URL). Шлём только для i2v-моделей.
+    // image-to-video: первый кадр. OpenRouter ждёт `frame_images` —
+    // массив ОБЪЕКТОВ в OpenAI-совместимом формате (`type: "image_url"` +
+    // `image_url.url` с data:-URI или URL), каждый с обязательным
+    // `frame_type` (`first_frame` | `last_frame`). Передаём стартовый кадр.
+    // ❗ Раньше слали массив строк → OpenRouter отвечал 400
+    // "expected object, received string", и i2v молча падал (t2v работал).
     if (frameImageDataUrl) {
-      body.frame_images = [frameImageDataUrl]
+      body.frame_images = [
+        {
+          type: "image_url",
+          image_url: { url: frameImageDataUrl },
+          frame_type: "first_frame",
+        },
+      ]
     }
 
     const controller = new AbortController()
