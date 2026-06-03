@@ -283,7 +283,12 @@ export function supportsImageToVideo(id: string): boolean {
   return getVideoModel(id)?.modes.includes("i2v") ?? false
 }
 
-/** Дефолтные значения параметров для модели (безопасные/дешёвые) */
+/**
+ * Дефолтные значения параметров для модели.
+ * Звук включён по умолчанию для всех моделей, которые его умеют: разница в цене
+ * минимальна, а забыть включить и получить немое видео — обидно. Для моделей без
+ * звука остаётся `false`.
+ */
 export function defaultVideoParams(model: VideoModel): {
   duration: number
   resolution: string
@@ -294,7 +299,7 @@ export function defaultVideoParams(model: VideoModel): {
     duration: model.durations[0],
     resolution: model.resolutions.includes("720p") ? "720p" : model.resolutions[0],
     aspect_ratio: model.aspectRatios.includes("16:9") ? "16:9" : model.aspectRatios[0],
-    generate_audio: false,
+    generate_audio: model.supportsAudio,
   }
 }
 
