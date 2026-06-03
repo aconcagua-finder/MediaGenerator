@@ -212,13 +212,18 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 |--------|---------|------|------------|------------|--------|
 | `bytedance/seedance-2.0` | оба | да | 4/8/12 | 480p/720p/1080p | ~0.07 |
 | `google/veo-3.1` | оба | да | 4/6/8 | 720p/1080p/4K | ~0.40 |
-| `google/veo-3.1-fast` | оба | да | 4/6/8 | 720p/1080p/4K | ~0.15 |
 | `kwaivgi/kling-v3.0-pro` | оба | да | 5/10 | 720p | ~0.112 |
-| `kwaivgi/kling-v3.0-std` | оба | да | 5/10 | 720p | ~0.084 |
+| `kwaivgi/kling-video-o1` | оба | да | 5/10 | 720p | ~0.112 |
 | `openai/sora-2-pro` | t2v | да | 4/8/12 | 720p/1080p | ~0.40 |
-| `minimax/hailuo-2.3` | t2v | нет | 6/10 | 1080p | ~0.082 |
-| `alibaba/wan-2.6` | t2v | да | 5/10 | 720p/1080p | ~0.10 |
-| `x-ai/grok-imagine-video` | t2v | нет | 5/10 | 480p/720p | ~0.06 |
+| `google/veo-3.1-fast` | оба | да | 4/6/8 | 720p/1080p/4K | ~0.15 |
+| `google/veo-3.1-lite` | оба | да | 4/6/8 | 720p/1080p | ~0.05 |
+| `kwaivgi/kling-v3.0-std` | оба | да | 5/10 | 720p | ~0.084 |
+| `minimax/hailuo-2.3` | оба | нет | 6/10 | 1080p | ~0.082 |
+| `alibaba/wan-2.6` | оба | да | 5/10 | 720p/1080p | ~0.10 |
+| `alibaba/wan-2.7` | оба | да | 5/10 | 720p/1080p | ~0.10 |
+| `bytedance/seedance-2.0-fast` | оба | да | 4/8/12 | 480p/720p | ~0.05 |
+| `bytedance/seedance-1-5-pro` | оба | да | 4/8/12 | 480p/720p/1080p | ~0.02 |
+| `x-ai/grok-imagine-video` | оба | нет | 5/10 | 480p/720p | ~0.06 |
 
 Источник правды — `src/lib/providers/video-models.ts`. Цены за секунду — ориентир для UI;
 точная сумма берётся из ответа OpenRouter (`usage.cost`) после генерации.
