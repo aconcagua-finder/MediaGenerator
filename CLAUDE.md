@@ -69,3 +69,22 @@
 **ВКонтакте парсинг** не реализован — нужен VK API service_token. VK-источники в шаблонах помечаются `disabled: true`.
 
 **Telegram CDN-картинки** (`cdn4.telesco.pe/...`) имеют TTL ~24-48 часов — для долгосрочного архива нужно скачивать в S3 при сборе.
+
+### Видео (`/video`)
+
+Генерация видео через OpenRouter (`POST /api/v1/videos`, асинхронно: job → polling),
+тем же ключом, что картинки/чат. Реестр моделей — `src/lib/providers/video-models.ts`.
+
+**Ключевые файлы:**
+- `src/lib/providers/video/openrouter-video.ts` — адаптер (submit/poll/fetchVideo)
+- `src/lib/providers/video-models.ts` — реестр моделей (зеркалит `GET /api/v1/videos/models`)
+- `src/lib/video/finalize.ts` — `finalizeVideoGeneration` + `reconcileStaleVideoJobs` (общий код)
+- `src/app/api/video/[id]/status/route.ts` — клиентский поллинг (тонкий, зовёт finalize)
+- `src/app/api/cron/video-reconcile/route.ts` — cron-дочистка зависших задач
+
+**Архитектурные принципы:**
+1. **i2v: `frame_images` — массив ОБЪЕКТОВ**, не строк: `{ type:"image_url", image_url:{ url }, frame_type:"first_frame"|"last_frame" }`. `url` принимает data:-URI. Массив строк → 400 `expected object, received string`. Текст-промпт уходит всегда (`{model,prompt}`), картинка — поверх.
+2. **`poll()`: упавшая задача = `{ status:"failed", error:"<строка-причина>" }` при HTTP 200**. `error`-строка (часто контент-фильтр Veo: «content may have been filtered») — это ПРИЧИНА фейла, НЕ транспортная ошибка. ❗ Нельзя бросать исключение при `data.error` — иначе фейл ловится как транзиентный и задача крутится вечно, не финализируясь. Бросаем только если `!status && !response.ok`.
+3. **Финализация — единый `finalize.ts`** для клиентского поллинга и cron. Claim `processing → saving` (UPDATE с `where status='processing'`) защищает от двойного скачивания при гонке клиент/cron.
+4. **Поллинг статуса целиком клиентский** (браузер дёргает `/status`). Если вкладку закрыли — задачу дочищает cron `video-reconcile` (каждые 15 мин): опрашивает провайдера, скачивает mp4 в S3 при успехе или ставит `error`. Без него закрытая вкладка = вечный `processing`. ❗ Добавление в cron-команду требует `--force-recreate cron` (см. п.12 мониторинга).
+5. **Биллинг — только за успех.** `user.totalSpent` растёт лишь в ветке `done`; упавшая задача → `cost = NULL`. OpenRouter за `failed` денег не берёт (нет `usage.cost`, политика Zero Completion Insurance).

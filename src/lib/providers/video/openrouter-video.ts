@@ -110,22 +110,34 @@ export const openrouterVideoProvider: VideoProvider = {
         status?: string
         unsigned_urls?: string[]
         usage?: { cost?: number; is_byok?: boolean }
-        error?: { message?: string; code?: number }
+        // ❗ OpenRouter кладёт в `error` СТРОКУ-причину, когда задача доехала до
+        // терминального `failed` (напр. «content may have been filtered»), и
+        // объект `{message,code}` — при транспортной/HTTP-ошибке самого опроса.
+        error?: string | { message?: string; code?: number }
       }
 
-      if (!response.ok || data.error) {
-        const msg =
-          data.error?.message || `OpenRouter video poll ошибка: ${response.status}`
-        throw new Error(msg)
+      const rawStatus = typeof data.status === "string" ? data.status : undefined
+      const errText =
+        typeof data.error === "string" ? data.error : data.error?.message
+
+      // Транспортная ошибка опроса = нет распознаваемого статуса задачи И HTTP не-2xx.
+      // НЕ путать с задачей, завершившейся `failed` (там статус есть): раньше любой
+      // `data.error` в теле бросал исключение → фейл воспринимался как транзиентный,
+      // и задача крутилась вечно, никогда не финализируясь.
+      if (!rawStatus && !response.ok) {
+        throw new Error(errText || `OpenRouter video poll ошибка: ${response.status}`)
       }
 
-      const state = (data.status || "pending") as VideoJobState
+      const state = (rawStatus || "pending") as VideoJobState
 
       return {
         state,
         videoUrls: Array.isArray(data.unsigned_urls) ? data.unsigned_urls : [],
         cost: typeof data.usage?.cost === "number" ? data.usage.cost : undefined,
-        error: state === "failed" ? "Генерация не удалась на стороне провайдера" : undefined,
+        error:
+          state === "failed"
+            ? errText || "Генерация не удалась на стороне провайдера"
+            : undefined,
         rawResponse: data,
       }
     } finally {
