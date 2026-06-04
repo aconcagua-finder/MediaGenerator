@@ -7,6 +7,7 @@ import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { getVideoProvider } from "@/lib/providers/video/registry"
 import { getVideoModel, estimateVideoCost } from "@/lib/providers/video-models"
 import { downloadBuffer } from "@/lib/storage/s3"
+import { humanizeVideoError } from "@/lib/video/humanize-error"
 import { headers } from "next/headers"
 
 // Все видеомодели идут через OpenRouter (тот же ключ, что у картинок/чата)
@@ -224,9 +225,10 @@ export async function POST(request: NextRequest) {
         estimatedCost: estimate,
       })
     } catch (submitError) {
-      const message =
+      const raw =
         submitError instanceof Error ? submitError.message : "Не удалось отправить задачу"
-      console.error(`[video/generate] ${model}:`, message)
+      console.error(`[video/generate] ${model}:`, raw)
+      const message = humanizeVideoError(raw)
       await db
         .update(videoGenerations)
         .set({ status: "error", errorMessage: message, completedAt: new Date() })

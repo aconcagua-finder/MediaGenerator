@@ -5,6 +5,7 @@ import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { getVideoProvider } from "@/lib/providers/video/registry"
 import { getVideoModel, estimateVideoCost } from "@/lib/providers/video-models"
 import { upload, ensureBucket } from "@/lib/storage/s3"
+import { humanizeVideoError } from "./humanize-error"
 
 /**
  * Финализация одной видео-генерации: опрос провайдера → скачивание mp4 в S3 →
@@ -140,7 +141,10 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
   }
 
   if (poll.state === "failed" || poll.videoUrls.length === 0) {
-    const errMsg = poll.error || "Провайдер вернул пустой результат"
+    const rawErr = poll.error || "Провайдер вернул пустой результат"
+    const errMsg = humanizeVideoError(rawErr)
+    // Сырой текст провайдера — в лог; в БД/UI идёт человекочитаемая версия
+    if (errMsg !== rawErr) console.error(`[video/finalize] ${gen.id} провайдер:`, rawErr)
     await db
       .update(videoGenerations)
       .set({ status: "error", errorMessage: errMsg, completedAt: new Date() })
