@@ -143,9 +143,12 @@ export function VideoEditor({ initialClips }: { initialClips: PickerVideo[] }) {
   const canRender = segments.length >= 1 && totalDuration > 0 && job?.status !== "processing"
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      {/* Левая колонка — дорожка, предпросмотр, результат */}
-      <div className="space-y-6">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {/* Левая колонка — дорожка, предпросмотр, результат.
+          min-w-0 + minmax(0,1fr) на гриде — иначе длинный однострочный промпт
+          (truncate = nowrap) раздувает колонку вправо до бесконечности и
+          выталкивает правую панель (см. CLAUDE.md, мониторинг п.5). */}
+      <div className="min-w-0 space-y-6">
         <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-bold text-white">Дорожка</h3>
