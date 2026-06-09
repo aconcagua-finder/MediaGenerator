@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { videos, videoGenerations } from "@/lib/db/schema"
+import { videos, videoGenerations, videoCompositions } from "@/lib/db/schema"
 import { downloadStream } from "@/lib/storage/s3"
 import { headers } from "next/headers"
 
@@ -22,20 +22,25 @@ export async function GET(
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
     }
 
+    // Видео принадлежит либо генерации, либо склейке — left-join обоих
+    // источников, владелец берётся из того, что не NULL (см. videos_owner_xor).
     const [video] = await db
       .select({
         s3Key: videos.s3Key,
-        ownerId: videoGenerations.userId,
+        genOwnerId: videoGenerations.userId,
+        compOwnerId: videoCompositions.userId,
       })
       .from(videos)
-      .innerJoin(videoGenerations, eq(videos.videoGenerationId, videoGenerations.id))
+      .leftJoin(videoGenerations, eq(videos.videoGenerationId, videoGenerations.id))
+      .leftJoin(videoCompositions, eq(videos.compositionId, videoCompositions.id))
       .where(eq(videos.id, id))
 
     if (!video) {
       return NextResponse.json({ error: "Видео не найдено" }, { status: 404 })
     }
+    const ownerId = video.genOwnerId ?? video.compOwnerId
     if (
-      video.ownerId !== session.user.id &&
+      ownerId !== session.user.id &&
       (session.user as { role?: string }).role !== "admin"
     ) {
       return NextResponse.json({ error: "Нет доступа" }, { status: 403 })
