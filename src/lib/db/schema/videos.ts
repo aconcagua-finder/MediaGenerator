@@ -1,6 +1,8 @@
-import { pgTable, uuid, text, integer, decimal, timestamp, jsonb, boolean, index } from "drizzle-orm/pg-core"
+import { pgTable, uuid, text, integer, decimal, timestamp, jsonb, boolean, index, check } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
 import { user } from "./auth"
 import { folders } from "./folders"
+import { videoCompositions } from "./video-compositions"
 
 /**
  * Генерации видео. Зеркало `generations`, но с поправкой на асинхронность:
@@ -34,12 +36,22 @@ export const videoGenerations = pgTable("video_generations", {
 /**
  * Готовые видеофайлы. Зеркало `images`: один generation обычно даёт один файл,
  * но схема 1→N оставлена для совместимости с паттерном картинок.
+ *
+ * Владелец видео — РОВНО ОДИН из двух источников (XOR, enforced CHECK-constraint
+ * `videos_owner_xor`):
+ *  - `videoGenerationId` — клип, сгенерированный нейросетью (`video_generations`);
+ *  - `compositionId` — клип, склеенный из других в редакторе (`video_compositions`).
+ * Поэтому `videoGenerationId` теперь nullable. FK и CHECK объявлены и здесь, и в
+ * SQL-миграции 0015 — иначе `drizzle-kit push` снёс бы их при следующей синхронизации.
+ * Циклический импорт с `video_compositions` безопасен: ссылки ленивые (`() => …`).
  */
 export const videos = pgTable("videos", {
   id: uuid("id").primaryKey().defaultRandom(),
   videoGenerationId: uuid("video_generation_id")
-    .notNull()
     .references(() => videoGenerations.id, { onDelete: "cascade" }),
+  /** Источник-склейка (см. video_compositions) */
+  compositionId: uuid("composition_id")
+    .references(() => videoCompositions.id, { onDelete: "cascade" }),
   folderId: uuid("folder_id").references(() => folders.id, { onDelete: "set null" }),
   s3Key: text("s3_key").notNull(),
   s3Url: text("s3_url").notNull(),
@@ -53,6 +65,12 @@ export const videos = pgTable("videos", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_videos_video_generation_id").on(table.videoGenerationId),
+  index("idx_videos_composition_id").on(table.compositionId),
   index("idx_videos_folder_id").on(table.folderId),
   index("idx_videos_created_at").on(table.createdAt),
+  // Ровно один источник: генерация XOR склейка (см. миграцию 0015)
+  check(
+    "videos_owner_xor",
+    sql`("video_generation_id" is not null) <> ("composition_id" is not null)`,
+  ),
 ])

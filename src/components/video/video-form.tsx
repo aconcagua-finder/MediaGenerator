@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
-import { Video, Loader2, DollarSign, Volume2, VolumeX, ImagePlus, Download } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Video, Loader2, DollarSign, Volume2, VolumeX, ImagePlus, Download, Scissors } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -78,6 +79,12 @@ export function VideoForm({ hasOpenRouterKey }: VideoFormProps) {
   const [jobs, setJobs] = useState<VideoJob[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const dragCounterRef = useRef(0)
+  const router = useRouter()
+
+  // Готовые клипы этой сессии — для быстрой склейки
+  const doneVideoIds = jobs
+    .filter((j) => j.status === "done" && j.video)
+    .map((j) => j.video!.id)
 
   const modelTakesImage = model.modes.includes("i2v")
   const att = useImageAttachments({ disabled: !modelTakesImage, maxCount: 1 })
@@ -327,7 +334,19 @@ export function VideoForm({ hasOpenRouterKey }: VideoFormProps) {
         {/* Результаты */}
         {jobs.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-neutral-400">Результаты</h3>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-medium text-neutral-400">Результаты</h3>
+              {doneVideoIds.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/video/editor?clips=${doneVideoIds.slice(0, 12).join(",")}`)}
+                  className="flex h-8 items-center gap-1.5 rounded-full border border-x-blue/40 bg-x-blue/[0.1] px-3 text-xs font-medium text-x-blue transition-colors hover:bg-x-blue/[0.18]"
+                >
+                  <Scissors className="size-3.5" />
+                  Склеить готовые ({doneVideoIds.length})
+                </button>
+              )}
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {jobs.map((job) => (
                 <VideoCard key={job.id} job={job} />

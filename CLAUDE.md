@@ -88,3 +88,27 @@
 3. **Финализация — единый `finalize.ts`** для клиентского поллинга и cron. Claim `processing → saving` (UPDATE с `where status='processing'`) защищает от двойного скачивания при гонке клиент/cron.
 4. **Поллинг статуса целиком клиентский** (браузер дёргает `/status`). Если вкладку закрыли — задачу дочищает cron `video-reconcile` (каждые 15 мин): опрашивает провайдера, скачивает mp4 в S3 при успехе или ставит `error`. Без него закрытая вкладка = вечный `processing`. ❗ Добавление в cron-команду требует `--force-recreate cron` (см. п.12 мониторинга).
 5. **Биллинг — только за успех.** `user.totalSpent` растёт лишь в ветке `done`; упавшая задача → `cost = NULL`. OpenRouter за `failed` денег не берёт (нет `usage.cost`, политика Zero Completion Insurance).
+
+#### Редактор склейки (`/video/editor`)
+
+Базовый видеоредактор: выбрать несколько готовых клипов, задать порядок, подрезать,
+склеить в один файл. Рендер — **локальный ffmpeg** (не провайдер), поэтому **бесплатно**.
+Вход: «Склеить» в bulk-actions библиотеки (2+ выбранных), «Склеить готовые» в результатах
+генерации, кнопка «Редактор склейки» на `/video`, или прямой переход.
+
+**Ключевые файлы:**
+- `src/lib/video/compose-graph.ts` — чистый построитель ffmpeg-команды (покрыт `tests/compose-graph.test.ts`)
+- `src/lib/video/compose.ts` — воркер: `runComposeJob` + `reconcileStaleCompositions`, in-process мьютекс
+- `src/app/api/video/compose/route.ts` — submit (валидация владения + eager-запуск рендера)
+- `src/app/api/video/compose/[id]/status/route.ts` — поллинг (+подталкивает рендер)
+- `src/app/api/cron/video-compose/route.ts` — дочистка зависших + осиротевших `/tmp`
+- `src/components/video/editor/*` — UI (дорожка, обрезка, пикер, предпросмотр, карточка рендера)
+
+**Архитектурные принципы:**
+1. **ВСЕГДА `filter_complex` + полный re-encode + нормализация.** Клипы от разных моделей различаются по разрешению/fps/pixfmt/звуку. Быстрый concat-демультиплексор (`-c copy`) на них **молча выдаёт битый выход** (зелёные кадры, фризы, рассинхрон) — не используем. Нормализация каждого сегмента: `trim`→`setpts=PTS-STARTPTS`→`scale:force_original_aspect_ratio=decrease`+`pad`(чёрные поля, без искажений)→`setsar=1`→`fps`→`format=yuv420p`.
+2. **Звук: anullsrc на каждый немой/мьютнутый сегмент.** `concat=...:a=1` требует аудиопоток в КАЖДОМ сегменте. Для клипов с `hasAudio=false` или `mute` подмешиваем отдельный lavfi-`anullsrc` вход длиной ровно в обрезанную длительность (иначе аудио уезжает на стыках). Ветка реальный-звук/тишина — по `videos.hasAudio` из БД. `audio=false` → вообще без аудио (`-an`).
+3. **Память на 768М: `-threads 1` обязателен** (libx264 по умолчанию множит фрейм-буферы по ядрам, +400-600МБ) + `-preset veryfast` + потолок холста 720p. **Один ffmpeg за раз** — in-process мьютекс (деплой = один app-контейнер) + DB-claim `processing→saving`.
+4. **Job-флоу зеркалит `finalize.ts`.** Рендер запускается eager из submit (`void runComposeJob`), клиент опрашивает статус. Зависшие добивает cron `video-compose` (перезапуск `processing`, ошибка для `saving` старше 15 мин). ❗ Cron-строка требует `--force-recreate cron` (см. п.12 мониторинга).
+5. **Данные.** Job-таблица `video_compositions` + нормализованный EDL `video_composition_segments` (миграция `0015`). Результат кладётся в общую `videos` через `videos.composition_id` (FK + XOR-CHECK `videos_owner_xor`: ровно один из `video_generation_id`/`composition_id`), поэтому склейка появляется в библиотеке как обычное видео. `getVideos`/`moveVideos`/`deleteVideos` — left-join обоих источников + `or(...)` по владельцу/статусу. `cost = NULL`, `totalSpent` не трогаем.
+6. **Холст по ориентации задаёт сервер** (16:9 → 1280×720, 9:16 → 720×1280) — контроль памяти, клиент не диктует произвольный размер. S3-ключ результата: `compositions/{id}/output.mp4`.
+7. **ffprobe для длительности.** Реальную длительность каждого входа берём из `ffprobe` (fallback на `videos.durationSeconds`), чтобы тишина точно совпадала с видео. Alpine-пакет `ffmpeg` ставит и `ffmpeg`, и `ffprobe` (`apk add ffmpeg` в Dockerfile).

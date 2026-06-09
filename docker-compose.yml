@@ -97,7 +97,7 @@ services:
     command:
       - -c
       - |
-        echo "Cron: model-check (24h) + monitoring-tick + video-reconcile (15m)"
+        echo "Cron: model-check (24h) + monitoring-tick + video-reconcile + video-compose (15m)"
         sleep 60
         # Счётчик минут — раз в 1440 минут (24ч) дёргаем model-check.
         MINUTES=0
@@ -105,6 +105,8 @@ services:
           wget -q -O- --header="Authorization: Bearer $${CRON_SECRET}" --post-data="" http://app:3000/api/cron/monitoring-tick || true
           # Дореконсиляция зависших видео-задач (поллинг статуса целиком клиентский)
           wget -q -O- --header="Authorization: Bearer $${CRON_SECRET}" --post-data="" http://app:3000/api/cron/video-reconcile || true
+          # Дочистка зависших склеек (ffmpeg-рендер) + осиротевших /tmp-папок
+          wget -q -O- --header="Authorization: Bearer $${CRON_SECRET}" --post-data="" http://app:3000/api/cron/video-compose || true
           if [ $$((MINUTES % 1440)) -eq 0 ]; then
             wget -q -O- --header="Authorization: Bearer $${CRON_SECRET}" --post-data="" http://app:3000/api/cron/model-check || true
           fi

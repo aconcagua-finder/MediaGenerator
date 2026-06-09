@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { FolderOpen } from "lucide-react"
 import { VideoGrid } from "./video-grid"
@@ -62,9 +63,19 @@ export function VideoLibrary({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   // Запароленные папки управляются во вкладке «Фото»; здесь их прячем
   const visibleFolders = folders.filter((f) => !f.hasPassword)
+
+  function handleCompose() {
+    const ids = [...selectedIds].slice(0, 12)
+    if (ids.length < 2) {
+      toast.info("Выберите минимум 2 клипа для склейки")
+      return
+    }
+    router.push(`/video/editor?clips=${ids.join(",")}`)
+  }
 
   const refreshVideos = useCallback(async (folderId: string | null) => {
     const folderParam =
@@ -233,6 +244,7 @@ export function VideoLibrary({
           onDelete={() => handleOpenDeleteDialog([...selectedIds])}
           onMove={() => handleOpenMoveDialog([...selectedIds])}
           onDownload={handleBulkDownload}
+          onCompose={handleCompose}
         />
 
         <VideoGrid
