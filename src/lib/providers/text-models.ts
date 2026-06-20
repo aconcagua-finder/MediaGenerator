@@ -3,7 +3,7 @@
  * Все они вызываются через единый OpenRouter endpoint (chat/completions),
  * поэтому достаточно одного API-ключа OpenRouter.
  *
- * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — май 2026.
+ * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — июнь 2026.
  */
 
 export interface TextModel {
@@ -171,10 +171,10 @@ export const TEXT_MODELS: TextModel[] = [
     id: "x-ai/grok-4.20-multi-agent",
     name: "Grok 4.20 Multi-Agent",
     vendor: "xai",
-    description: "Топовый Grok с мульти-агентным режимом. 2M контекст, лучше Grok 4.20 в reasoning.",
+    description: "Топовый Grok с мульти-агентным режимом. 2M контекст, умнее обычного Grok 4.20 в reasoning — по той же цене.",
     category: "alt",
     contextTokens: 2_000_000,
-    pricing: { input: 2.0, output: 6.0 },
+    pricing: { input: 1.25, output: 2.5 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -208,7 +208,7 @@ export const TEXT_MODELS: TextModel[] = [
     description: "Самая дешёвая в списке. Open-source, быстрая, хороша для массовой обработки.",
     category: "alt",
     contextTokens: 1_049_000,
-    pricing: { input: 0.14, output: 0.28 },
+    pricing: { input: 0.09, output: 0.18 },
     streaming: true,
   },
 ]

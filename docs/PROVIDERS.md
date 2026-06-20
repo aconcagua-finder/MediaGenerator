@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: апрель 2026
+> Актуально на: июнь 2026
 
 ---
 
@@ -12,9 +12,15 @@
 
 | Модель | ID | Цена (1024x1024, medium) |
 |--------|----|--------------------------|
+| GPT Image 2 | `gpt-image-2` | $0.053 |
 | GPT Image 1.5 | `gpt-image-1.5` | $0.034 |
 | GPT Image 1 | `gpt-image-1` | $0.042 |
 | GPT Image 1 Mini | `gpt-image-1-mini` | $0.011 |
+
+> `gpt-image-2` (флагман, апр 2026) — лучшее качество и кириллица, но **не**
+> поддерживает прозрачный фон (только opaque/auto). Для прозрачного фона —
+> `gpt-image-1.5` / `gpt-image-1`. `gpt-image-1` помечен OpenAI как deprecated
+> (плановое отключение ~окт 2026), пока работает.
 
 ### Параметры
 
@@ -32,6 +38,8 @@
 
 | Модель | Low | Medium | High |
 |--------|-----|--------|------|
+| gpt-image-2 (1024) | $0.006 | $0.053 | $0.211 |
+| gpt-image-2 (wide) | $0.009 | $0.080 | $0.317 |
 | gpt-image-1.5 (1024) | $0.009 | $0.034 | $0.133 |
 | gpt-image-1.5 (wide) | $0.013 | $0.050 | $0.200 |
 | gpt-image-1 (1024) | $0.011 | $0.042 | $0.167 |
@@ -50,7 +58,10 @@
 | Модель | ID | Цена |
 |--------|----|------|
 | Grok Imagine | `grok-imagine-image` | $0.02/изобр. |
-| Grok Imagine Pro | `grok-imagine-image-pro` | $0.07/изобр. |
+| Grok Imagine Quality | `grok-imagine-image-quality` | $0.05/изобр. |
+
+> `grok-imagine-image-pro` выведен из эксплуатации 15.05.2026 — теперь это
+> просто алиас на `grok-imagine-image-quality` (запросы авто-редиректятся).
 
 ### Параметры
 
@@ -78,10 +89,27 @@
 | Gemini 2.5 Flash Image | `google/gemini-2.5-flash-image` | $0.039 |
 | GPT-5 Image | `openai/gpt-5-image` | $0.10 |
 | GPT-5 Image Mini | `openai/gpt-5-image-mini` | $0.04 |
+| GPT-5.4 Image 2 | `openai/gpt-5.4-image-2` | $0.12 |
 | FLUX.2 Pro | `black-forest-labs/flux.2-pro` | $0.03 |
-| FLUX.2 Max | `black-forest-labs/flux.2-max` | $0.06 |
-| FLUX.2 Flex | `black-forest-labs/flux.2-flex` | $0.02 |
+| FLUX.2 Max | `black-forest-labs/flux.2-max` | $0.07 |
+| FLUX.2 Flex | `black-forest-labs/flux.2-flex` | $0.06 |
 | Seedream 4.5 | `bytedance-seed/seedream-4.5` | $0.04 |
+
+> ⚠️ FLUX.2 (`black-forest-labs/flux.2-*`) и Seedream (`bytedance-seed/seedream-4.5`)
+> работают на OpenRouter по прямому slug, но **не входят** в дефолтный список
+> `?output_modalities=image` (его дёргает `listModels` / авто-обнаружение), поэтому
+> зафиксированы в `seed-models.ts` вручную. Проверено через
+> `GET /api/v1/models/{slug}/endpoints` (HTTP 200, status 0) — июнь 2026.
+> FLUX.2 также доступен напрямую через провайдер BFL (раздел ниже).
+
+> ⚠️ **Gemini image — preview vs GA (важно по провайдерам):** на **OpenRouter**
+> живут только `-preview`-slug'и (`google/gemini-3.1-flash-image-preview`,
+> `google/gemini-3-pro-image-preview`) — GA-версии там 404, поэтому в OpenRouter-
+> записях оставляем `-preview`. А у **прямого Google API** (провайдер `google`)
+> наоборот: `-preview` Google отключает **25.06.2026**, GA-замены —
+> `gemini-3.1-flash-image` и `gemini-3-pro-image` (GA с 28.05.2026). Поэтому
+> прямые google-записи переведены на GA-id. `gemini-2.5-flash-image` (GA) жив,
+> но у него свой дедлайн — отключение **02.10.2026** (мигрировать на 3.1-flash).
 
 ### Параметры
 
@@ -90,13 +118,29 @@
 | `aspect_ratio` | 1:1, 2:3, 3:2, 3:4, 4:3, 9:16, 16:9 |
 | `image_size` | 0.5K, 1K, 2K, 4K |
 
-### Автообнаружение моделей
+### Автообнаружение и аудит моделей (раз в сутки)
 
-```
-GET https://openrouter.ai/api/v1/models?output_modalities=image
-```
+`POST /api/cron/model-check` дёргается cron-контейнером раз в сутки и запускает
+**два независимых слоя**:
 
-Cron-сервис автоматически проверяет новые модели раз в сутки.
+1. **`checkModelsForUpdates()`** (`model-checker.ts`) — DB-чекер image-провайдеров.
+   По `listModels` каждого провайдера сверяет `model_registry`, добавляет новые
+   модели (неактивными) и шлёт уведомления о новых/удалённых.
+   ```
+   GET https://openrouter.ai/api/v1/models?output_modalities=image
+   ```
+2. **`runRegistryAudit()`** (`registry-audit.ts`) — аудит СТАТИЧЕСКИХ реестров
+   (`text-models.ts`, `video-models.ts`, openrouter-image в `seed-models.ts`)
+   против живого OpenRouter. Ловит: дрейф цены текстовых моделей (>5% и ≥$0.01),
+   их пропажу; новые/исчезнувшие видеомодели; недоступность image-slug'ов —
+   причём FLUX/Seedream проверяет точечно через `/models/{slug}/endpoints`
+   (они не попадают в дефолтный `?output_modalities=image`).
+
+> ❗ Оба слоя ловят только **механику** (id, цена за токен). «Суждение» —
+> описания, русская озвучка, форматы/длительности, даты deprecation из
+> changelog'ов провайдеров (как отключение Gemini-preview 25.06.2026, которого
+> нет ни в одном API) — это задача периодического **облачного аудит-роутинга**
+> (`/schedule`), а не крона.
 
 ---
 
@@ -107,12 +151,12 @@ Cron-сервис автоматически проверяет новые мо�
 | OpenAI gpt-image-1-mini (low) | $0.005 |
 | OpenAI gpt-image-1-mini (medium) | $0.011 |
 | xAI Grok Imagine | $0.020 |
-| FLUX.2 Flex | $0.020 |
 | FLUX.2 Pro | $0.030 |
 | OpenAI gpt-image-1.5 (medium) | $0.034 |
 | Gemini 2.5 Flash | $0.039 |
 | Seedream 4.5 | $0.040 |
-| xAI Grok Imagine Pro | $0.070 |
+| xAI Grok Imagine Quality | $0.050 |
+| FLUX.2 Flex | $0.060 |
 | Gemini 3 Pro | $0.080 |
 | GPT-5 Image (OpenRouter) | $0.100 |
 | OpenAI gpt-image-1.5 (high) | $0.133 |
@@ -212,14 +256,14 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 |--------|---------|------|------------|------------|--------|
 | `bytedance/seedance-2.0` | оба | да | 4/8/12 | 480p/720p/1080p | ~0.07 |
 | `google/veo-3.1` | оба | да | 4/6/8 | 720p/1080p/4K | ~0.40 |
-| `kwaivgi/kling-v3.0-pro` | оба | да | 5/10 | 720p | ~0.112 |
+| `kwaivgi/kling-v3.0-pro` | оба | да | 5/10 | 720p | ~0.168 |
 | `kwaivgi/kling-video-o1` | оба | да | 5/10 | 720p | ~0.112 |
-| `openai/sora-2-pro` | t2v | да | 4/8/12 | 720p/1080p | ~0.40 |
-| `google/veo-3.1-fast` | оба | да | 4/6/8 | 720p/1080p/4K | ~0.15 |
+| `openai/sora-2-pro` | t2v | да | 4/8/12/16/20 | 720p/1080p | ~0.30 |
+| `google/veo-3.1-fast` | оба | да | 4/6/8 | 720p/1080p/4K | ~0.12 |
 | `google/veo-3.1-lite` | оба | да | 4/6/8 | 720p/1080p | ~0.05 |
-| `kwaivgi/kling-v3.0-std` | оба | да | 5/10 | 720p | ~0.084 |
+| `kwaivgi/kling-v3.0-std` | оба | да | 5/10 | 720p | ~0.126 |
 | `minimax/hailuo-2.3` | оба | нет | 6/10 | 1080p | ~0.082 |
-| `alibaba/wan-2.6` | оба | да | 5/10 | 720p/1080p | ~0.10 |
+| `alibaba/wan-2.6` | оба | нет | 5/10 | 720p/1080p | ~0.10 |
 | `alibaba/wan-2.7` | оба | да | 5/10 | 720p/1080p | ~0.10 |
 | `bytedance/seedance-2.0-fast` | оба | да | 4/8/12 | 480p/720p | ~0.05 |
 | `bytedance/seedance-1-5-pro` | оба | да | 4/8/12 | 480p/720p/1080p | ~0.02 |
@@ -227,6 +271,19 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 
 Источник правды — `src/lib/providers/video-models.ts`. Цены за секунду — ориентир для UI;
 точная сумма берётся из ответа OpenRouter (`usage.cost`) после генерации.
+
+> ❗ **Звук влияет на цену.** У моделей со звуком цена в таблице — с включённым
+> звуком (он включён по умолчанию): Kling 3.0 Pro $0.112→$0.168, Std $0.084→$0.126.
+> Seedance/Wan за звук берут столько же; Veo и Sora считают звук по отдельному тарифу.
+> `alibaba/wan-2.6` звук **не** генерирует (`generate_audio:false` в API) — для звука
+> берите `wan-2.7`.
+
+> **Grok Imagine Video 1.5** (xAI, ~30 мая 2026) — нативный звук с lip-sync, лучше
+> движение/физика, ~2× быстрее v1.0. Доступна **только через xAI API** (`api.x.ai`,
+> модель `grok-imagine-video-1.5`, ~$0.08/сек). На OpenRouter ЕЁ НЕТ
+> (`x-ai/grok-imagine-video-1.5` → 404) — есть только базовая `x-ai/grok-imagine-video`
+> ($0.05/сек, без звука). Добавим в реестр, когда появится на OpenRouter. (Заявленное
+> «улучшенное отображение текста» относится к Grok Imagine *image*, не к видео.)
 
 ### Поток
 `POST /api/video/generate` (submit) → `GET /api/video/[id]/status` (polling, скачивание mp4 в S3 при `completed`)
