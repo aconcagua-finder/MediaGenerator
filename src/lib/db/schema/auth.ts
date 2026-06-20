@@ -20,7 +20,10 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").notNull().default("user"), // admin | user
   dailyLimit: integer("daily_limit").notNull().default(50),
-  costLimit: numeric("cost_limit", { precision: 10, scale: 4 }).notNull().default("0.1000"),
+  // ТЕСТ: новым пользователям даём бюджет $5 на любые платные операции
+  // (картинки/видео/чат/контент). Раньше дефолт был "0.1000". Менять здесь
+  // + ALTER TABLE "user" ALTER COLUMN cost_limit SET DEFAULT ... в живой БД.
+  costLimit: numeric("cost_limit", { precision: 10, scale: 4 }).notNull().default("5.0000"),
   totalSpent: numeric("total_spent", { precision: 10, scale: 4 }).notNull().default("0.0000"),
   maxGenerations: integer("max_generations"), // null = без ограничений
   banned: boolean("banned").default(false),
