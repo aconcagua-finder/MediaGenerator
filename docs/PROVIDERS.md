@@ -84,8 +84,8 @@
 
 | Модель | ID | Цена ~  |
 |--------|----|---------|
-| Gemini 3.1 Flash Image | `google/gemini-3.1-flash-image-preview` | $0.04 |
-| Gemini 3 Pro Image | `google/gemini-3-pro-image-preview` | $0.08 |
+| Gemini 3.1 Flash Image | `google/gemini-3.1-flash-image` | $0.04 |
+| Gemini 3 Pro Image | `google/gemini-3-pro-image` | $0.08 |
 | Gemini 2.5 Flash Image | `google/gemini-2.5-flash-image` | $0.039 |
 | GPT-5 Image | `openai/gpt-5-image` | $0.10 |
 | GPT-5 Image Mini | `openai/gpt-5-image-mini` | $0.04 |
@@ -102,14 +102,14 @@
 > `GET /api/v1/models/{slug}/endpoints` (HTTP 200, status 0) — июнь 2026.
 > FLUX.2 также доступен напрямую через провайдер BFL (раздел ниже).
 
-> ⚠️ **Gemini image — preview vs GA (важно по провайдерам):** на **OpenRouter**
-> живут только `-preview`-slug'и (`google/gemini-3.1-flash-image-preview`,
-> `google/gemini-3-pro-image-preview`) — GA-версии там 404, поэтому в OpenRouter-
-> записях оставляем `-preview`. А у **прямого Google API** (провайдер `google`)
-> наоборот: `-preview` Google отключает **25.06.2026**, GA-замены —
-> `gemini-3.1-flash-image` и `gemini-3-pro-image` (GA с 28.05.2026). Поэтому
-> прямые google-записи переведены на GA-id. `gemini-2.5-flash-image` (GA) жив,
-> но у него свой дедлайн — отключение **02.10.2026** (мигрировать на 3.1-flash).
+> ⚠️ **Gemini image — preview vs GA (мигрировано на GA, аудит 2026-W26):**
+> GA-id `google/gemini-3.1-flash-image` и `google/gemini-3-pro-image` теперь
+> **живут и на OpenRouter** (проверено `GET /api/v1/models/{slug}/endpoints` →
+> HTTP 200, два эндпоинта status 0; цены идентичны `-preview`). Раньше там были
+> только `-preview`-slug'и, но они отключаются **25.06.2026**, поэтому ВСЕ записи
+> (и OpenRouter, и прямой Google-провайдер) переведены на GA-id. `-preview`
+> больше нигде в коде не используется. `gemini-2.5-flash-image` (GA) жив, но у
+> него свой дедлайн — отключение **02.10.2026** (мигрировать на 3.1-flash).
 
 ### Параметры
 
@@ -263,7 +263,7 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 | `google/veo-3.1-lite` | оба | да | 4/6/8 | 720p/1080p | ~0.05 |
 | `kwaivgi/kling-v3.0-std` | оба | да | 5/10 | 720p | ~0.126 |
 | `minimax/hailuo-2.3` | оба | нет | 6/10 | 1080p | ~0.082 |
-| `alibaba/wan-2.6` | оба | нет | 5/10 | 720p/1080p | ~0.10 |
+| `alibaba/wan-2.6` | оба | да | 5/10 | 720p/1080p | ~0.10 |
 | `alibaba/wan-2.7` | оба | да | 5/10 | 720p/1080p | ~0.10 |
 | `bytedance/seedance-2.0-fast` | оба | да | 4/8/12 | 480p/720p | ~0.05 |
 | `bytedance/seedance-1-5-pro` | оба | да | 4/8/12 | 480p/720p/1080p | ~0.02 |
@@ -275,8 +275,8 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 > ❗ **Звук влияет на цену.** У моделей со звуком цена в таблице — с включённым
 > звуком (он включён по умолчанию): Kling 3.0 Pro $0.112→$0.168, Std $0.084→$0.126.
 > Seedance/Wan за звук берут столько же; Veo и Sora считают звук по отдельному тарифу.
-> `alibaba/wan-2.6` звук **не** генерирует (`generate_audio:false` в API) — для звука
-> берите `wan-2.7`.
+> `alibaba/wan-2.6` теперь **тоже** генерирует звук (`generate_audio:true` в API,
+> аудит 2026-W26 — раньше было `false`); русская озвучка не гарантирована (`partial`).
 
 > **Grok Imagine Video 1.5** (xAI, ~30 мая 2026) — нативный звук с lip-sync, лучше
 > движение/физика, ~2× быстрее v1.0. Доступна **только через xAI API** (`api.x.ai`,

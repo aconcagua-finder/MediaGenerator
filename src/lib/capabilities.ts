@@ -43,8 +43,8 @@ export const IMAGE_INPUT_MODELS: Record<string, string[]> = {
   openai: ["gpt-image-2", "gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"],
   // Через OpenRouter chat completions с image input
   openrouter: [
-    "google/gemini-3.1-flash-image-preview",
-    "google/gemini-3-pro-image-preview",
+    "google/gemini-3.1-flash-image",
+    "google/gemini-3-pro-image",
     "google/gemini-2.5-flash-image",
     "openai/gpt-5-image",
     "openai/gpt-5-image-mini",

@@ -233,7 +233,7 @@ export const SEED_MODELS: SeedModel[] = [
   // === OpenRouter ===
   {
     provider: "openrouter",
-    modelId: "google/gemini-3.1-flash-image-preview",
+    modelId: "google/gemini-3.1-flash-image",
     displayName: "Gemini 3.1 Flash Image",
     description: "Новейшая модель Google. Pro-качество на Flash-скорости.",
     paramsSchema: {
@@ -254,7 +254,7 @@ export const SEED_MODELS: SeedModel[] = [
   },
   {
     provider: "openrouter",
-    modelId: "google/gemini-3-pro-image-preview",
+    modelId: "google/gemini-3-pro-image",
     displayName: "Gemini 3 Pro Image",
     description: "Google — максимальное качество, 2K/4K выход.",
     paramsSchema: {

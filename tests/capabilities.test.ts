@@ -50,7 +50,7 @@ describe("capabilities — image input", () => {
   })
 
   it("supportsImageInput работает для OpenRouter Nano Banana и GPT-image", () => {
-    expect(supportsImageInput("openrouter", "google/gemini-3.1-flash-image-preview")).toBe(true)
+    expect(supportsImageInput("openrouter", "google/gemini-3.1-flash-image")).toBe(true)
     expect(supportsImageInput("openrouter", "openai/gpt-5-image")).toBe(true)
   })
 

@@ -101,9 +101,6 @@ export function calculateCost(
         "gemini-3.1-flash-image": { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
         "gemini-3-pro-image": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
         "gemini-2.5-flash-image": { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
-        // deprecated preview-алиасы (shutdown 25.06.2026) — на время миграции
-        "gemini-3.1-flash-image-preview": { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
-        "gemini-3-pro-image-preview": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
       }
       const mp = googlePrices[model] || googlePrices["gemini-2.5-flash-image"]
       pricePerImage = mp[imgSize] || mp["1K"] || 0.04
