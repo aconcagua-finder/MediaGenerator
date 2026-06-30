@@ -55,9 +55,20 @@ function savePref(key: string, value: string) {
   }
 }
 
+// Предпочтительная модель по умолчанию (если доступна и есть ключ провайдера).
+// Применяется только к новой/чистой сессии — сохранённый выбор пользователя в
+// localStorage имеет приоритет.
+const PREFERRED_DEFAULT = { provider: "openrouter", modelId: "google/gemini-3.1-flash-lite-image" }
+
 export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
-  const defaultProvider = Object.keys(models).find((p) => hasApiKeys[p]) || Object.keys(models)[0] || ""
-  const defaultModel = models[defaultProvider]?.[0]?.modelId || ""
+  const preferred =
+    hasApiKeys[PREFERRED_DEFAULT.provider] &&
+    models[PREFERRED_DEFAULT.provider]?.some((m) => m.modelId === PREFERRED_DEFAULT.modelId)
+      ? PREFERRED_DEFAULT
+      : null
+  const defaultProvider =
+    preferred?.provider || Object.keys(models).find((p) => hasApiKeys[p]) || Object.keys(models)[0] || ""
+  const defaultModel = preferred?.modelId || models[defaultProvider]?.[0]?.modelId || ""
 
   const [provider, setProvider] = useState(() => {
     const saved = loadSaved("provider", "")
