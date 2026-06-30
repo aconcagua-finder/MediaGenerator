@@ -25,6 +25,7 @@ import { getDecryptedApiKey } from "../actions/api-keys"
 import { createNotification } from "../actions/notifications"
 import { TEXT_MODELS } from "../providers/text-models"
 import { VIDEO_MODELS } from "../providers/video-models"
+import { VOICE_MODELS } from "../providers/voice-models"
 import { SEED_MODELS } from "../providers/seed-models"
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1"
@@ -154,6 +155,8 @@ export interface RegistryAuditSummary {
   textDrift: number
   videoAdded: number
   videoRemoved: number
+  voiceAdded: number
+  voiceRemoved: number
   imageGone: number
   skipped?: string
 }
@@ -166,6 +169,8 @@ export async function runRegistryAudit(): Promise<RegistryAuditSummary> {
     textDrift: 0,
     videoAdded: 0,
     videoRemoved: 0,
+    voiceAdded: 0,
+    voiceRemoved: 0,
     imageGone: 0,
   }
 
@@ -236,6 +241,35 @@ export async function runRegistryAudit(): Promise<RegistryAuditSummary> {
         type: "model_update",
         title: "Видео: модели пропали с OpenRouter",
         message: `Больше не доступны: ${removed.join(", ")}. Уберите из video-models.ts.`,
+      })
+    }
+  }
+
+  // ---- VOICE (TTS): появление/исчезновение speech-моделей ----
+  const voiceResp = (await fetchJson(`${OPENROUTER_BASE}/models?output_modalities=speech`, key)) as
+    | { data?: Array<{ id: string; name?: string }> }
+    | null
+
+  if (voiceResp?.data) {
+    const { removed, added } = auditModelSet(
+      VOICE_MODELS.map((v) => v.id),
+      voiceResp.data.map((m) => ({ id: m.id, name: m.name })),
+    )
+    summary.voiceAdded = added.length
+    summary.voiceRemoved = removed.length
+
+    if (added.length) {
+      await createNotification({
+        type: "model_update",
+        title: "Озвучка: новые TTS-модели на OpenRouter",
+        message: `Доступны новые: ${added.map((m) => `${m.name} (${m.id})`).join(", ")}. Добавьте в voice-models.ts при необходимости.`,
+      })
+    }
+    if (removed.length) {
+      await createNotification({
+        type: "model_update",
+        title: "Озвучка: TTS-модели пропали с OpenRouter",
+        message: `Больше не доступны: ${removed.join(", ")}. Уберите из voice-models.ts.`,
       })
     }
   }

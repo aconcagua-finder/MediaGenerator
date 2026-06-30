@@ -82,6 +82,16 @@ export function calculateCost(
         }
       } else if (model.includes("seedream")) {
         pricePerImage = 0.04
+      } else if (model.includes("gemini-3.1-flash-lite-image")) {
+        // Nano Banana 2 Lite — примерно вдвое дешевле flash (per-token у OpenRouter)
+        const sz = (params.image_size as string) || "1K"
+        const t: Record<string, number> = { "0.5K": 0.023, "1K": 0.034, "2K": 0.051, "4K": 0.076 }
+        pricePerImage = t[sz] || 0.034
+      } else if (model.includes("gemini-3.1-flash-image")) {
+        // Nano Banana 2 (GA) — подтверждено живым вызовом: 1K ≈ $0.068
+        const sz = (params.image_size as string) || "1K"
+        const t: Record<string, number> = { "0.5K": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 }
+        pricePerImage = t[sz] || 0.067
       } else if (model.includes("gpt-5.4-image-2")) {
         pricePerImage = 0.12
       } else if (model.includes("gpt-5-image-mini")) {

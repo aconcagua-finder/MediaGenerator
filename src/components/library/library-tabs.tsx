@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { ImagesIcon, VideoIcon } from "lucide-react"
+import { ImagesIcon, VideoIcon, AudioLinesIcon } from "lucide-react"
 import { LibraryView } from "./library-view"
 import { VideoLibrary } from "./video-library"
+import { AudioLibrary } from "./audio-library"
 import type { ImageWithGeneration } from "@/lib/actions/images"
 import type { FolderItem } from "@/lib/actions/folders"
 import type { VideoLibraryItem } from "@/lib/actions/videos"
+import type { AudioLibraryItem } from "@/lib/actions/audios"
 
 interface LibraryTabsProps {
   initialImages: ImageWithGeneration[]
@@ -16,6 +18,8 @@ interface LibraryTabsProps {
   hasOpenRouterKey: boolean
   initialVideos: VideoLibraryItem[]
   initialVideoTotal: number
+  initialAudios: AudioLibraryItem[]
+  initialAudioTotal: number
 }
 
 export function LibraryTabs({
@@ -26,8 +30,10 @@ export function LibraryTabs({
   hasOpenRouterKey,
   initialVideos,
   initialVideoTotal,
+  initialAudios,
+  initialAudioTotal,
 }: LibraryTabsProps) {
-  const [tab, setTab] = useState<"photos" | "videos">("photos")
+  const [tab, setTab] = useState<"photos" | "videos" | "audios">("photos")
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,6 +65,19 @@ export function LibraryTabs({
           Видео
           <span className="text-[11px] text-neutral-500">{initialVideoTotal}</span>
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("audios")}
+          className={`flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+            tab === "audios"
+              ? "bg-white/[0.08] text-white"
+              : "text-neutral-400 hover:text-white"
+          }`}
+        >
+          <AudioLinesIcon className="size-4" />
+          Озвучка
+          <span className="text-[11px] text-neutral-500">{initialAudioTotal}</span>
+        </button>
       </div>
 
       {tab === "photos" ? (
@@ -69,10 +88,16 @@ export function LibraryTabs({
           hasOpenAIKey={hasOpenAIKey}
           hasOpenRouterKey={hasOpenRouterKey}
         />
-      ) : (
+      ) : tab === "videos" ? (
         <VideoLibrary
           initialVideos={initialVideos}
           initialTotal={initialVideoTotal}
+          initialFolders={initialFolders}
+        />
+      ) : (
+        <AudioLibrary
+          initialAudios={initialAudios}
+          initialTotal={initialAudioTotal}
           initialFolders={initialFolders}
         />
       )}

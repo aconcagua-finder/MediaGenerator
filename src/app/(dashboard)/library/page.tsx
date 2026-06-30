@@ -1,13 +1,15 @@
 import { getImages } from "@/lib/actions/images"
 import { getVideos } from "@/lib/actions/videos"
+import { getAudios } from "@/lib/actions/audios"
 import { getFolders } from "@/lib/actions/folders"
 import { getApiKeys } from "@/lib/actions/api-keys"
 import { LibraryTabs } from "@/components/library/library-tabs"
 
 export default async function LibraryPage() {
-  const [imagesResult, videosResult, folders, keys] = await Promise.all([
+  const [imagesResult, videosResult, audiosResult, folders, keys] = await Promise.all([
     getImages({ limit: 40, offset: 0 }),
     getVideos({ limit: 40, offset: 0 }),
+    getAudios({ limit: 40, offset: 0 }),
     getFolders(),
     getApiKeys(),
   ])
@@ -20,7 +22,7 @@ export default async function LibraryPage() {
       <div>
         <h1 className="text-xl font-bold text-white">Библиотека</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Ваши сгенерированные изображения и видео
+          Ваши сгенерированные изображения, видео и озвучка
         </p>
       </div>
 
@@ -32,6 +34,8 @@ export default async function LibraryPage() {
         hasOpenRouterKey={hasOpenRouterKey}
         initialVideos={videosResult.items}
         initialVideoTotal={videosResult.total}
+        initialAudios={audiosResult.items}
+        initialAudioTotal={audiosResult.total}
       />
     </div>
   )

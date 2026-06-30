@@ -112,3 +112,30 @@
 5. **Данные.** Job-таблица `video_compositions` + нормализованный EDL `video_composition_segments` (миграция `0015`). Результат кладётся в общую `videos` через `videos.composition_id` (FK + XOR-CHECK `videos_owner_xor`: ровно один из `video_generation_id`/`composition_id`), поэтому склейка появляется в библиотеке как обычное видео. `cost = NULL`, `totalSpent` не трогаем. ❗ **Любой запрос, определяющий владельца видео, обязан left-join'ить ОБА источника** (`video_generations` И `video_compositions`), а не inner-join только генерацию — иначе у склейки `video_generation_id IS NULL` и строка теряется. Это касается `getVideos`/`moveVideos`/`deleteVideos`, отдающего mp4 роута `/api/videos/[id]` (иначе плеер получает 404, видео «есть в библиотеке, но не играет») и пикера.
 6. **Холст по ориентации задаёт сервер** (16:9 → 1280×720, 9:16 → 720×1280) — контроль памяти, клиент не диктует произвольный размер. S3-ключ результата: `compositions/{id}/output.mp4`.
 7. **ffprobe для длительности.** Реальную длительность каждого входа берём из `ffprobe` (fallback на `videos.durationSeconds`), чтобы тишина точно совпадала с видео. Alpine-пакет `ffmpeg` ставит и `ffmpeg`, и `ffprobe` (`apk add ffmpeg` в Dockerfile).
+
+### Озвучка (`/voice`)
+
+Синтез речи из текста (TTS) через OpenRouter `POST /api/v1/audio/speech` (OpenAI-совместимый),
+тем же ключом, что картинки/видео/чат. Реестр — `src/lib/providers/voice-models.ts` (9 моделей).
+
+**Ключевые файлы:**
+- `src/lib/providers/voice-models.ts` — реестр моделей/голосов + `estimateVoiceCost`, `resolveVoice`, `clampSpeed`
+- `src/lib/providers/voice/openrouter-voice.ts` — адаптер (`synth` + `fetchCost`) + `pcmToWav`
+- `src/lib/voice/generate.ts` — `runVoiceGeneration` (синтез→S3→запись→списание), claim `processing→saving`
+- `src/app/api/voice/generate/route.ts` — submit (валидация/лимиты + СИНХРОННЫЙ синтез в том же запросе)
+- `src/app/api/audios/[id]/route.ts` — отдача аудио из S3 (Range)
+- `src/lib/actions/audios.ts` — `getAudios`/`moveAudios`/`deleteAudios` для библиотеки
+- `src/components/voice/*` — UI (форма, селекторы модели и голоса)
+- `src/components/library/audio-{grid,library}.tsx` — вкладка «Озвучка» в библиотеке
+
+**Архитектурные принципы:**
+1. **TTS СИНХРОННЫЙ — НЕТ job/poll/cron.** В отличие от видео, `/audio/speech` сразу отдаёт байты аудио. Поэтому `/api/voice/generate` синтезирует, кладёт в S3 и списывает стоимость прямо в обработчике POST; клиент получает готовый файл в ответе. Нет `provider_job_id`, нет реконсиляции, нет cron.
+2. **Биллинг — только за успех, в одном месте** (`runVoiceGeneration`, ветка `done`, `cost>0`). Claim `processing→saving` (UPDATE с `where status='processing'`) защищает от двойного списания при повторном вызове. Submit-роут только гейтит оценку против `costLimit` (429), не списывает. Зеркалит `video/finalize.ts`.
+3. **Цена TTS не приходит стабильно через `/generation`** (для TTS `total_cost` часто `null`). Поэтому биллинг — по **оценке из числа символов** (`estimateVoiceCost = символы/1000 × pricePer1kChars`); `fetchCost` пробуется best-effort, но обычно null. Суммы копеечные.
+4. **Gemini TTS принимает ТОЛЬКО `response_format=pcm`** (на `mp3` отвечает 400). Сырой PCM (24кГц/моно/16-бит, без заголовка) заворачиваем в WAV (`pcmToWav`, 44-байтный заголовок) — иначе браузерный `<audio>` не играет. У модели `requestFormat:"pcm"`, `outputFormat:"wav"`; у остальных — mp3. Длительность для WAV считаем из размера PCM.
+5. **Русский уверенно тянут 3 из 9** (`russianSpeech:"good"`): `microsoft/mai-voice-2` (родные голоса `ru-RU-Masha`/`ru-RU-Lev`, требуют суффикс `:MAI-Voice-2`), `google/gemini-3.1-flash-tts-preview`, `x-ai/grok-voice-tts-1.0` (авто-определение языка). Остальные — английский/др. языки (`none`).
+6. **Голоса валидируются по реестру** (`resolveVoice` → дефолт при невалидном; `clampSpeed` зажимает скорость, 1 для моделей без скорости). Списки голосов подтверждены живым вызовом (см. `tests/voice-models.test.ts`), т.к. OpenRouter их не перечисляет.
+7. **`mistralai/voxtral-mini-tts-2603` у провайдера сейчас отдаёт 404** → `available:false`, в селекторе отключена, submit-роут возвращает 400. Если провайдер починят — снять флаг.
+8. **Данные.** `voice_generations` (job) + `audios` (файл), миграция `0016`. Источник ОДИН (озвучка), поэтому `audios.voice_generation_id` NOT NULL, без XOR — владелец берётся простым join'ом на `voice_generations.userId` (в отличие от видео). S3-ключ: `audios/{voiceGenerationId}/0.{mp3|wav}`.
+
+**Картинки — Nano Banana 2 / 2 Lite:** `google/gemini-3.1-flash-image` (GA, Nano Banana 2) и `google/gemini-3.1-flash-lite-image` (Lite) добавлены в `seed-models.ts` (секция OpenRouter). Старый preview-слаг `google/gemini-3.1-flash-image-preview` мигрирован на GA везде (edit-диалог, cover-модели, capabilities) и деактивируется в `seedModels()` через `RETIRED_OPENROUTER_MODELS`. Цена в `cost-calculator.ts` — по размеру (flash 1K≈$0.067, lite 1K≈$0.034); ❗ ветка `flash-lite-image` идёт ПЕРЕД `flash-image`.

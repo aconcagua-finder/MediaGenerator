@@ -96,5 +96,7 @@ export const PROVIDER_INFO: Record<string, { name: string; description: string; 
 export const NEW_IMAGE_MODELS = new Set([
   "openai:gpt-image-2",
   "openrouter:openai/gpt-5.4-image-2",
+  "openrouter:google/gemini-3.1-flash-image",
+  "openrouter:google/gemini-3.1-flash-lite-image",
   "recraft:recraft-v3-vector",
 ])

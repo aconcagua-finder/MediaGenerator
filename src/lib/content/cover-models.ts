@@ -54,13 +54,22 @@ export const COVER_MODELS: CoverModelOption[] = [
     approxCost: "~$0.08",
   },
   {
-    id: "openrouter:google/gemini-3.1-flash-image-preview",
+    id: "openrouter:google/gemini-3.1-flash-image",
     provider: "openrouter",
-    model: "google/gemini-3.1-flash-image-preview",
-    label: "Gemini 3.1 Flash Image",
-    hint: "Быстрая и дешёвая. С кириллицей — не очень.",
+    model: "google/gemini-3.1-flash-image",
+    label: "Gemini 3.1 Flash Image (Nano Banana 2)",
+    hint: "Быстрая, Pro-качество. С кириллицей — средне.",
     goodForCyrillic: false,
-    approxCost: "~$0.04",
+    approxCost: "~$0.07",
+  },
+  {
+    id: "openrouter:google/gemini-3.1-flash-lite-image",
+    provider: "openrouter",
+    model: "google/gemini-3.1-flash-lite-image",
+    label: "Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite)",
+    hint: "Самая быстрая и дешёвая Nano Banana 2. Для черновиков без текста.",
+    goodForCyrillic: false,
+    approxCost: "~$0.03",
   },
   {
     id: "openrouter:google/gemini-2.5-flash-image",
@@ -92,6 +101,6 @@ export function getCoverModelById(id: string): CoverModelOption | null {
  */
 export const DEFAULT_COVER_MODEL_BY_STYLE: Record<string, string> = {
   "3d_with_text": "openai:gpt-image-2",
-  minimalist: "openrouter:google/gemini-3.1-flash-image-preview",
+  minimalist: "openrouter:google/gemini-3.1-flash-image",
   photo: "openrouter:google/gemini-3-pro-image-preview",
 }

@@ -9,6 +9,7 @@ import {
   SettingsIcon,
   SparklesIcon,
   VideoIcon,
+  AudioLinesIcon,
   MessageSquareIcon,
   NewspaperIcon,
   RadarIcon,
@@ -38,6 +39,7 @@ const navGroups = [
   [
     { title: "Изображения", href: "/generate", icon: SparklesIcon },
     { title: "Видео", href: "/video", icon: VideoIcon },
+    { title: "Озвучка", href: "/voice", icon: AudioLinesIcon },
     { title: "Библиотека", href: "/library", icon: ImagesIcon },
   ],
   [

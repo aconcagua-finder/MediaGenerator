@@ -1,6 +1,30 @@
 # MediaGenerator — Прогресс выполнения
 
-## Статус: Все фазы завершены + доработки + чат-блок + вложения + «Публикации» + «Мониторинг» + «Видео» + «Редактор склейки» (передан в тестирование SMM-щику)
+## Статус: Все фазы завершены + доработки + чат-блок + вложения + «Публикации» + «Мониторинг» + «Видео» + «Редактор склейки» + «Озвучка» (передан в тестирование SMM-щику)
+
+### Доработки 2026-06-30 — Nano Banana 2 / 2 Lite + раздел «Озвучка» (`/voice`)
+| Задача | Статус |
+|--------|--------|
+| Image: Nano Banana 2 (`google/gemini-3.1-flash-image`, GA) — миграция со старого preview-слага | ✅ |
+| Image: Nano Banana 2 Lite (`google/gemini-3.1-flash-lite-image`) — новая модель | ✅ |
+| Image: цена по размеру в cost-calculator (flash 1K≈$0.067 / lite 1K≈$0.034), бейджи «Новинка» | ✅ |
+| Image: миграция preview→GA в edit-диалоге, cover-моделях, capabilities; деактивация preview-row в `seedModels()` | ✅ |
+| Voice: реестр 9 TTS-моделей `voice-models.ts` (голоса, поддержка русского, оценка цены) — голоса проверены живым вызовом | ✅ |
+| Voice: синхронный адаптер `/audio/speech` (`openrouter-voice.ts`), PCM→WAV для Gemini, реальная цена через X-Generation-Id | ✅ |
+| Voice: таблицы `voice_generations` + `audios` (миграция `0016`), один источник без XOR | ✅ |
+| Voice: `/api/voice/generate` (синтез→S3→запись→списание ТОЛЬКО при успехе, claim processing→saving), `/api/audios/[id]` (Range) | ✅ |
+| Voice: лимиты как у видео (banned/costLimit 429/dailyLimit/maxGenerations, админ без лимитов) | ✅ |
+| Voice UI: страница `/voice`, форма (текст, модель, голос, скорость, счётчик символов, оценка цены), пункт сайдбара «Озвучка» | ✅ |
+| Voice: интеграция в библиотеку — вкладка «Озвучка» (плеер `<audio>`, папки, перенос, удаление) | ✅ |
+| Тесты: `tests/voice-models.test.ts` (10) + `tests/image-cost.test.ts` (4); typecheck + next build зелёные | ✅ |
+| Живой e2e реальным ключом: mp3 (mai-voice-2) + WAV (Gemini) → S3 → списание → откат | ✅ |
+
+**Важно (для разработки):**
+- TTS синхронный — раздел проще видео: НЕТ job/poll/cron, синтез целиком в обработчике POST.
+- Русский уверенно тянут 3 из 9: MAI-Voice-2 (родные ru-голоса), Gemini Flash TTS, Grok Voice.
+- Gemini TTS принимает только `response_format=pcm` → сервер заворачивает в WAV (24кГц/моно/16-бит).
+- Voxtral (`mistralai/voxtral-mini-tts-2603`) у провайдера сейчас 404 → помечена `available:false`, в селекторе отключена.
+- Цена TTS не отдаётся через `/generation` стабильно → биллинг по оценке из символов (суммы копеечные).
 
 ### Доработки 2026-06-09 — редактор склейки видео (`/video/editor`)
 | Задача | Статус |

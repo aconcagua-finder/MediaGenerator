@@ -233,9 +233,9 @@ export const SEED_MODELS: SeedModel[] = [
   // === OpenRouter ===
   {
     provider: "openrouter",
-    modelId: "google/gemini-3.1-flash-image-preview",
-    displayName: "Gemini 3.1 Flash Image",
-    description: "Новейшая модель Google. Pro-качество на Flash-скорости.",
+    modelId: "google/gemini-3.1-flash-image",
+    displayName: "Gemini 3.1 Flash Image (Nano Banana 2)",
+    description: "Google Nano Banana 2 (GA). Pro-качество на Flash-скорости: точный текст на картинке, до 4K, поддержка edit.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
@@ -250,7 +250,28 @@ export const SEED_MODELS: SeedModel[] = [
         default: "1K",
       },
     },
-    pricing: { perImage: 0.04 },
+    pricing: { perImage: 0.067 },
+  },
+  {
+    provider: "openrouter",
+    modelId: "google/gemini-3.1-flash-lite-image",
+    displayName: "Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite)",
+    description: "Google Nano Banana 2 Lite. Быстрая (~4 сек) и недорогая: уверенно следует промпту и рисует текст. Для черновиков и массовой генерации.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["0.5K", "1K", "2K", "4K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.034 },
   },
   {
     provider: "openrouter",

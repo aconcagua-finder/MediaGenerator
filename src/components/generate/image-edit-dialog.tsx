@@ -87,10 +87,10 @@ const EDIT_MODELS: EditModel[] = [
 
   // === Google Gemini через OpenRouter (Nano Banana) ===
   {
-    key: "openrouter::google/gemini-3.1-flash-image-preview",
+    key: "openrouter::google/gemini-3.1-flash-image",
     provider: "openrouter",
-    modelId: "google/gemini-3.1-flash-image-preview",
-    name: "Gemini 3.1 Flash Image",
+    modelId: "google/gemini-3.1-flash-image",
+    name: "Gemini 3.1 Flash Image (Nano Banana 2)",
     vendorLabel: "Google",
     vendorTone: "google",
     hint: "Nano Banana 2 — топ для правок: понимает контекст и сохраняет стиль",

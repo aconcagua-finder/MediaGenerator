@@ -1,11 +1,20 @@
 "use server"
 
-import { eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "../db"
 import { modelRegistry } from "../db/schema"
 import { SEED_MODELS } from "../providers/seed-models"
 import { requireAdmin } from "../utils/admin-guard"
+
+/**
+ * OpenRouter-слаги, которые мы заменили на GA-версии (preview → GA).
+ * `seedModels()` только добавляет, поэтому ранее засеянные preview-строки
+ * остаются активными в селекторе. Деактивируем их идемпотентно при сидинге.
+ */
+const RETIRED_OPENROUTER_MODELS = [
+  "google/gemini-3.1-flash-image-preview", // → google/gemini-3.1-flash-image (Nano Banana 2 GA)
+]
 
 /**
  * Получить все активные модели, сгруппированные по провайдерам
@@ -50,6 +59,17 @@ export async function seedModels() {
     .from(modelRegistry)
 
   const existingSet = new Set(existing.map((m) => `${m.provider}:${m.modelId}`))
+
+  // Деактивируем устаревшие preview-слаги (идемпотентно)
+  await db
+    .update(modelRegistry)
+    .set({ isActive: false })
+    .where(
+      and(
+        eq(modelRegistry.provider, "openrouter"),
+        inArray(modelRegistry.modelId, RETIRED_OPENROUTER_MODELS),
+      ),
+    )
 
   const toInsert = SEED_MODELS
     .filter((m) => !existingSet.has(`${m.provider}:${m.modelId}`))
