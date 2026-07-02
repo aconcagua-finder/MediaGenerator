@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MediaGenerator",
-  description: "Генерация изображений через API нейросетей",
+  description: "Генерация контента (изображения и текст) через API нейросетей",
 }
 
 export default function RootLayout({

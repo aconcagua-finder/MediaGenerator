@@ -89,7 +89,26 @@ export function SettingsTabs({
 
       {isAdmin && (
         <>
-          <TabsContent value="users" className="mt-4">
+          <TabsContent value="users" className="mt-4 space-y-3">
+            <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 text-xs text-neutral-400">
+              <p className="font-medium text-neutral-300">Как работают лимиты</p>
+              <ul className="mt-1.5 space-y-1 list-disc list-inside text-neutral-500">
+                <li>
+                  <span className="text-neutral-300">Бюджет ($)</span> — общий лимит расходов
+                  на платные провайдеры. Покрывает <b>и картинки, и чат с текстом</b>.
+                  При исчерпании пользователь увидит сообщение «Бюджет исчерпан».
+                </li>
+                <li>
+                  <span className="text-neutral-300">Лимит/день</span> — максимум генераций
+                  картинок за сутки (UTC). Чат сюда не входит — для него действует только бюджет.
+                </li>
+                <li>
+                  <span className="text-neutral-300">Макс. генераций</span> — общий потолок
+                  картинок за всё время. ∞ — без ограничения.
+                </li>
+                <li>Кликни на цифру с карандашом, чтобы поменять. У админов лимиты не проверяются.</li>
+              </ul>
+            </div>
             <UsersTable users={initialUsers ?? []} />
           </TabsContent>
 

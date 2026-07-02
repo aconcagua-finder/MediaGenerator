@@ -12,12 +12,21 @@ export default async function SettingsPage() {
 
   let users, notifications, allModels, unreadCount
   if (isAdmin) {
-    ;[users, notifications, allModels, unreadCount] = await Promise.all([
+    const [usersData, notificationsData, modelsData, unread] = await Promise.all([
       getUsers(),
       getNotifications(),
       getAllModelsForAdmin(),
       getUnreadNotificationCount(),
     ])
+    users = usersData
+    notifications = notificationsData
+    unreadCount = unread
+    // Показываем только курированные модели (с заданными параметрами и ценами).
+    // Авто-обнаруженные краном модели (пустой paramsSchema, сырые англ. названия,
+    // дубли и не-картиночные) — скрываем, чтобы не засорять панель.
+    allModels = modelsData.filter(
+      (m) => m.paramsSchema && Object.keys(m.paramsSchema as Record<string, unknown>).length > 0
+    )
   }
 
   return (

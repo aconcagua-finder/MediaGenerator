@@ -338,6 +338,31 @@ export const SEED_MODELS: SeedModel[] = [
   },
   {
     provider: "openrouter",
+    modelId: "openai/gpt-5.4-image-2",
+    displayName: "GPT-5.4 Image 2",
+    description: "OpenAI через OpenRouter — новейшая GPT Image. Лучшее качество и кириллица в семействе.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["1K", "2K"],
+        default: "1K",
+      },
+    },
+    pricing: { perImage: 0.12 },
+  },
+  // FLUX.2 и Seedream доступны на OpenRouter по прямому slug, но НЕ попадают
+  // в дефолтный список `?output_modalities=image` (его дёргает listModels).
+  // Генерация работает (chat/completions, modalities:["image"]); проверено
+  // через GET /api/v1/models/{slug}/endpoints (HTTP 200, status 0) — июнь 2026.
+  {
+    provider: "openrouter",
     modelId: "black-forest-labs/flux.2-pro",
     displayName: "FLUX.2 Pro",
     description: "Black Forest Labs — высокое качество.",
@@ -562,9 +587,9 @@ export const SEED_MODELS: SeedModel[] = [
   // === Google AI (прямой API) ===
   {
     provider: "google",
-    modelId: "gemini-3.1-flash-image-preview",
+    modelId: "gemini-3.1-flash-image",
     displayName: "Gemini 3.1 Flash Image",
-    description: "Новейшая Google. Быстрая, до 4K, safety настраивается.",
+    description: "Google Nano Banana 2 (GA). Быстрая, до 4K, safety настраивается.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
@@ -590,9 +615,9 @@ export const SEED_MODELS: SeedModel[] = [
   },
   {
     provider: "google",
-    modelId: "gemini-3-pro-image-preview",
+    modelId: "gemini-3-pro-image",
     displayName: "Gemini 3 Pro Image",
-    description: "Google Pro. Максимальное качество, до 4K.",
+    description: "Google Nano Banana Pro (GA). Максимальное качество, до 4K.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
@@ -643,5 +668,36 @@ export const SEED_MODELS: SeedModel[] = [
       },
     },
     pricing: { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
+  },
+
+  // === Recraft (прямой API) — векторная генерация SVG ===
+  {
+    provider: "recraft",
+    modelId: "recraft-v3-vector",
+    displayName: "Recraft V3 Вектор (SVG)",
+    description: "Настоящий вектор — SVG для логотипов, иконок, веб-графики. Масштабируется без потерь. Нужен ключ recraft.ai.",
+    paramsSchema: {
+      size: {
+        type: "select",
+        label: "Размер",
+        options: ["1024x1024", "1365x1024", "1024x1365", "1280x1024", "1024x1280"],
+        default: "1024x1024",
+      },
+      substyle: {
+        type: "select",
+        label: "Стиль",
+        options: ["none", "line_art", "hand_drawn", "engraving", "flat_2", "linocut"],
+        default: "none",
+        optionLabels: {
+          none: "Авто",
+          line_art: "Контурный",
+          hand_drawn: "От руки",
+          engraving: "Гравюра",
+          flat_2: "Плоский",
+          linocut: "Линогравюра",
+        },
+      },
+    },
+    pricing: { perImage: 0.08 },
   },
 ]

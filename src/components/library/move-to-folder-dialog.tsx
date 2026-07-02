@@ -22,6 +22,9 @@ interface MoveToFolderDialogProps {
   onMove: (folderId: string | null) => void
   onCreateAndMove: (folderName: string) => void
   imageCount: number
+  /** Существительное для подписи (по умолчанию изображение/изображений) */
+  nounOne?: string
+  nounMany?: string
 }
 
 export function MoveToFolderDialog({
@@ -31,6 +34,8 @@ export function MoveToFolderDialog({
   onMove,
   onCreateAndMove,
   imageCount,
+  nounOne = "изображение",
+  nounMany = "изображений",
 }: MoveToFolderDialogProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -57,7 +62,7 @@ export function MoveToFolderDialog({
         <DialogHeader>
           <DialogTitle>Переместить в папку</DialogTitle>
           <DialogDescription>
-            {imageCount} {imageCount === 1 ? "изображение" : "изображений"}
+            {imageCount} {imageCount === 1 ? nounOne : nounMany}
           </DialogDescription>
         </DialogHeader>
 

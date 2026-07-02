@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckSquare, XSquare, FolderInput, Trash2, Download } from "lucide-react"
+import { CheckSquare, XSquare, FolderInput, Trash2, Download, Scissors } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface BulkActionsBarProps {
@@ -10,6 +10,8 @@ interface BulkActionsBarProps {
   onDelete: () => void
   onMove: () => void
   onDownload: () => void
+  /** Только для видео: склеить выбранные клипы (показывается при 2+) */
+  onCompose?: () => void
 }
 
 export function BulkActionsBar({
@@ -19,6 +21,7 @@ export function BulkActionsBar({
   onDelete,
   onMove,
   onDownload,
+  onCompose,
 }: BulkActionsBarProps) {
   if (selectedCount === 0) return null
 
@@ -40,6 +43,17 @@ export function BulkActionsBar({
 
         <div className="mx-2 h-6 w-px bg-border" />
 
+        {onCompose && selectedCount >= 2 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCompose}
+            className="text-x-blue hover:text-x-blue"
+          >
+            <Scissors className="mr-1 size-4" />
+            Склеить
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={onMove}>
           <FolderInput className="mr-1 size-4" />
           В папку

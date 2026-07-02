@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth-server"
 import { getUnreadNotificationCount } from "@/lib/actions/notifications"
+import { getUnreadMonitoringCount } from "@/lib/actions/monitoring"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -17,7 +18,10 @@ export default async function DashboardLayout({
   }
 
   const isAdmin = session.user.role === "admin"
-  const unreadCount = isAdmin ? await getUnreadNotificationCount() : 0
+  const [unreadCount, unreadMonitoring] = await Promise.all([
+    isAdmin ? getUnreadNotificationCount() : Promise.resolve(0),
+    getUnreadMonitoringCount().catch(() => 0),
+  ])
 
   return (
     <TooltipProvider>
@@ -29,6 +33,7 @@ export default async function DashboardLayout({
             role: session.user.role as string,
           }}
           unreadNotificationCount={unreadCount}
+          unreadMonitoringCount={unreadMonitoring}
         />
         <SidebarInset>
           <main className="relative flex flex-1 flex-col gap-4 overflow-hidden p-6 pt-0">

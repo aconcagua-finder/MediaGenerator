@@ -65,7 +65,7 @@ export function calculateCost(
     }
 
     case "openrouter": {
-      // FLUX per-megapixel
+      // FLUX per-megapixel (доступны на OpenRouter по прямому slug)
       if (model.includes("flux")) {
         const sizeKey = (params.image_size as string) || "1K"
         const sizeMP: Record<string, number> = { "0.5K": 0.25, "1K": 1, "2K": 4 }
@@ -82,6 +82,8 @@ export function calculateCost(
         }
       } else if (model.includes("seedream")) {
         pricePerImage = 0.04
+      } else if (model.includes("gpt-5.4-image-2")) {
+        pricePerImage = 0.12
       } else if (model.includes("gpt-5-image-mini")) {
         pricePerImage = 0.04
       } else if (model.includes("gpt-5-image")) {
@@ -96,9 +98,14 @@ export function calculateCost(
     case "google": {
       const imgSize = (params.image_size as string) || "1K"
       const googlePrices: Record<string, Record<string, number>> = {
+        "gemini-3.1-flash-image": { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
+        "gemini-3-pro-image": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
+        "gemini-2.5-flash-image": { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
+        // OpenRouter-preview алиасы: всё ещё живы на 29.06.2026 (объявленный shutdown
+        // 25.06.2026 не сработал), GA-id google/gemini-3.1-flash-image и
+        // google/gemini-3-pro-image теперь доступны и на OpenRouter — кандидаты на миграцию.
         "gemini-3.1-flash-image-preview": { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
         "gemini-3-pro-image-preview": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
-        "gemini-2.5-flash-image": { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
       }
       const mp = googlePrices[model] || googlePrices["gemini-2.5-flash-image"]
       pricePerImage = mp[imgSize] || mp["1K"] || 0.04
