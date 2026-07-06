@@ -84,7 +84,8 @@
 
 | Модель | ID | Цена ~  |
 |--------|----|---------|
-| Gemini 3.1 Flash Image | `google/gemini-3.1-flash-image-preview` | $0.04 |
+| Gemini 3.1 Flash Image (Nano Banana 2) | `google/gemini-3.1-flash-image` (GA) | $0.067 |
+| Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite) | `google/gemini-3.1-flash-lite-image` (GA) | $0.034 |
 | Gemini 3 Pro Image | `google/gemini-3-pro-image-preview` | $0.08 |
 | Gemini 2.5 Flash Image | `google/gemini-2.5-flash-image` | $0.039 |
 | GPT-5 Image | `openai/gpt-5-image` | $0.10 |
@@ -103,16 +104,24 @@
 > FLUX.2 также доступен напрямую через провайдер BFL (раздел ниже).
 
 > ⚠️ **Gemini image — preview vs GA (важно по провайдерам):** на **OpenRouter**
-> сейчас живут И `-preview`-slug'и (`google/gemini-3.1-flash-image-preview`,
+> живут И `-preview`-slug'и (`google/gemini-3.1-flash-image-preview`,
 > `google/gemini-3-pro-image-preview`), И GA-id (`google/gemini-3.1-flash-image`,
-> `google/gemini-3-pro-image`) — последние **появились на OpenRouter** (раньше
-> были 404). Объявленный shutdown preview-slug'ов **25.06.2026 не сработал** —
-> на 29.06.2026 они ещё отвечают. В OpenRouter-записях `seed-models.ts` пока
-> оставлены `-preview` (рабочие), но GA-id — рекомендованная цель миграции, т.к.
-> стабильнее. У **прямого Google API** (провайдер `google`) записи уже на GA-id
+> `google/gemini-3.1-flash-lite-image`, `google/gemini-3-pro-image`) — все
+> подтверждены живыми в `/models?output_modalities=image` (аудит 2026-W28).
+> Объявленный shutdown preview-slug'ов **25.06.2026 не сработал** — на 06.07.2026
+> они ещё отвечают. В OpenRouter-записях `seed-models.ts` **flash уже мигрирован
+> на GA** (`google/gemini-3.1-flash-image` + `-lite-image`); preview flash
+> деактивируется через `RETIRED_OPENROUTER_MODELS`. **Pro пока на preview**
+> (`google/gemini-3-pro-image-preview`) — GA `google/gemini-3-pro-image` теперь
+> тоже есть на OpenRouter и является целью миграции (та же процедура, что была у
+> flash: правка `seed-models.ts` + `RETIRED_OPENROUTER_MODELS` + `cover-models.ts`
+> + `image-edit-dialog.tsx` + `capabilities.ts`; ❗ учесть, что крон `model-check`
+> мог уже вставить GA-строку в `model_registry` как `is_active=false` с пустыми
+> `params_schema`/`pricing` — потребуется UPDATE, см. готчу в CLAUDE.md).
+> У **прямого Google API** (провайдер `google`) записи уже на GA-id
 > (`gemini-3.1-flash-image`, `gemini-3-pro-image`, GA с 28.05.2026).
 > `gemini-2.5-flash-image` (GA) жив на обоих — дедлайн отключения **02.10.2026**
-> (мигрировать на 3.1-flash).
+> (мигрировать на 3.1-flash; официальная замена по changelog Google — `gemini-3.1-flash-image`).
 
 ### Параметры
 
