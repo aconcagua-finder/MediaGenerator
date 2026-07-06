@@ -203,7 +203,11 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
       typeof poll.cost === "number"
         ? poll.cost
         : model
-          ? estimateVideoCost(model, p.duration ?? 0)
+          ? estimateVideoCost(model, {
+              durationSeconds: p.duration ?? 0,
+              resolution: p.resolution,
+              audio: Boolean(p.generate_audio),
+            })
           : 0
 
     await db

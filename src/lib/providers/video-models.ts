@@ -3,11 +3,12 @@
  * Все вызываются через единый OpenRouter endpoint (POST /api/v1/videos),
  * поэтому достаточно одного API-ключа OpenRouter (того же, что у картинок/чата).
  *
- * Цены — ориентир за секунду (USD). Точная сумма берётся из ответа OpenRouter
- * (`usage.cost`) после генерации; здесь — для оценки в UI ДО запуска.
+ * Цены — эффективная стоимость за секунду по разрешению (см. VideoPrice). Точная
+ * сумма всё равно берётся из ответа OpenRouter (`usage.cost`) после генерации;
+ * здесь — для оценки в UI и пред-проверки лимитов ДО запуска.
  *
- * Источник capabilities (длительности/разрешения/i2v/звук): openrouter.ai
- * `GET /api/v1/videos/models` — проверено июнь 2026.
+ * Источник capabilities и цен (`pricing_skus`): openrouter.ai
+ * `GET /api/v1/videos/models` — сверено с фактическими списаниями июль 2026.
  */
 
 export type VideoVendor =
@@ -28,6 +29,24 @@ export type VideoMode = "t2v" | "i2v"
  * - none — озвучивает не на русском (англ/кит) или вообще без звука
  */
 export type RussianSpeech = "good" | "partial" | "none"
+
+/**
+ * Цена генерации видео. У разных вендоров разные схемы биллинга (видео-токены,
+ * плоская за секунду, тариф по разрешению, доплата за звук) — здесь всё сведено к
+ * единому виду: эффективная цена за секунду для каждого разрешения. Источник —
+ * OpenRouter `pricing_skus`, сверено с фактическими `usage.cost`.
+ *
+ * Токенные модели (Seedance) пересчитаны в $/сек по формуле, подтверждённой
+ * реальными списаниями: цена = ширина × высота × 0.0234375 токена/пиксель-сек ×
+ * цена_токена. Отсюда 1080p ≈ в 5 раз дороже 480p, 4K ≈ в 20 раз — плоское число
+ * за секунду сильно занижало оценку на высоких разрешениях.
+ */
+export interface VideoPrice {
+  /** USD за секунду по разрешению (без звука или когда звук не влияет на цену) */
+  perSecond: Record<string, number>
+  /** USD за секунду по разрешению СО звуком — задаётся только если звук меняет цену */
+  perSecondAudio?: Record<string, number>
+}
 
 export interface VideoModel {
   /** ID модели в OpenRouter (передаётся в поле `model`) */
@@ -50,8 +69,8 @@ export interface VideoModel {
   resolutions: string[]
   /** Допустимые соотношения сторон */
   aspectRatios: string[]
-  /** Ориентировочная цена за секунду в USD (для оценки в UI) */
-  pricePerSecond: number
+  /** Цена: эффективная стоимость за секунду по разрешению (+ звук, если влияет) */
+  price: VideoPrice
   /** Пометка «новинка» */
   isNew?: boolean
 }
@@ -69,7 +88,8 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 8, 12],
     resolutions: ["480p", "720p", "1080p", "4K"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
-    pricePerSecond: 0.07,
+    // video_tokens $0.000007, звук бесплатный
+    price: { perSecond: { "480p": 0.0673, "720p": 0.1512, "1080p": 0.3402, "4K": 1.3608 } },
     isNew: true,
   },
   {
@@ -83,7 +103,7 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 8, 12],
     resolutions: ["720p", "1080p"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
-    pricePerSecond: 0.0988,
+    price: { perSecond: { "720p": 0.0988, "1080p": 0.1278 } },
     isNew: true,
   },
   {
@@ -97,7 +117,11 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 6, 8],
     resolutions: ["720p", "1080p", "4K"],
     aspectRatios: ["16:9", "9:16"],
-    pricePerSecond: 0.4,
+    // звук почти удваивает цену; 4K дороже
+    price: {
+      perSecond: { "720p": 0.2, "1080p": 0.2, "4K": 0.4 },
+      perSecondAudio: { "720p": 0.4, "1080p": 0.4, "4K": 0.6 },
+    },
     isNew: true,
   },
   {
@@ -111,7 +135,11 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [5, 10],
     resolutions: ["720p"],
     aspectRatios: ["16:9", "9:16", "1:1"],
-    pricePerSecond: 0.168,
+    // разрешение не влияет; звук +50%
+    price: {
+      perSecond: { "720p": 0.112 },
+      perSecondAudio: { "720p": 0.168 },
+    },
     isNew: true,
   },
   {
@@ -125,7 +153,7 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [5, 10],
     resolutions: ["720p"],
     aspectRatios: ["16:9", "9:16", "1:1"],
-    pricePerSecond: 0.112,
+    price: { perSecond: { "720p": 0.112 } },
     isNew: true,
   },
   {
@@ -139,7 +167,8 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 8, 12, 16, 20],
     resolutions: ["720p", "1080p"],
     aspectRatios: ["16:9", "9:16"],
-    pricePerSecond: 0.3,
+    // звук включён в цену; тариф по разрешению
+    price: { perSecond: { "720p": 0.3, "1080p": 0.5 } },
   },
 
   // ===== Баланс цены и качества =====
@@ -154,7 +183,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 6, 8],
     resolutions: ["720p", "1080p", "4K"],
     aspectRatios: ["16:9", "9:16"],
-    pricePerSecond: 0.12,
+    price: {
+      perSecond: { "720p": 0.08, "1080p": 0.1, "4K": 0.25 },
+      perSecondAudio: { "720p": 0.1, "1080p": 0.12, "4K": 0.3 },
+    },
   },
   {
     id: "google/veo-3.1-lite",
@@ -167,7 +199,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 6, 8],
     resolutions: ["720p", "1080p"],
     aspectRatios: ["16:9", "9:16"],
-    pricePerSecond: 0.05,
+    price: {
+      perSecond: { "720p": 0.03, "1080p": 0.05 },
+      perSecondAudio: { "720p": 0.05, "1080p": 0.08 },
+    },
     isNew: true,
   },
   {
@@ -181,7 +216,11 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [5, 10],
     resolutions: ["720p"],
     aspectRatios: ["16:9", "9:16", "1:1"],
-    pricePerSecond: 0.126,
+    // разрешение не влияет; звук +50%
+    price: {
+      perSecond: { "720p": 0.084 },
+      perSecondAudio: { "720p": 0.126 },
+    },
   },
   {
     id: "minimax/hailuo-2.3",
@@ -194,7 +233,7 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [6, 10],
     resolutions: ["1080p"],
     aspectRatios: ["16:9"],
-    pricePerSecond: 0.082,
+    price: { perSecond: { "1080p": 0.0817 } },
   },
   {
     id: "alibaba/wan-2.6",
@@ -207,7 +246,8 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [5, 10],
     resolutions: ["720p", "1080p"],
     aspectRatios: ["16:9", "9:16"],
-    pricePerSecond: 0.1,
+    // тариф по разрешению (ставки t2v; i2v чуть дороже), звук включён
+    price: { perSecond: { "720p": 0.08, "1080p": 0.12 } },
   },
   {
     id: "alibaba/wan-2.7",
@@ -220,7 +260,8 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [5, 10],
     resolutions: ["720p", "1080p"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
-    pricePerSecond: 0.1,
+    // плоская за секунду, разрешение не влияет
+    price: { perSecond: { "720p": 0.1, "1080p": 0.1 } },
     isNew: true,
   },
 
@@ -236,7 +277,8 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 8, 12],
     resolutions: ["480p", "720p"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
-    pricePerSecond: 0.05,
+    // video_tokens $0.0000056, звук бесплатный
+    price: { perSecond: { "480p": 0.0538, "720p": 0.121 } },
     isNew: true,
   },
   {
@@ -250,7 +292,11 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 8, 12],
     resolutions: ["480p", "720p", "1080p"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
-    pricePerSecond: 0.02,
+    // video_tokens $0.0000012 без звука / $0.0000024 со звуком
+    price: {
+      perSecond: { "480p": 0.0115, "720p": 0.0259, "1080p": 0.0583 },
+      perSecondAudio: { "480p": 0.0231, "720p": 0.0518, "1080p": 0.1166 },
+    },
   },
   {
     id: "x-ai/grok-imagine-video",
@@ -263,7 +309,7 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [5, 10],
     resolutions: ["480p", "720p"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"],
-    pricePerSecond: 0.06,
+    price: { perSecond: { "480p": 0.05, "720p": 0.07 } },
   },
 ]
 
@@ -317,7 +363,37 @@ export function defaultVideoParams(model: VideoModel): {
   }
 }
 
-/** Оценка стоимости клипа (USD) — pricePerSecond × duration */
-export function estimateVideoCost(model: VideoModel, durationSeconds: number): number {
-  return model.pricePerSecond * durationSeconds
+/**
+ * Эффективная цена за секунду для выбранного разрешения и режима звука.
+ * Если разрешение не задано/не найдено — берём максимум из таблицы (консервативно,
+ * чтобы не занизить). Для «от $X/сек» в списке моделей есть videoPriceFrom.
+ */
+export function videoPricePerSecond(
+  model: VideoModel,
+  resolution?: string,
+  audio = false
+): number {
+  const table =
+    audio && model.price.perSecondAudio ? model.price.perSecondAudio : model.price.perSecond
+  if (resolution && table[resolution] != null) return table[resolution]
+  const values = Object.values(table)
+  return values.length ? Math.max(...values) : 0
+}
+
+/** Минимальная цена за секунду среди разрешений — для «от $X/сек» в списке моделей */
+export function videoPriceFrom(model: VideoModel): number {
+  const values = Object.values(model.price.perSecond)
+  return values.length ? Math.min(...values) : 0
+}
+
+/**
+ * Оценка стоимости клипа (USD) с учётом разрешения и звука.
+ * Точная сумма всё равно берётся из `usage.cost` OpenRouter после генерации —
+ * это оценка ДО запуска и пред-проверка лимитов.
+ */
+export function estimateVideoCost(
+  model: VideoModel,
+  opts: { durationSeconds: number; resolution?: string; audio?: boolean }
+): number {
+  return videoPricePerSecond(model, opts.resolution, opts.audio) * opts.durationSeconds
 }

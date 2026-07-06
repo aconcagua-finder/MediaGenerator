@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { VIDEO_MODELS, VIDEO_VENDOR_COLORS, RUSSIAN_SPEECH_INFO, type VideoVendor } from "@/lib/providers/video-models"
+import { VIDEO_MODELS, VIDEO_VENDOR_COLORS, RUSSIAN_SPEECH_INFO, videoPriceFrom, type VideoVendor } from "@/lib/providers/video-models"
 
 interface VideoModelSelectorProps {
   selectedModel: string
@@ -95,7 +95,7 @@ export function VideoModelSelector({ selectedModel, onModelChange }: VideoModelS
                       {m.modes.includes("i2v") && (
                         <span className="rounded bg-white/[0.05] px-1.5 py-0.5">из картинки</span>
                       )}
-                      <span className="rounded bg-white/[0.05] px-1.5 py-0.5">≈${m.pricePerSecond.toFixed(3)}/сек</span>
+                      <span className="rounded bg-white/[0.05] px-1.5 py-0.5">от ${videoPriceFrom(m).toFixed(3)}/сек</span>
                     </div>
                   </div>
                 </SelectItem>

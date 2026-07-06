@@ -80,7 +80,11 @@ export async function POST(request: NextRequest) {
     const mode = wantsImage && supportsI2V ? "i2v" : "t2v"
 
     const isAdmin = session.user.role === "admin"
-    const estimate = estimateVideoCost(videoModel, duration)
+    const estimate = estimateVideoCost(videoModel, {
+      durationSeconds: duration,
+      resolution,
+      audio: generateAudio,
+    })
 
     // 4. Лимиты пользователя
     const [userData] = await db

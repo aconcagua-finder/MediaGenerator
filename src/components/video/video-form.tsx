@@ -20,6 +20,7 @@ import {
   getVideoModel,
   defaultVideoParams,
   estimateVideoCost,
+  videoPricePerSecond,
   DEFAULT_VIDEO_MODEL,
   RUSSIAN_SPEECH_INFO,
 } from "@/lib/providers/video-models"
@@ -106,8 +107,13 @@ export function VideoForm({ hasOpenRouterKey }: VideoFormProps) {
   }, [jobs])
 
   const costEstimate = useMemo(
-    () => estimateVideoCost(model, params.duration),
-    [model, params.duration]
+    () =>
+      estimateVideoCost(model, {
+        durationSeconds: params.duration,
+        resolution: params.resolution,
+        audio: params.generate_audio,
+      }),
+    [model, params.duration, params.resolution, params.generate_audio]
   )
 
   const handleModelChange = useCallback((newId: string) => {
@@ -438,7 +444,7 @@ export function VideoForm({ hasOpenRouterKey }: VideoFormProps) {
           <span className="text-sm font-bold text-white">~${costEstimate.toFixed(3)}</span>
         </div>
         <p className="-mt-3 px-1 text-[11px] leading-snug text-neutral-600">
-          Точная сумма спишется по факту от OpenRouter после генерации (≈${model.pricePerSecond.toFixed(3)}/сек × {params.duration} сек).
+          Точная сумма спишется по факту от OpenRouter после генерации (≈${videoPricePerSecond(model, params.resolution, params.generate_audio).toFixed(3)}/сек при {params.resolution} × {params.duration} сек).
         </p>
       </div>
     </div>
