@@ -33,6 +33,32 @@
 
 Русский. Все тексты в UI на русском языке.
 
+## Эксплуатация (деплой и типовые сбои)
+
+Проект работает в Docker **локально на маке**, наружу торчит через cloudflared-туннель
+(`mediagenerator.sanktum.net` → `localhost:3001`). Никакого удалённого сервера нет -
+`postgres`, `minio`, `app`, `cron` крутятся в Docker Desktop.
+
+**Сбой: MinIO отдаёт "Storage backend has reached its minimum free drive threshold.
+Please delete a few objects to proceed."**
+Это НЕ про объём картинок в бакете (сам бакет обычно ~сотни МБ). MinIO живёт на диске
+Docker-VM (`/dev/vda1`, потолок ~58 ГБ), и когда VM забивается до ~99%, MinIO включает
+защиту минимального свободного места и отказывается писать. Совет из ошибки "удалите
+объекты" вводит в заблуждение - удалять в бакете нечего.
+
+Диагностика и фикс:
+```sh
+docker run --rm alpine df -h /                    # свободное место в Docker-VM
+docker exec mediagenerator-minio-1 df -h /data    # то же глазами MinIO
+docker system df                                  # кто занял: обычно Build Cache + Images
+docker builder prune -af                          # регенерируемый кэш, данные не трогает
+docker image prune -f                             # только висячие образы
+```
+Build cache легко нарастает до 30-40 ГБ от повторных сборок этого и соседних проектов
+(mixbreaker, tilda, pc) - они делят один Docker-VM. НЕ делать `docker volume prune`
+и `docker system prune -a`: снесёт тома/образы остановленных pc_* контейнеров.
+Проверка фикса - тестовая запись в бакет через `mc` внутри контейнера minio.
+
 ## Подсказки по разделам
 
 ### Мониторинг (`/monitoring`)
