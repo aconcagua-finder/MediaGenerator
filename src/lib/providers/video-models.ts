@@ -264,6 +264,19 @@ export const VIDEO_MODELS: VideoModel[] = [
     price: { perSecond: { "720p": 0.1, "1080p": 0.1 } },
     isNew: true,
   },
+  {
+    id: "alibaba/happyhorse-1.0",
+    name: "HappyHorse 1.0",
+    vendor: "alibaba",
+    description: "Alibaba — предыдущее поколение HappyHorse: генерация из текста, стартового кадра или набора референсов, до 1080p. На OpenRouter без звука; i2v по первому кадру. HappyHorse 1.1 — новее и качественнее.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [4, 8, 12],
+    resolutions: ["720p", "1080p"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
+    price: { perSecond: { "720p": 0.0988, "1080p": 0.1694 } },
+  },
 
   // ===== Быстрые и дешёвые =====
   {
@@ -322,6 +335,7 @@ export const VIDEO_MODELS: VideoModel[] = [
 export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "bytedance/seedance-2.0": { video_tokens: 0.000007, video_tokens_without_audio: 0.000007 },
   "alibaba/happyhorse-1.1": { duration_seconds_720p: 0.0988, duration_seconds_1080p: 0.1278 },
+  "alibaba/happyhorse-1.0": { duration_seconds_720p: 0.0988, duration_seconds_1080p: 0.1694 },
   "google/veo-3.1": {
     duration_seconds_with_audio: 0.4, duration_seconds_with_audio_4k: 0.6,
     duration_seconds_without_audio: 0.2, duration_seconds_without_audio_4k: 0.4,
