@@ -24,7 +24,7 @@ import { user } from "../db/schema"
 import { getDecryptedApiKey } from "../actions/api-keys"
 import { createNotification } from "../actions/notifications"
 import { TEXT_MODELS } from "../providers/text-models"
-import { VIDEO_MODELS } from "../providers/video-models"
+import { VIDEO_MODELS, VIDEO_PRICING_SKUS } from "../providers/video-models"
 import { VOICE_MODELS } from "../providers/voice-models"
 import { SEED_MODELS } from "../providers/seed-models"
 
@@ -103,6 +103,47 @@ export function auditModelSet(
   return { removed, added }
 }
 
+export interface SkuDrift {
+  id: string
+  /** человекочитаемые изменения по каждому уехавшему/новому/пропавшему SKU */
+  changes: string[]
+}
+
+/**
+ * Сверяет сырые `pricing_skus` видеомоделей со снимком, из которого выведены наши
+ * цены (VIDEO_PRICING_SKUS). Флагует изменившиеся значения (>relThreshold), новые и
+ * пропавшие SKU-ключи. Модель, вовсе исчезнувшую с провайдера, не трогаем — её ловит
+ * auditModelSet. Это закрывает слепую зону: раньше дрейф цен видео не отслеживался,
+ * из-за чего оценка Seedance молча разошлась с реальностью в 5 раз.
+ */
+export function auditVideoPricing(
+  snapshot: Record<string, Record<string, number>>,
+  live: Map<string, Record<string, number>>,
+  relThreshold = 0.05,
+): SkuDrift[] {
+  const drift: SkuDrift[] = []
+  for (const [id, refSkus] of Object.entries(snapshot)) {
+    const liveSkus = live.get(id)
+    if (!liveSkus) continue
+    const changes: string[] = []
+    for (const [k, was] of Object.entries(refSkus)) {
+      const now = liveSkus[k]
+      if (now == null) {
+        changes.push(`${k}: пропал (был ${was})`)
+        continue
+      }
+      const absDiff = Math.abs(now - was)
+      const relDiff = was > 0 ? absDiff / was : now > 0 ? Infinity : 0
+      if (relDiff > relThreshold) changes.push(`${k}: ${was}→${now}`)
+    }
+    for (const k of Object.keys(liveSkus)) {
+      if (!(k in refSkus)) changes.push(`${k}: новый (${liveSkus[k]})`)
+    }
+    if (changes.length) drift.push({ id, changes })
+  }
+  return drift
+}
+
 // ---------- Оркестратор (с I/O) ----------
 
 async function getOpenRouterKey(): Promise<string | null> {
@@ -155,6 +196,7 @@ export interface RegistryAuditSummary {
   textDrift: number
   videoAdded: number
   videoRemoved: number
+  videoPriceDrift: number
   voiceAdded: number
   voiceRemoved: number
   imageGone: number
@@ -169,6 +211,7 @@ export async function runRegistryAudit(): Promise<RegistryAuditSummary> {
     textDrift: 0,
     videoAdded: 0,
     videoRemoved: 0,
+    videoPriceDrift: 0,
     voiceAdded: 0,
     voiceRemoved: 0,
     imageGone: 0,
@@ -216,9 +259,9 @@ export async function runRegistryAudit(): Promise<RegistryAuditSummary> {
     }
   }
 
-  // ---- VIDEO: появление/исчезновение ----
+  // ---- VIDEO: появление/исчезновение + дрейф цен ----
   const videoResp = (await fetchJson(`${OPENROUTER_BASE}/videos/models`, key)) as
-    | { data?: Array<{ id: string; name?: string }> }
+    | { data?: Array<{ id: string; name?: string; pricing_skus?: Record<string, unknown> }> }
     | null
 
   if (videoResp?.data) {
@@ -241,6 +284,28 @@ export async function runRegistryAudit(): Promise<RegistryAuditSummary> {
         type: "model_update",
         title: "Видео: модели пропали с OpenRouter",
         message: `Больше не доступны: ${removed.join(", ")}. Уберите из video-models.ts.`,
+      })
+    }
+
+    // Дрейф цен: сверяем живые pricing_skus со снимком, из которого выведены наши цены
+    const liveSkus = new Map<string, Record<string, number>>()
+    for (const m of videoResp.data) {
+      if (!m.pricing_skus) continue
+      const parsed: Record<string, number> = {}
+      for (const [k, v] of Object.entries(m.pricing_skus)) {
+        const n = typeof v === "string" ? parseFloat(v) : typeof v === "number" ? v : NaN
+        if (isFinite(n)) parsed[k] = n
+      }
+      liveSkus.set(m.id, parsed)
+    }
+    const priceDrift = auditVideoPricing(VIDEO_PRICING_SKUS, liveSkus)
+    summary.videoPriceDrift = priceDrift.length
+    if (priceDrift.length) {
+      const lines = priceDrift.map((d) => `${d.id} (${d.changes.join(", ")})`).join("; ")
+      await createNotification({
+        type: "model_update",
+        title: "Видео: изменились цены у OpenRouter",
+        message: `SKU разошлись со снимком: ${lines}. Пересчитайте price и обновите VIDEO_PRICING_SKUS в video-models.ts.`,
       })
     }
   }

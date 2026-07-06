@@ -313,6 +313,55 @@ export const VIDEO_MODELS: VideoModel[] = [
   },
 ]
 
+/**
+ * Снимок сырых `pricing_skus` OpenRouter, из которых выведены цены `price` выше
+ * (июль 2026). Используется ТОЛЬКО аудитом дрейфа (registry-audit): если живые SKU
+ * разойдутся с этим снимком — провайдер поменял цены и `price` пора пересчитать.
+ * ❗ При обновлении цен обновляйте и этот снимок (иначе аудит будет ложно молчать).
+ */
+export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
+  "bytedance/seedance-2.0": { video_tokens: 0.000007, video_tokens_without_audio: 0.000007 },
+  "alibaba/happyhorse-1.1": { duration_seconds_720p: 0.0988, duration_seconds_1080p: 0.1278 },
+  "google/veo-3.1": {
+    duration_seconds_with_audio: 0.4, duration_seconds_with_audio_4k: 0.6,
+    duration_seconds_without_audio: 0.2, duration_seconds_without_audio_4k: 0.4,
+  },
+  "kwaivgi/kling-v3.0-pro": {
+    duration_seconds: 0.112, duration_seconds_with_audio: 0.168,
+    text_to_video_duration_seconds_480p: 0.112, text_to_video_duration_seconds_720p: 0.112,
+    image_to_video_duration_seconds_720p: 0.112, text_to_video_duration_seconds_1080p: 0.112,
+    image_to_video_duration_seconds_1080p: 0.112,
+  },
+  "kwaivgi/kling-video-o1": { duration_seconds: 0.112 },
+  "openai/sora-2-pro": { duration_seconds_720p: 0.3, duration_seconds_1024p: 0.5, duration_seconds_1080p: 0.5 },
+  "google/veo-3.1-fast": {
+    duration_seconds_with_audio: 0.12, duration_seconds_with_audio_4k: 0.3, duration_seconds_with_audio_720p: 0.1,
+    duration_seconds_without_audio: 0.1, duration_seconds_without_audio_4k: 0.25, duration_seconds_without_audio_720p: 0.08,
+  },
+  "google/veo-3.1-lite": {
+    duration_seconds_with_audio: 0.08, duration_seconds_without_audio: 0.05,
+    duration_seconds_with_audio_720p: 0.05, duration_seconds_without_audio_720p: 0.03,
+  },
+  "kwaivgi/kling-v3.0-std": {
+    duration_seconds: 0.084, duration_seconds_with_audio: 0.126,
+    text_to_video_duration_seconds_480p: 0.084, text_to_video_duration_seconds_720p: 0.084,
+    image_to_video_duration_seconds_720p: 0.084, text_to_video_duration_seconds_1080p: 0.084,
+    image_to_video_duration_seconds_1080p: 0.084,
+  },
+  "minimax/hailuo-2.3": { duration_seconds: 0.0817 },
+  "alibaba/wan-2.6": {
+    text_to_video_duration_seconds_480p: 0.04, text_to_video_duration_seconds_720p: 0.08,
+    image_to_video_duration_seconds_720p: 0.1, text_to_video_duration_seconds_1080p: 0.12,
+    image_to_video_duration_seconds_1080p: 0.15,
+  },
+  "alibaba/wan-2.7": { duration_seconds: 0.1 },
+  "bytedance/seedance-2.0-fast": { video_tokens: 0.0000056, video_tokens_without_audio: 0.0000056 },
+  "bytedance/seedance-1-5-pro": { video_tokens: 0.0000024, video_tokens_without_audio: 0.0000012 },
+  "x-ai/grok-imagine-video": {
+    cents_per_image_input: 0.2, cents_per_video_output_second_480p: 5, cents_per_video_output_second_720p: 7,
+  },
+}
+
 /** Цветовая маркировка вендоров для UI */
 export const VIDEO_VENDOR_COLORS: Record<VideoVendor, { dot: string; text: string; label: string }> = {
   google:    { dot: "bg-blue-400", text: "text-blue-300", label: "Google" },

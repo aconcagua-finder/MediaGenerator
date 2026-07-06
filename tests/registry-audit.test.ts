@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   auditTextPricing,
   auditModelSet,
+  auditVideoPricing,
   type TextPriceRow,
   type LiveTextPrice,
 } from "@/lib/cron/registry-audit"
@@ -82,5 +83,38 @@ describe("auditModelSet", () => {
   it("подставляет id вместо имени, если name пуст", () => {
     const r = auditModelSet([], [{ id: "x/y" }])
     expect(r.added).toEqual([{ id: "x/y", name: "x/y" }])
+  })
+})
+
+describe("auditVideoPricing", () => {
+  const snap = { "b/seedance": { video_tokens: 0.000007 } }
+
+  it("молчит, когда SKU совпадают", () => {
+    const live = new Map([["b/seedance", { video_tokens: 0.000007 }]])
+    expect(auditVideoPricing(snap, live)).toHaveLength(0)
+  })
+
+  it("ловит подорожавший токен (0.000007 → 0.000014)", () => {
+    const live = new Map([["b/seedance", { video_tokens: 0.000014 }]])
+    const drift = auditVideoPricing(snap, live)
+    expect(drift).toHaveLength(1)
+    expect(drift[0].id).toBe("b/seedance")
+    expect(drift[0].changes[0]).toContain("video_tokens")
+  })
+
+  it("замечает пропавший и новый SKU-ключ", () => {
+    const live = new Map([["b/seedance", { duration_seconds: 0.1 }]])
+    const drift = auditVideoPricing(snap, live)
+    expect(drift[0].changes.some((c) => c.includes("пропал"))).toBe(true)
+    expect(drift[0].changes.some((c) => c.includes("новый"))).toBe(true)
+  })
+
+  it("исчезнувшую модель не трогает (её ловит auditModelSet)", () => {
+    expect(auditVideoPricing(snap, new Map())).toHaveLength(0)
+  })
+
+  it("игнорирует мелкое округление (<5%)", () => {
+    const live = new Map([["b/seedance", { video_tokens: 0.0000071 }]])
+    expect(auditVideoPricing(snap, live)).toHaveLength(0)
   })
 })
