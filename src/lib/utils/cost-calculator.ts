@@ -92,6 +92,11 @@ export function calculateCost(
         const sz = (params.image_size as string) || "1K"
         const t: Record<string, number> = { "0.5K": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 }
         pricePerImage = t[sz] || 0.067
+      } else if (model.includes("gemini-3-pro-image")) {
+        // Nano Banana Pro (GA) на OpenRouter — оценка по 1K (реальная из usage.cost)
+        const sz = (params.image_size as string) || "1K"
+        const t: Record<string, number> = { "0.5K": 0.067, "1K": 0.08, "2K": 0.134, "4K": 0.24 }
+        pricePerImage = t[sz] || 0.08
       } else if (model.includes("gpt-5.4-image-2")) {
         pricePerImage = 0.12
       } else if (model.includes("gpt-5-image-mini")) {
@@ -111,9 +116,10 @@ export function calculateCost(
         "gemini-3.1-flash-image": { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
         "gemini-3-pro-image": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
         "gemini-2.5-flash-image": { "1K": 0.039, "2K": 0.039, "4K": 0.039 },
-        // OpenRouter-preview алиасы: всё ещё живы на 29.06.2026 (объявленный shutdown
-        // 25.06.2026 не сработал), GA-id google/gemini-3.1-flash-image и
-        // google/gemini-3-pro-image теперь доступны и на OpenRouter — кандидаты на миграцию.
+        // OpenRouter-preview алиасы: у прямого Google API отключены 25.06.2026, но на
+        // OpenRouter ещё отвечали на 13.07.2026. Наши OpenRouter-записи мигрированы на
+        // GA (google/gemini-3.1-flash-image, google/gemini-3-pro-image); эти ключи
+        // оставлены как безвредный фолбэк для старых строк в model_registry.
         "gemini-3.1-flash-image-preview": { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
         "gemini-3-pro-image-preview": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
       }

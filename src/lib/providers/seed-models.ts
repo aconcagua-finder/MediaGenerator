@@ -275,7 +275,7 @@ export const SEED_MODELS: SeedModel[] = [
   },
   {
     provider: "openrouter",
-    modelId: "google/gemini-3-pro-image-preview",
+    modelId: "google/gemini-3-pro-image",
     displayName: "Gemini 3 Pro Image",
     description: "Google — максимальное качество, 2K/4K выход.",
     paramsSchema: {

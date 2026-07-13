@@ -84,8 +84,8 @@
 
 | Модель | ID | Цена ~  |
 |--------|----|---------|
-| Gemini 3.1 Flash Image | `google/gemini-3.1-flash-image-preview` | $0.04 |
-| Gemini 3 Pro Image | `google/gemini-3-pro-image-preview` | $0.08 |
+| Gemini 3.1 Flash Image | `google/gemini-3.1-flash-image` | $0.067 |
+| Gemini 3 Pro Image | `google/gemini-3-pro-image` | $0.08 |
 | Gemini 2.5 Flash Image | `google/gemini-2.5-flash-image` | $0.039 |
 | GPT-5 Image | `openai/gpt-5-image` | $0.10 |
 | GPT-5 Image Mini | `openai/gpt-5-image-mini` | $0.04 |
@@ -102,17 +102,16 @@
 > `GET /api/v1/models/{slug}/endpoints` (HTTP 200, status 0) — июнь 2026.
 > FLUX.2 также доступен напрямую через провайдер BFL (раздел ниже).
 
-> ⚠️ **Gemini image — preview vs GA (важно по провайдерам):** на **OpenRouter**
-> сейчас живут И `-preview`-slug'и (`google/gemini-3.1-flash-image-preview`,
-> `google/gemini-3-pro-image-preview`), И GA-id (`google/gemini-3.1-flash-image`,
-> `google/gemini-3-pro-image`) — последние **появились на OpenRouter** (раньше
-> были 404). Объявленный shutdown preview-slug'ов **25.06.2026 не сработал** —
-> на 29.06.2026 они ещё отвечают. В OpenRouter-записях `seed-models.ts` пока
-> оставлены `-preview` (рабочие), но GA-id — рекомендованная цель миграции, т.к.
-> стабильнее. У **прямого Google API** (провайдер `google`) записи уже на GA-id
-> (`gemini-3.1-flash-image`, `gemini-3-pro-image`, GA с 28.05.2026).
-> `gemini-2.5-flash-image` (GA) жив на обоих — дедлайн отключения **02.10.2026**
-> (мигрировать на 3.1-flash).
+> ⚠️ **Gemini image — preview vs GA (важно по провайдерам):** OpenRouter-записи
+> `seed-models.ts` **мигрированы на GA-id** (`google/gemini-3.1-flash-image`,
+> `google/gemini-3-pro-image`). Прямой Google API отключил `-preview`-slug'и
+> **25.06.2026**; на OpenRouter они ещё отвечали на 13.07.2026, но зависеть от
+> них незачем — оба GA-id доступны на OpenRouter (проверено `endpoints`, HTTP 200,
+> status 0 — июль 2026). Старые `-preview`-строки в `model_registry`
+> деактивируются идемпотентно через `RETIRED_OPENROUTER_MODELS` (см.
+> `actions/models.ts`). У **прямого Google API** (провайдер `google`) записи и так
+> на GA-id (GA с 28.05.2026). `gemini-2.5-flash-image` (GA) жив на обоих — дедлайн
+> отключения **02.10.2026** (мигрировать на 3.1-flash).
 
 ### Параметры
 

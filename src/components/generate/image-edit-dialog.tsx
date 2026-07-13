@@ -98,9 +98,9 @@ const EDIT_MODELS: EditModel[] = [
     isNew: true,
   },
   {
-    key: "openrouter::google/gemini-3-pro-image-preview",
+    key: "openrouter::google/gemini-3-pro-image",
     provider: "openrouter",
-    modelId: "google/gemini-3-pro-image-preview",
+    modelId: "google/gemini-3-pro-image",
     name: "Gemini 3 Pro Image",
     vendorLabel: "Google",
     vendorTone: "google",

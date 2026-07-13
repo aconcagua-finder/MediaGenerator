@@ -3,7 +3,7 @@
  * Все они вызываются через единый OpenRouter endpoint (chat/completions),
  * поэтому достаточно одного API-ключа OpenRouter.
  *
- * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — июнь 2026.
+ * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — июль 2026.
  */
 
 export interface TextModel {
@@ -208,7 +208,7 @@ export const TEXT_MODELS: TextModel[] = [
     description: "Самая дешёвая в списке. Open-source, быстрая, хороша для массовой обработки.",
     category: "alt",
     contextTokens: 1_049_000,
-    pricing: { input: 0.09, output: 0.18 },
+    pricing: { input: 0.077, output: 0.154 },
     streaming: true,
   },
 ]
