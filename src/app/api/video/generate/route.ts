@@ -77,6 +77,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    // Зеркальный случай: модель умеет ТОЛЬКО i2v (напр. x-ai/grok-imagine-video-1.5).
+    // Без этой проверки запрос молча уходил бы как t2v и падал уже у провайдера.
+    if (!wantsImage && !videoModel.modes.includes("t2v")) {
+      return NextResponse.json(
+        { error: `Модель ${videoModel.name} работает только из картинки (image-to-video). Загрузите стартовый кадр или выберите другую модель.` },
+        { status: 400 }
+      )
+    }
     const mode = wantsImage && supportsI2V ? "i2v" : "t2v"
 
     const isAdmin = session.user.role === "admin"

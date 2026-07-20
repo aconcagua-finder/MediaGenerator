@@ -58,7 +58,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openai",
     modelId: "gpt-image-1.5",
     displayName: "GPT Image 1.5",
-    description: "Флагманская модель OpenAI. Лучшее качество и следование промпту.",
+    description: "Прошлый флагман OpenAI. ⚠️ Отключается 01.12.2026 — переходите на GPT Image 2.",
     paramsSchema: {
       size: {
         type: "select",
@@ -102,7 +102,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openai",
     modelId: "gpt-image-1",
     displayName: "GPT Image 1",
-    description: "Предыдущее поколение. Хорошее качество, чуть дешевле.",
+    description: "Предыдущее поколение. ⚠️ Отключается 23.10.2026 — переходите на GPT Image 2.",
     paramsSchema: {
       size: {
         type: "select",
@@ -146,7 +146,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openai",
     modelId: "gpt-image-1-mini",
     displayName: "GPT Image 1 Mini",
-    description: "Бюджетная модель. Самая дешёвая от OpenAI.",
+    description: "Бюджетная модель, самая дешёвая от OpenAI. ⚠️ Отключается 01.12.2026 — переходите на GPT Image 2.",
     paramsSchema: {
       size: {
         type: "select",

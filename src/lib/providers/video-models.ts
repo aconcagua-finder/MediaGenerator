@@ -312,6 +312,22 @@ export const VIDEO_MODELS: VideoModel[] = [
     },
   },
   {
+    id: "x-ai/grok-imagine-video-1.5",
+    name: "Grok Imagine Video 1.5",
+    vendor: "xai",
+    description: "xAI — новое поколение Grok Imagine: лучше движение и физика, до 1080p. Работает ТОЛЬКО из картинки (оживляет стартовый кадр), текст задаёт движение. На OpenRouter без звука.",
+    modes: ["i2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [5, 10],
+    resolutions: ["480p", "720p", "1080p"],
+    // OpenRouter отдаёт supported_aspect_ratios: null — формат наследуется от
+    // стартового кадра. Пустой список => aspect_ratio не отправляется в API.
+    aspectRatios: [],
+    price: { perSecond: { "480p": 0.08, "720p": 0.14, "1080p": 0.25 } },
+    isNew: true,
+  },
+  {
     id: "x-ai/grok-imagine-video",
     name: "Grok Imagine Video",
     vendor: "xai",
@@ -373,6 +389,10 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "bytedance/seedance-1-5-pro": { video_tokens: 0.0000024, video_tokens_without_audio: 0.0000012 },
   "x-ai/grok-imagine-video": {
     cents_per_image_input: 0.2, cents_per_video_output_second_480p: 5, cents_per_video_output_second_720p: 7,
+  },
+  "x-ai/grok-imagine-video-1.5": {
+    cents_per_image_input: 1, cents_per_video_output_second_480p: 8,
+    cents_per_video_output_second_720p: 14, cents_per_video_output_second_1080p: 25,
   },
 }
 
