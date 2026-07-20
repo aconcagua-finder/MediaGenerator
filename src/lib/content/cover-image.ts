@@ -62,7 +62,7 @@ const STYLE_CONFIGS: Record<CoverStyle, StyleConfig> = {
   photo: {
     systemHint: `Стиль — фотореалистичная редакторская фотография: один объект-метафора, естественное освещение, неглубокая глубина резкости, без людей в кадре крупным планом, без текста, без логотипов.`,
     defaultProvider: "openrouter",
-    defaultModel: "google/gemini-3-pro-image-preview",
+    defaultModel: "google/gemini-3-pro-image",
   },
 }
 

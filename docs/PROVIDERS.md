@@ -102,7 +102,7 @@
 | Модель | ID | Цена ~  |
 |--------|----|---------|
 | Gemini 3.1 Flash Image | `google/gemini-3.1-flash-image-preview` | $0.04 |
-| Gemini 3 Pro Image | `google/gemini-3-pro-image-preview` | $0.08 |
+| Gemini 3 Pro Image | `google/gemini-3-pro-image` | $0.08 |
 | Gemini 2.5 Flash Image | `google/gemini-2.5-flash-image` | $0.039 |
 | GPT-5 Image | `openai/gpt-5-image` | $0.10 |
 | GPT-5 Image Mini | `openai/gpt-5-image-mini` | $0.04 |
@@ -119,25 +119,24 @@
 > `GET /api/v1/models/{slug}/endpoints` (HTTP 200, status 0) — июнь 2026.
 > FLUX.2 также доступен напрямую через провайдер BFL (раздел ниже).
 
-> ⚠️ **Gemini image — preview vs GA (важно по провайдерам):** на **OpenRouter**
-> сейчас живут И `-preview`-slug'и (`google/gemini-3.1-flash-image-preview`,
-> `google/gemini-3-pro-image-preview`), И GA-id (`google/gemini-3.1-flash-image`,
-> `google/gemini-3-pro-image`) — последние **появились на OpenRouter** (раньше
-> были 404). Объявленный shutdown preview-slug'ов **25.06.2026 не сработал** —
-> на 29.06.2026 они ещё отвечают. В OpenRouter-записях `seed-models.ts` пока
-> оставлены `-preview` (рабочие), но GA-id — рекомендованная цель миграции, т.к.
-> стабильнее. У **прямого Google API** (провайдер `google`) записи уже на GA-id
-> (`gemini-3.1-flash-image`, `gemini-3-pro-image`, GA с 28.05.2026).
-> `gemini-2.5-flash-image` (GA) жив на обоих — дедлайн отключения **02.10.2026**
-> (мигрировать на 3.1-flash). Дата **перепроверена в аудите 2026-W30 и не изменилась**.
+> ⚠️ **Gemini image — preview → GA (миграция завершена):** OpenRouter-записи
+> `seed-models.ts` **полностью на GA-id** — `google/gemini-3.1-flash-image` (Nano
+> Banana 2) и `google/gemini-3-pro-image` (Nano Banana Pro). Flash мигрировали
+> раньше, Pro — последним (задача из аудита W29, применена поверх main отдельным
+> коммитом). У **прямого Google API** (провайдер `google`) записи и так на GA-id
+> (GA с 28.05.2026). Старые `-preview`-строки в `model_registry` деактивируются
+> идемпотентно при сидинге через `RETIRED_OPENROUTER_MODELS` (см. `actions/models.ts`).
+>
+> Preview-slug'и у прямого Google API отключены **25.06.2026**; на OpenRouter они
+> ещё отвечали 200 на 20.07.2026 (проверено `endpoints`), но зависеть от них
+> незачем — в реестре не используются. Ключи `*-preview` в таблицах цен
+> (`cost-calculator.ts`, `google.ts`) оставлены как безвредный фолбэк для старых
+> строк registry. `gemini-2.5-flash-image` (GA) жив на обоих — дедлайн отключения
+> **02.10.2026** (мигрировать на 3.1-flash); дата перепроверена в W30, не изменилась.
 > ❗ В таблице депрекейшенов Google заменой всё ещё указан `gemini-3.1-flash-image-preview`,
 > который сам отключён 25.06.2026 — строка у Google протухла, реальная цель — GA
-> `gemini-3.1-flash-image` (у нас уже он).
->
-> Проверено в 2026-W30: `-preview`-слаги Gemini на OpenRouter (`*-flash-image-preview`,
-> `*-pro-image-preview`) **всё ещё отвечают 200** и в реестре не используются —
-> дополнительных действий не требуется. Imagen (`imagen-4.0-*`, отключение 17.08.2026)
-> в проекте не используется нигде — проверено grep'ом.
+> `gemini-3.1-flash-image` (у нас уже он). Imagen (`imagen-4.0-*`, отключение
+> 17.08.2026) в проекте не используется — проверено grep'ом.
 
 ### Параметры
 

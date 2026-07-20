@@ -92,6 +92,13 @@ export function calculateCost(
         const sz = (params.image_size as string) || "1K"
         const t: Record<string, number> = { "0.5K": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 }
         pricePerImage = t[sz] || 0.067
+      } else if (model.includes("gemini-3-pro-image")) {
+        // Nano Banana Pro (GA) на OpenRouter — оценка по 1K (реальная из usage.cost).
+        // Без этой ветки pro-image проваливался в дефолт $0.04 (сильно занижало).
+        // .includes() ловит и GA-slug, и старый -preview (безвредный фолбэк).
+        const sz = (params.image_size as string) || "1K"
+        const t: Record<string, number> = { "0.5K": 0.067, "1K": 0.08, "2K": 0.134, "4K": 0.24 }
+        pricePerImage = t[sz] || 0.08
       } else if (model.includes("gpt-5.4-image-2")) {
         pricePerImage = 0.12
       } else if (model.includes("gpt-5-image-mini")) {

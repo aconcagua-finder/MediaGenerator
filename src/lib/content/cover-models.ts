@@ -45,9 +45,9 @@ export const COVER_MODELS: CoverModelOption[] = [
     approxCost: "~$0.10",
   },
   {
-    id: "openrouter:google/gemini-3-pro-image-preview",
+    id: "openrouter:google/gemini-3-pro-image",
     provider: "openrouter",
-    model: "google/gemini-3-pro-image-preview",
+    model: "google/gemini-3-pro-image",
     label: "Gemini 3 Pro Image",
     hint: "Сильная по фотографичности, средне — с текстом.",
     goodForCyrillic: false,
@@ -102,5 +102,5 @@ export function getCoverModelById(id: string): CoverModelOption | null {
 export const DEFAULT_COVER_MODEL_BY_STYLE: Record<string, string> = {
   "3d_with_text": "openai:gpt-image-2",
   minimalist: "openrouter:google/gemini-3.1-flash-image",
-  photo: "openrouter:google/gemini-3-pro-image-preview",
+  photo: "openrouter:google/gemini-3-pro-image",
 }

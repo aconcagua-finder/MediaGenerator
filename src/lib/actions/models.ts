@@ -14,6 +14,7 @@ import { requireAdmin } from "../utils/admin-guard"
  */
 const RETIRED_OPENROUTER_MODELS = [
   "google/gemini-3.1-flash-image-preview", // → google/gemini-3.1-flash-image (Nano Banana 2 GA)
+  "google/gemini-3-pro-image-preview", // → google/gemini-3-pro-image (Nano Banana Pro GA)
 ]
 
 /**
