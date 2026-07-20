@@ -46,7 +46,7 @@ export const IMAGE_INPUT_MODELS: Record<string, string[]> = {
   openrouter: [
     "google/gemini-3.1-flash-image",
     "google/gemini-3.1-flash-lite-image",
-    "google/gemini-3-pro-image-preview",
+    "google/gemini-3-pro-image",
     "google/gemini-2.5-flash-image",
     "openai/gpt-5-image",
     "openai/gpt-5-image-mini",
