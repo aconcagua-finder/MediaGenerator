@@ -5,6 +5,7 @@ import {
   estimateVideoCost,
   videoPricePerSecond,
   videoPriceFrom,
+  defaultVideoParams,
 } from "@/lib/providers/video-models"
 
 /**
@@ -58,6 +59,28 @@ describe("оценка стоимости видео", () => {
   it("без разрешения оценка консервативна (берёт максимум, не занижает)", () => {
     const perSec = videoPricePerSecond(seedance) // без resolution
     expect(perSec).toBeCloseTo(1.3608, 4) // 4K — самый дорогой тариф
+  })
+
+  /**
+   * Grok Imagine Video 1.5 — первая i2v-ONLY модель в реестре и первая с пустым
+   * списком aspectRatios (OpenRouter отдаёт supported_aspect_ratios: null —
+   * формат наследуется от стартового кадра). Пустой список должен приводить к
+   * тому, что aspect_ratio вообще НЕ уходит в API, а не к undefined-строке.
+   */
+  it("Grok Imagine Video 1.5 — i2v-only, aspect_ratio не отправляется", () => {
+    const grok15 = getVideoModel("x-ai/grok-imagine-video-1.5")!
+    expect(grok15.modes).toEqual(["i2v"])
+    expect(grok15.modes).not.toContain("t2v")
+    expect(grok15.aspectRatios).toEqual([])
+
+    const params = defaultVideoParams(grok15)
+    expect(params.aspect_ratio).toBeUndefined()
+    // адаптер шлёт поле только если оно truthy — проверяем именно это условие
+    expect(Boolean(params.aspect_ratio)).toBe(false)
+    expect(params.generate_audio).toBe(false)
+
+    // цена по SKU OpenRouter: 720p $0.14/сек
+    expect(estimateVideoCost(grok15, { durationSeconds: 5, resolution: "720p" })).toBeCloseTo(0.7, 4)
   })
 
   it("каждая модель: у каждого поддерживаемого разрешения есть цена", () => {

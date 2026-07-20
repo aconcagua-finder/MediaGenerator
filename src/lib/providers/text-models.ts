@@ -37,10 +37,24 @@ export interface TextModel {
 export const TEXT_MODELS: TextModel[] = [
   // ===== Универсальные (баланс качества/цены) =====
   {
+    id: "anthropic/claude-sonnet-5",
+    name: "Claude Sonnet 5",
+    vendor: "anthropic",
+    description: "Новое поколение Sonnet — умнее 4.6 и сейчас дешевле её. Лучший выбор по умолчанию.",
+    category: "balanced",
+    contextTokens: 1_000_000,
+    // ❗ $2/$10 — вводная цена Anthropic, действует до 31.08.2026, дальше
+    // возврат к прайсу $3/$15. Недельный аудит поймает возврат (сверка с живым API).
+    pricing: { input: 2.0, output: 10.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "anthropic/claude-sonnet-4.6",
     name: "Claude Sonnet 4.6",
     vendor: "anthropic",
-    description: "Универсальная — отличный баланс качества и цены. Лучший выбор по умолчанию.",
+    description: "Прошлое поколение Sonnet. Проверенная временем, но Sonnet 5 сейчас дешевле.",
     category: "balanced",
     contextTokens: 1_000_000,
     pricing: { input: 3.0, output: 15.0 },
@@ -197,7 +211,7 @@ export const TEXT_MODELS: TextModel[] = [
     description: "Open-source топ. Качество рядом с GPT-5, цена в 5-10 раз ниже.",
     category: "alt",
     contextTokens: 1_049_000,
-    pricing: { input: 0.43, output: 0.87 },
+    pricing: { input: 0.435, output: 0.87 },
     isNew: true,
     streaming: true,
   },
@@ -208,7 +222,7 @@ export const TEXT_MODELS: TextModel[] = [
     description: "Самая дешёвая в списке. Open-source, быстрая, хороша для массовой обработки.",
     category: "alt",
     contextTokens: 1_049_000,
-    pricing: { input: 0.09, output: 0.18 },
+    pricing: { input: 0.098, output: 0.196 },
     streaming: true,
   },
 ]
