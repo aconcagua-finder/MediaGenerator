@@ -101,7 +101,8 @@
 
 | Модель | ID | Цена ~  |
 |--------|----|---------|
-| Gemini 3.1 Flash Image | `google/gemini-3.1-flash-image-preview` | $0.04 |
+| Gemini 3.1 Flash Image (Nano Banana 2) | `google/gemini-3.1-flash-image` | $0.067 |
+| Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite) | `google/gemini-3.1-flash-lite-image` | $0.034 |
 | Gemini 3 Pro Image | `google/gemini-3-pro-image` | $0.08 |
 | Gemini 2.5 Flash Image | `google/gemini-2.5-flash-image` | $0.039 |
 | GPT-5 Image | `openai/gpt-5-image` | $0.10 |
