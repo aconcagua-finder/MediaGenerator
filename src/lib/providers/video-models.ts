@@ -19,6 +19,7 @@ export type VideoVendor =
   | "kuaishou"
   | "minimax"
   | "alibaba"
+  | "runway"
 
 export type VideoMode = "t2v" | "i2v"
 
@@ -223,6 +224,37 @@ export const VIDEO_MODELS: VideoModel[] = [
     },
   },
   {
+    id: "minimax/hailuo-3",
+    name: "Hailuo 3",
+    vendor: "minimax",
+    description: "MiniMax — новое поколение Hailuo: точное следование промпту, редактирование по инструкции и рендер текста, до 2K со звуком. Русская озвучка не подтверждена — лучше проверить.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: true,
+    russianSpeech: "partial",
+    durations: [5, 10],
+    resolutions: ["2K"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    // duration_seconds $0.13 (плоско, единственное разрешение 2K); отдельная
+    // SKU reference_images $0.04 — доплата за i2v-кадр, в оценку за секунду не входит
+    price: { perSecond: { "2K": 0.13 } },
+    isNew: true,
+  },
+  {
+    id: "runway/gen-4.5",
+    name: "Gen-4.5",
+    vendor: "runway",
+    description: "Runway — кинематографичная генерация из текста или стартового кадра: сильное движение, детализация и следование промпту, 720p. Без звука.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [5, 10],
+    resolutions: ["720p"],
+    aspectRatios: ["16:9", "9:16"],
+    // cents_per_second_output 12 → $0.12/сек
+    price: { perSecond: { "720p": 0.12 } },
+    isNew: true,
+  },
+  {
     id: "minimax/hailuo-2.3",
     name: "Hailuo 2.3",
     vendor: "minimax",
@@ -378,7 +410,9 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
     image_to_video_duration_seconds_720p: 0.084, text_to_video_duration_seconds_1080p: 0.084,
     image_to_video_duration_seconds_1080p: 0.084,
   },
+  "minimax/hailuo-3": { duration_seconds: 0.13, reference_images: 0.04 },
   "minimax/hailuo-2.3": { duration_seconds: 0.0817 },
+  "runway/gen-4.5": { cents_per_second_output: 12 },
   "alibaba/wan-2.6": {
     text_to_video_duration_seconds_480p: 0.04, text_to_video_duration_seconds_720p: 0.08,
     image_to_video_duration_seconds_720p: 0.1, text_to_video_duration_seconds_1080p: 0.12,
@@ -405,6 +439,7 @@ export const VIDEO_VENDOR_COLORS: Record<VideoVendor, { dot: string; text: strin
   kuaishou:  { dot: "bg-orange-400", text: "text-orange-300", label: "Kuaishou" },
   minimax:   { dot: "bg-cyan-400", text: "text-cyan-300", label: "MiniMax" },
   alibaba:   { dot: "bg-amber-400", text: "text-amber-300", label: "Alibaba" },
+  runway:    { dot: "bg-fuchsia-400", text: "text-fuchsia-300", label: "Runway" },
 }
 
 /** Подписи/цвета для индикатора русской озвучки */

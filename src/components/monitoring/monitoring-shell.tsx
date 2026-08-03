@@ -463,7 +463,7 @@ export function MonitoringShell({
             <div className="flex items-start gap-2 rounded-lg border border-amber-800/40 bg-amber-900/15 p-3 text-sm text-amber-200">
               <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
               <div>
-                В режиме «по темам» нужен API-ключ OpenRouter (модель {selectedTemplate.classifier?.model ?? "Haiku"}).
+                В режиме «по темам» нужен API-ключ OpenRouter (модель {selectedTemplate.classifier?.model ?? "Sonnet 4.6"}).
                 Добавьте ключ в настройках провайдеров.
               </div>
             </div>
