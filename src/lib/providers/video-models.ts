@@ -20,6 +20,7 @@ export type VideoVendor =
   | "minimax"
   | "alibaba"
   | "runway"
+  | "bfl"
 
 export type VideoMode = "t2v" | "i2v"
 
@@ -255,6 +256,22 @@ export const VIDEO_MODELS: VideoModel[] = [
     isNew: true,
   },
   {
+    id: "black-forest-labs/flux-3-video",
+    name: "FLUX.3 Video",
+    vendor: "bfl",
+    description: "Black Forest Labs — первая видеомодель FLUX: генерация из текста или по опорным кадрам (первый/последний) и продолжение клипа, до 1080p и 20 сек, со звуком. Русская озвучка не подтверждена — лучше проверить.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: true,
+    russianSpeech: "partial",
+    durations: [5, 10, 15, 20],
+    resolutions: ["720p", "1080p"],
+    aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    // cents_per_second_output 720p 17 → $0.17, 1080p 29 → $0.29 (продолжение клипа
+    // дороже — отдельные SKU, в оценку за секунду не входит)
+    price: { perSecond: { "720p": 0.17, "1080p": 0.29 } },
+    isNew: true,
+  },
+  {
     id: "minimax/hailuo-2.3",
     name: "Hailuo 2.3",
     vendor: "minimax",
@@ -413,6 +430,11 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "minimax/hailuo-3": { duration_seconds: 0.13, reference_images: 0.04 },
   "minimax/hailuo-2.3": { duration_seconds: 0.0817 },
   "runway/gen-4.5": { cents_per_second_output: 12 },
+  "black-forest-labs/flux-3-video": {
+    cents_per_second_output: 17,
+    cents_per_second_output_720p: 17, cents_per_second_output_1080p: 29,
+    cents_per_second_video_continuation_720p: 41, cents_per_second_video_continuation_1080p: 53,
+  },
   "alibaba/wan-2.6": {
     text_to_video_duration_seconds_480p: 0.04, text_to_video_duration_seconds_720p: 0.08,
     image_to_video_duration_seconds_720p: 0.1, text_to_video_duration_seconds_1080p: 0.12,
@@ -440,6 +462,7 @@ export const VIDEO_VENDOR_COLORS: Record<VideoVendor, { dot: string; text: strin
   minimax:   { dot: "bg-cyan-400", text: "text-cyan-300", label: "MiniMax" },
   alibaba:   { dot: "bg-amber-400", text: "text-amber-300", label: "Alibaba" },
   runway:    { dot: "bg-fuchsia-400", text: "text-fuchsia-300", label: "Runway" },
+  bfl:       { dot: "bg-lime-400", text: "text-lime-300", label: "Black Forest Labs" },
 }
 
 /** Подписи/цвета для индикатора русской озвучки */
