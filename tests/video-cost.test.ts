@@ -10,9 +10,10 @@ import {
 
 /**
  * Оценка стоимости видео должна учитывать разрешение и звук.
- * Опорные значения сверены с фактическими списаниями OpenRouter (`usage.cost`):
- *   Seedance 2.0, 4с, 1080p → $1.3608  (реальная генерация)
- *   Seedance 2.0, 4с, 720p  → $0.6048  (реальная генерация)
+ * Опорные значения выведены из живых `pricing_skus` OpenRouter (сверка усилий = W34):
+ *   Seedance 2.0, 4с, 720p  → $0.6048  (video_tokens $0.000007, база не менялась)
+ *   Seedance 2.0, 4с, 1080p → $1.4968  (W34: поресольюшн-тариф 1080p $0.0000077)
+ *   Seedance 2.0, 4с, 4K    → $3.1104  (W34: 4K $0.000004 — подешевел почти вдвое)
  */
 describe("оценка стоимости видео", () => {
   const seedance = getVideoModel("bytedance/seedance-2.0")!
@@ -20,16 +21,16 @@ describe("оценка стоимости видео", () => {
   it("Seedance 2.0 — совпадает с фактическим списанием OpenRouter", () => {
     expect(
       estimateVideoCost(seedance, { durationSeconds: 4, resolution: "1080p", audio: true })
-    ).toBeCloseTo(1.3608, 4)
+    ).toBeCloseTo(1.4968, 4)
     expect(
       estimateVideoCost(seedance, { durationSeconds: 4, resolution: "720p", audio: true })
     ).toBeCloseTo(0.6048, 4)
   })
 
-  it("разрешение реально масштабирует цену (1080p ≈ 5× от 480p)", () => {
+  it("разрешение реально масштабирует цену (1080p ≈ 5.5× от 480p)", () => {
     const at480 = videoPricePerSecond(seedance, "480p")
     const at1080 = videoPricePerSecond(seedance, "1080p")
-    expect(at1080 / at480).toBeCloseTo(5.06, 1)
+    expect(at1080 / at480).toBeCloseTo(5.56, 1)
   })
 
   it("у Seedance 2.0 звук бесплатный — цена не меняется", () => {
@@ -58,7 +59,7 @@ describe("оценка стоимости видео", () => {
 
   it("без разрешения оценка консервативна (берёт максимум, не занижает)", () => {
     const perSec = videoPricePerSecond(seedance) // без resolution
-    expect(perSec).toBeCloseTo(1.3608, 4) // 4K — самый дорогой тариф
+    expect(perSec).toBeCloseTo(0.7776, 4) // 4K — самый дорогой тариф (W34: $0.000004/токен)
   })
 
   /**

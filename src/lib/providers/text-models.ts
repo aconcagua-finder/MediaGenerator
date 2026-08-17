@@ -222,7 +222,11 @@ export const TEXT_MODELS: TextModel[] = [
     description: "Open-source топ. Качество рядом с GPT-5, цена в 5-10 раз ниже.",
     category: "alt",
     contextTokens: 1_049_000,
-    pricing: { input: 0.435, output: 0.87 },
+    // Цена выросла: наши прежние $0.435/$0.87 ушли ниже всех живых эндпоинтов.
+    // Сверено с живым API (аудит W34): дефолтный роутинг = нативный DeepSeek
+    // $0.66/$1.98; ближайшие реселлеры (StreamLake/GMICloud) ≈ $0.69/$1.39.
+    // Берём дефолт OpenRouter, чтобы совпадать с источником правды cron-аудита.
+    pricing: { input: 0.66, output: 1.98 },
     isNew: true,
     streaming: true,
   },

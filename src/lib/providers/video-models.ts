@@ -90,8 +90,9 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 8, 12],
     resolutions: ["480p", "720p", "1080p", "4K"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
-    // video_tokens $0.000007, звук бесплатный
-    price: { perSecond: { "480p": 0.0673, "720p": 0.1512, "1080p": 0.3402, "4K": 1.3608 } },
+    // video_tokens $0.000007 (480p/720p); ByteDance ввёл поресольюшн-тариф:
+    // 1080p $0.0000077, 4K $0.000004 (аудит W34) — 4K подешевел почти вдвое.
+    price: { perSecond: { "480p": 0.0673, "720p": 0.1512, "1080p": 0.3742, "4K": 0.7776 } },
     isNew: true,
   },
   {
@@ -339,8 +340,8 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [4, 8, 12],
     resolutions: ["480p", "720p"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
-    // video_tokens $0.0000056, звук бесплатный
-    price: { perSecond: { "480p": 0.0538, "720p": 0.121 } },
+    // video_tokens подешевел $0.0000056 → $0.0000042 (аудит W34, −25%)
+    price: { perSecond: { "480p": 0.0404, "720p": 0.0907 } },
     isNew: true,
   },
   {
@@ -398,7 +399,11 @@ export const VIDEO_MODELS: VideoModel[] = [
  * ❗ При обновлении цен обновляйте и этот снимок (иначе аудит будет ложно молчать).
  */
 export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
-  "bytedance/seedance-2.0": { video_tokens: 0.000007, video_tokens_without_audio: 0.000007 },
+  "bytedance/seedance-2.0": {
+    video_tokens: 0.000007, video_tokens_4k: 0.000004, video_tokens_1080p: 0.0000077,
+    video_tokens_without_audio: 0.000007, video_tokens_with_video_input: 0.0000043,
+    video_tokens_4k_with_video_input: 0.0000024, video_tokens_1080p_with_video_input: 0.0000047,
+  },
   "alibaba/happyhorse-1.1": { duration_seconds_720p: 0.0988, duration_seconds_1080p: 0.1278 },
   "alibaba/happyhorse-1.0": { duration_seconds_720p: 0.0988, duration_seconds_1080p: 0.1694 },
   "google/veo-3.1": {
@@ -441,7 +446,7 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
     image_to_video_duration_seconds_1080p: 0.15,
   },
   "alibaba/wan-2.7": { duration_seconds: 0.1 },
-  "bytedance/seedance-2.0-fast": { video_tokens: 0.0000056, video_tokens_without_audio: 0.0000056 },
+  "bytedance/seedance-2.0-fast": { video_tokens: 0.0000042, video_tokens_without_audio: 0.0000042, video_tokens_with_video_input: 0.000002475 },
   "bytedance/seedance-1-5-pro": { video_tokens: 0.0000024, video_tokens_without_audio: 0.0000012 },
   "x-ai/grok-imagine-video": {
     cents_per_image_input: 0.2, cents_per_video_output_second_480p: 5, cents_per_video_output_second_720p: 7,
