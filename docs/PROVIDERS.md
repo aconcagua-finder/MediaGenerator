@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: август 2026 (аудит 2026-W34)
+> Актуально на: август 2026 (аудит 2026-W35)
 
 ---
 
@@ -104,7 +104,7 @@
 | Gemini 3.1 Flash Image (Nano Banana 2) | `google/gemini-3.1-flash-image` | $0.067 |
 | Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite) | `google/gemini-3.1-flash-lite-image` | $0.034 |
 | Gemini 3 Pro Image | `google/gemini-3-pro-image` | $0.08 |
-| Gemini 2.5 Flash Image | `google/gemini-2.5-flash-image` | $0.039 |
+| Gemini 2.5 Flash Image ⚠️ off 02.10.2026 | `google/gemini-2.5-flash-image` | $0.039 |
 | GPT-5 Image | `openai/gpt-5-image` | $0.10 |
 | GPT-5 Image Mini | `openai/gpt-5-image-mini` | $0.04 |
 | GPT-5.4 Image 2 | `openai/gpt-5.4-image-2` | $0.12 |
@@ -119,6 +119,15 @@
 > зафиксированы в `seed-models.ts` вручную. Проверено через
 > `GET /api/v1/models/{slug}/endpoints` (HTTP 200, status 0) — июнь 2026.
 > FLUX.2 также доступен напрямую через провайдер BFL (раздел ниже).
+
+> 🔎 **Аудит 2026-W35: дедлайн отключения `gemini-2.5-flash-image` — 02.10.2026.**
+> Google подтвердил дату вывода (changelog Gemini API): 2 октября 2026 модель
+> отключается, преемник — Nano Banana 2 / Lite (`gemini-3.1-flash-image[-lite]`).
+> На дату аудита (24.08) модель ещё жива на OpenRouter и у прямого Google. В
+> описания реестра (`seed-models.ts`, обе записи, и `cover-models.ts`) добавлена
+> пометка ⚠️. После 02.10 крон `model-check` поймает её исчезновение из `/models`
+> — тогда убрать записи из `seed-models.ts`, `cover-models.ts`, `capabilities.ts`
+> и `image-edit-dialog.tsx`.
 
 > 🔎 **Аудит 2026-W33: FLUX 3 частично открылась — видео поехало, картинка ещё нет.**
 > BFL анонсировала FLUX 3 (23.07.2026, W32) как закрытый ранний доступ. К W33
@@ -178,6 +187,18 @@
 > changelog'ов провайдеров (как отключение Gemini-preview 25.06.2026, которого
 > нет ни в одном API) — это задача периодического **облачного аудит-роутинга**
 > (`/schedule`), а не крона.
+
+> 🔎 **Аудит 2026-W35: дефолтный роут DeepSeek снова упал.** `/models` дефолт
+> сместился на реселлера StreamLake — нативный DeepSeek-endpoint ушёл из топа.
+> `deepseek-v4-pro` $0.66/$1.98 → **$0.53/$1.05**, `deepseek-v4-flash` $0.14/$0.28
+> → **$0.057/$0.115** (−20-45%; сверено с живым `/models`). Обновлён `pricing` в
+> `text-models.ts` — держим политику «совпадать с дефолтным роутом = источником
+> правды cron-аудита». Реселлеры волатильны, следующий аудит сверит снова.
+> Остальные текстовые/видео-цены совпали с живым API. Из новых видеомоделей
+> `/videos/models` — `black-forest-labs/flux-video-upscale` (апскейлер, не t2v/i2v:
+> нет `supported_frame_images`/`durations`/`resolutions`) — **не добавляем**, не
+> вписывается в generate-флоу; крон покажет её «новой» — это ожидаемо (как и уже
+> отклонённые `seedance-2.5`, `seedance-2.0-mini`, `runway/aleph-2`).
 
 ---
 

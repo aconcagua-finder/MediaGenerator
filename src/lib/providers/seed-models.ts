@@ -298,7 +298,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openrouter",
     modelId: "google/gemini-2.5-flash-image",
     displayName: "Gemini 2.5 Flash Image",
-    description: "Google — стабильная и быстрая генерация.",
+    description: "Google — стабильная и быстрая генерация. ⚠️ Отключается 02.10.2026 — переходите на Nano Banana 2 (Lite).",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
@@ -666,7 +666,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "google",
     modelId: "gemini-2.5-flash-image",
     displayName: "Gemini 2.5 Flash Image",
-    description: "Google. Стабильная, быстрая генерация.",
+    description: "Google. Стабильная, быстрая генерация. ⚠️ Отключается 02.10.2026 — переходите на Nano Banana 2 (Lite).",
     paramsSchema: {
       aspect_ratio: {
         type: "select",

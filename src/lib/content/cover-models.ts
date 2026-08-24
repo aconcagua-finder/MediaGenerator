@@ -76,7 +76,7 @@ export const COVER_MODELS: CoverModelOption[] = [
     provider: "openrouter",
     model: "google/gemini-2.5-flash-image",
     label: "Gemini 2.5 Flash Image",
-    hint: "Самая дешёвая. Только для стилей без текста.",
+    hint: "Самая дешёвая. Только для стилей без текста. ⚠️ Отключается 02.10.2026.",
     goodForCyrillic: false,
     approxCost: "~$0.04",
   },
