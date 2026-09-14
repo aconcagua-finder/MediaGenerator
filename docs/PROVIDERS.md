@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: сентябрь 2026 (аудит 2026-W37)
+> Актуально на: сентябрь 2026 (аудит 2026-W38)
 
 ---
 
@@ -236,6 +236,41 @@
 >   цифры сойдутся, переключить `DEFAULT_CLASSIFIER`. Не меняем без замера (промпт
 >   тюнился под 4.6). Цены-дубли `reddit-search.ts`/`cover-models.ts` совпали с
 >   `text-models.ts`/`seed-models.ts` — рассинхрона нет.
+
+> 🔎 **Аудит 2026-W38 (сверка с живым OpenRouter).**
+> - **DeepSeek V4 Pro — крупный дрейф вверх.** Дефолтный роут `/models`
+>   $0.95526/$1.91052 (W37) → **$1.6/$3.2** (+67%). Обновлён `pricing` в
+>   `text-models.ts` (1.6/3.2). `deepseek-v4-flash` совпал (0.0886/0.1772 ≈
+>   0.089/0.177 — без изменений). Реселлеры сильно волатильны — держим политику
+>   «= дефолтный роут = источник правды cron-аудита».
+> - **Все остальные текстовые цены/контексты совпали** с живым API (Sonnet 5 всё
+>   ещё $2/$10; Opus 5, GPT-5.4/5.5, Gemini 3.x, Grok 4.x — без изменений).
+> - **ВСЕ video `pricing_skus` совпали** с живым `/videos/models` (21 модель,
+>   снимок `VIDEO_PRICING_SKUS` актуален, drift-аудит не молчит ложно).
+> - **Картинки:** новых image-output моделей на OpenRouter нет; все slug'и реестра
+>   живы (Nano Banana 2/Lite GA, Gemini 3 Pro GA, GPT-5 Image/Mini, GPT-5.4 Image 2;
+>   FLUX.2 pro/max/flex и Seedream 4.5 — точечно через `/endpoints`, HTTP 200 status 0).
+>   `gemini-2.5-flash-image` ещё жива в `/models` (дедлайн 02.10.2026 в будущем).
+>   **FLUX.3 image по-прежнему без публичного API** (`/models/flux.3-*/endpoints` → 404).
+> - **Даты deprecation** (OpenAI gpt-image-1 23.10.2026, gpt-image-1.5/mini 01.12.2026;
+>   Google gemini-2.5-flash-image 02.10.2026) — без изменений, правок не требуют.
+> - 💡 **Ещё более свежие текстовые модели** (список чата — продуктовое решение
+>   владельца, автоматически не меняем): новая **`deepseek/deepseek-v4.1-flash`
+>   $0.15/$0.60** (новее нашей `deepseek-v4-flash`); Google `gemini-3.6/3.7/3.8-flash`
+>   всё те же $0.75/$3.75 (вдвое дешевле нашей `gemini-3.5-flash` $1.5/$9); OpenAI
+>   `gpt-5.6` Sol/Terra/Luna ($2/$10, $2/$12, $0.2/$1.2). Рекомендация W37 (обновить
+>   набор чата) в силе — оставлено владельцу.
+> - **Классификатор/Публикации:** дефолт `anthropic/claude-sonnet-4.6` без изменений;
+>   цены-дубли `reddit-search.ts` (gpt-5.4/5.5/5-mini) и `cover-models.ts` совпадают с
+>   `text-models.ts`/`seed-models.ts` — рассинхрона нет.
+> - ⏭️ **Новые в `/videos/models`, НЕ добавлены** (не вписываются в t2v/i2v-флоу):
+>   `black-forest-labs/flux-video-edit` (редактирование входного **видео** по промпту —
+>   как `runway/aleph-2`, нужен video-input, `cents_per_second_output` 3) и
+>   `heygen/avatar-iv` (image-to-video говорящая голова с lip-sync **по аудио**: нужен
+>   голосовой вход, наш флоу шлёт только `frame_images`+текст; `duration_seconds` $0.05,
+>   720p/1080p). Крон `model-check` покажет их «новыми» — это ожидаемо (как и ранее
+>   отклонённые `seedance-2.5/2.0-mini`, `wan-3.0-prime`, `runway/aleph-2`,
+>   `minimax/hailuo-3-max`, `flux-video-upscale`).
 
 ---
 
