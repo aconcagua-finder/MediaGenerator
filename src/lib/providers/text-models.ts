@@ -88,14 +88,26 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "anthropic/claude-opus-5.5",
+    name: "Claude Opus 5.5",
+    vendor: "anthropic",
+    description: "Новейший Opus (сентябрь 2026) — топ от Anthropic. Умнее Opus 5 и на 20% дешевле.",
+    category: "smart",
+    contextTokens: 1_000_000,
+    // Релиз 22.09.2026, $4/$20 — дешевле Opus 5 ($5/$25). Сверено с живым /models (W40).
+    pricing: { input: 4.0, output: 20.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "anthropic/claude-opus-5",
     name: "Claude Opus 5",
     vendor: "anthropic",
-    description: "Новое поколение Opus — топ от Anthropic. Глубокий анализ и длинные рассуждения по цене Opus 4.8.",
+    description: "Прошлое поколение Opus (июль 2026). Opus 5.5 новее и дешевле.",
     category: "smart",
     contextTokens: 1_000_000,
     pricing: { input: 5.0, output: 25.0 },
-    isNew: true,
     streaming: true,
     supportsVision: true,
   },
@@ -103,7 +115,7 @@ export const TEXT_MODELS: TextModel[] = [
     id: "anthropic/claude-opus-4.8",
     name: "Claude Opus 4.8",
     vendor: "anthropic",
-    description: "Прошлое поколение Opus (май 2026). Проверенная временем; Opus 5 новее по той же цене.",
+    description: "Позапрошлое поколение Opus (май 2026). Opus 5.5 новее и дешевле.",
     category: "smart",
     contextTokens: 1_000_000,
     pricing: { input: 5.0, output: 25.0 },
@@ -241,9 +253,9 @@ export const TEXT_MODELS: TextModel[] = [
     category: "alt",
     contextTokens: 1_049_000,
     // Дефолтный роут OpenRouter волатилен: W31 $0.098/$0.196 → W34 $0.14/$0.28 →
-    // W35 $0.0574/$0.1148 → W36 $0.088606/$0.177212 (снова вверх, сверено с живым
-    // /models). Реселлеры волатильны — следующий аудит сверит снова.
-    pricing: { input: 0.089, output: 0.177 },
+    // W35 $0.0574/$0.1148 → W36 $0.088606/$0.177212 → W40 $0.14/$0.28 (+58%, обратно
+    // к уровню W34, сверено с живым /models). Реселлеры волатильны — следующий аудит сверит снова.
+    pricing: { input: 0.14, output: 0.28 },
     streaming: true,
   },
 ]

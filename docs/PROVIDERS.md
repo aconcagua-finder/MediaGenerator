@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: сентябрь 2026 (аудит 2026-W39)
+> Актуально на: сентябрь 2026 (аудит 2026-W40)
 
 ---
 
@@ -300,6 +300,43 @@
 >   `gemini-3.8-flash` $0.75/$3.75, `deepseek-v4.1-flash` $0.15/$0.60, `gpt-5.6`) **в силе** —
 >   продуктовое решение владельца, автоматически не меняем.
 
+> 🔎 **Аудит 2026-W40 (сверка с живым OpenRouter + changelog'и).**
+> - **Новая модель чата: `anthropic/claude-opus-5.5`** (релиз Anthropic 22.09.2026, 1M ctx,
+>   vision, **$4/$20** — на 20% дешевле Opus 5). Добавлена в `text-models.ts` (категория
+>   smart, `isNew`) и в `VISION_TEXT_MODELS`. Opus 5 → «прошлое поколение» (снят `isNew`),
+>   Opus 4.8 → «позапрошлое». В разделе smart теперь три Opus — кандидат на чистку
+>   (4.8 retirement у Anthropic не раньше 28.05.2027, работает).
+> - **DeepSeek V4 Flash — дрейф вверх:** дефолтный роут $0.0886/$0.1772 → **$0.14/$0.28**
+>   (+58%, обратно к уровню W34). Обновлён `pricing`. `deepseek-v4-pro` совпал ($0.95526/$1.91052).
+>   Остальные текстовые цены/контексты совпали.
+> - ⚠️ **Perplexity: Sonar Chat Completions поддерживается «до 27.09.2026»** (docs.perplexity.ai
+>   pricing + гайд migrate-from-sonar), замена — **Agent API** (`POST /v1/agent`, `input`
+>   вместо `messages`, ответ — типизированный массив `output`; пресеты: sonar/sonar-pro →
+>   `fast`, sonar-reasoning-pro → `low`, sonar-deep-research → `high`, новый `xhigh`).
+>   На 28.09.2026 наш `POST /chat/completions` (sonar) ещё отвечает **200** — но дата
+>   поддержки прошла, отключение может случиться без предупреждения. Нужна миграция
+>   `perplexity-search.ts` + `providers/perplexity.ts` (отдельная задача, не «безопасная правка»).
+> - **Видео:** все 21 модель реестра живы, `pricing_skus` совпали со снимком. Изменение
+>   метаданных: у `x-ai/grok-imagine-video-1.5` OpenRouter теперь отдаёт
+>   `supported_aspect_ratios` (16:9/9:16/1:1/4:3/3:4/3:2/2:3; раньше `null`), а описание
+>   модели говорит «из текста, с опциональной стартовой картинкой» — возможно, появился t2v.
+>   В реестре оставлено i2v-only + `aspectRatios: []`, пока не проверено живым вызовом
+>   (платный тест, ~$0.08). `supported_durations` у многих моделей шире нашего
+>   курированного набора (1–15 с) — это осознанный выбор UI, не дрейф.
+> - **Картинки:** новых image-output моделей нет; все slug'и живы, FLUX.2 pro/max/flex и
+>   Seedream 4.5 — HTTP 200 status 0 через `/endpoints`. `gemini-2.5-flash-image` **ещё жива**
+>   (дедлайн 02.10.2026 — через 4 дня). ❗ Аудит W41 должен проверить отключение и убрать
+>   модель из `seed-models.ts`/`cover-models.ts`/`image-edit-dialog.tsx`/`capabilities.ts`.
+>   OpenAI: даты отключения `gpt-image-1.5`/`gpt-image-1-mini` 01.12.2026 без изменений.
+> - **Anthropic (классификатор):** дефолт `claude-sonnet-4.6` активен (retirement не раньше
+>   17.02.2027). `claude-haiku-4.5` — «не раньше 15.10.2026» (пока без объявленной даты).
+> - **Дубли цен:** `reddit-search.ts` OPENAI_PRICING и `cover-models.ts` совпадают с
+>   `text-models.ts`/`seed-models.ts`; `PERPLEXITY_PRICING` совпадает с прайсом.
+> - 💡 **Новые текстовые на OpenRouter (не добавлены — продуктовое решение):**
+>   `openai/gpt-6-sol` ($2/$10, 1.05M, vision — дешевле GPT-5.4/5.5), `openai/gpt-6-luna`
+>   ($0.10/$0.50 — дешевле gpt-5-mini в 2.5–4×), их `-pro` варианты (reasoning.mode=pro),
+>   `x-ai/grok-4.7` ($1.6/$4.8, 500K). Рекомендация W37/W38 в силе.
+
 ---
 
 ## Recraft (прямой API) — вектор
@@ -373,6 +410,10 @@
 > Также Perplexity переименовала «Chat Completions» → **Agent API** (миграция
 > интерфейса, не отключение). Наш `POST /chat/completions` пока работает — следить,
 > не появится ли дата отключения старого пути.
+>
+> ⚠️ **Аудит 2026-W40: дата появилась — Sonar Chat Completions поддерживается до
+> 27.09.2026.** На 28.09 путь ещё отвечает 200, но нужна миграция на Agent API
+> (`/v1/agent`, пресеты `fast`/`low`/`high`) — см. заметку аудита W40 выше.
 
 ---
 
