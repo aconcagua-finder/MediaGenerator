@@ -37,18 +37,29 @@ export interface TextModel {
 export const TEXT_MODELS: TextModel[] = [
   // ===== Универсальные (баланс качества/цены) =====
   {
+    id: "anthropic/claude-sonnet-5.5",
+    name: "Claude Sonnet 5.5",
+    vendor: "anthropic",
+    description: "Свежий Sonnet (28.09.2026) — прямой апгрейд Sonnet 5 по той же цене. Лучший выбор по умолчанию.",
+    category: "balanced",
+    contextTokens: 1_000_000,
+    pricing: { input: 2.0, output: 10.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "anthropic/claude-sonnet-5",
     name: "Claude Sonnet 5",
     vendor: "anthropic",
-    description: "Новое поколение Sonnet — умнее 4.6 и сейчас дешевле её. Лучший выбор по умолчанию.",
+    description: "Предыдущий Sonnet — умнее 4.6 и дешевле её; Sonnet 5.5 стоит столько же и новее.",
     category: "balanced",
     contextTokens: 1_000_000,
     // ❗ $2/$10 — вводная цена Anthropic. Анонсировалась «до 31.08.2026 с возвратом
     // к $3/$15», но срок прошёл, а на W37 (07.09.2026) цена всё ещё $2/$10 (сверено с
     // живым /models) — интро продлили/оставили. Недельный аудит поймает возврат.
     pricing: { input: 2.0, output: 10.0 },
-    isNew: true,
-    streaming: true,
+        streaming: true,
     supportsVision: true,
   },
   {
@@ -253,9 +264,10 @@ export const TEXT_MODELS: TextModel[] = [
     category: "alt",
     contextTokens: 1_049_000,
     // Дефолтный роут OpenRouter волатилен: W31 $0.098/$0.196 → W34 $0.14/$0.28 →
-    // W35 $0.0574/$0.1148 → W36 $0.088606/$0.177212 → W40 $0.14/$0.28 (+58%, обратно
-    // к уровню W34, сверено с живым /models). Реселлеры волатильны — следующий аудит сверит снова.
-    pricing: { input: 0.14, output: 0.28 },
+    // W35 $0.0574/$0.1148 → W36 $0.088606/$0.177212 → W40 $0.14/$0.28 → W41 $0.03/$1.28
+    // (вход −79%, выход ×4.6 — реселлер с перекошенным тарифом, сверено с живым /models).
+    // Реселлеры волатильны — следующий аудит сверит снова.
+    pricing: { input: 0.03, output: 1.28 },
     streaming: true,
   },
 ]

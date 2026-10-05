@@ -14,6 +14,7 @@
 /** Текстовые модели в чате, которые понимают image_url (через OpenRouter). */
 export const VISION_TEXT_MODELS = new Set<string>([
   // Anthropic — все Claude 4.x и 5.x понимают изображения
+  "anthropic/claude-sonnet-5.5",
   "anthropic/claude-opus-5.5",
   "anthropic/claude-opus-5",
   "anthropic/claude-sonnet-5",

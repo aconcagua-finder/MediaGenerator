@@ -337,6 +337,34 @@
 >   ($0.10/$0.50 — дешевле gpt-5-mini в 2.5–4×), их `-pro` варианты (reasoning.mode=pro),
 >   `x-ai/grok-4.7` ($1.6/$4.8, 500K). Рекомендация W37/W38 в силе.
 
+> **Аудит 2026-W41 (05.10.2026).**
+> - **Чат:** добавлена `anthropic/claude-sonnet-5.5` (28.09.2026, 1M ctx, vision, $2/$10 —
+>   та же цена, что у Sonnet 5; в `VISION_TEXT_MODELS`). Sonnet 5 → прошлое поколение.
+>   Дрейф OpenRouter: `deepseek-v4-pro` $0.955/$1.911 → $0.209/$0.418 (−78%);
+>   `deepseek-v4-flash` $0.14/$0.28 → $0.03/$1.28 (вход −79%, выход ×4.6 — перекос реселлера).
+>   Остальные текстовые цены/контексты совпали.
+> - 💡 **Не добавлены (продуктовое решение):** вся линейка GPT-6 (`gpt-6-luna` $0.10/$0.50,
+>   `gpt-6-sol`/`6.1-sol` $2/$10, `gpt-6-astra`, `-pro` варианты), `grok-4.5/4.6/4.7`,
+>   `gemini-3.5-flash-lite/3.6/3.7/3.8-flash`. Рекомендация: GPT-6 Luna/Sol — самые
+>   интересные кандидаты (дешевле gpt-5-mini / gpt-5.4 при vision и 1.05M ctx).
+> - **Видео:** все 21 модель реестра живы, цены `pricing_skus` совпадают. Новые на OpenRouter
+>   (не добавлены): `bytedance/seedance-2.5` и `-2.0-mini`, `alibaba/wan-3.0-prime`,
+>   `minimax/hailuo-3-max`, `runway/aleph-2`, `black-forest-labs/flux-video-edit|upscale`,
+>   `heygen/*`. `grok-imagine-video-1.5`: t2v по-прежнему не проверен живым вызовом
+>   (`supported_frame_images=["first_frame"]`, описание «из текста, с опциональной картинкой»).
+> - **Картинки:** новых image-моделей нет; FLUX.2/Seedream/Gemini-слаги живы.
+>   ⚠️ `gemini-2.5-flash-image`: официальная дата отключения Google — **02.10.2026**
+>   (замена `gemini-3.1-flash-image`), дата прошла, но на OpenRouter модель ещё в листинге
+>   и `/endpoints` отдаёт status 0 (Google, uptime 100%). Не удалена — удалить, когда
+>   начнёт отдавать ошибки (затрагивает `seed-models.ts`, `cover-models.ts`,
+>   `image-edit-dialog.tsx`, `capabilities.ts`, `google.ts`, `cost-calculator.ts`).
+>   Также Gemini 2.5 Flash/Flash-Lite (текст) отключаются 16.10.2026 — в нашем реестре их нет.
+> - **Perplexity:** `POST /chat/completions` на 05.10 всё ещё маршрутизируется (401 без ключа,
+>   не 404/410), хотя официальная дата Sonar — 27.09.2026. Миграция на Agent API
+>   по-прежнему нужна (`sonar-pro` Agent API не принимает) — отдельная задача.
+> - **Дубли цен:** `reddit-search.ts` OPENAI_PRICING совпадает с `text-models.ts`.
+> - Бэклог невлитых аудит-PR (W36–W40) растёт — владельцу стоит смёржить цепочку.
+
 ---
 
 ## Recraft (прямой API) — вектор
