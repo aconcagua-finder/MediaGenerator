@@ -3,7 +3,7 @@
  * Все они вызываются через единый OpenRouter endpoint (chat/completions),
  * поэтому достаточно одного API-ключа OpenRouter.
  *
- * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — июнь 2026.
+ * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — 07.10.2026.
  */
 
 export interface TextModel {
@@ -12,7 +12,7 @@ export interface TextModel {
   /** Имя для UI */
   name: string
   /** Идентификатор провайдера для подсветки в UI */
-  vendor: "anthropic" | "openai" | "google" | "xai" | "deepseek"
+  vendor: "anthropic" | "openai" | "google" | "xai" | "deepseek" | "qwen"
   /** Краткое описание для не-технаря */
   description: string
   /** Категория для группировки */
@@ -74,10 +74,22 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
+    vendor: "openai",
+    description: "Свежая GPT-6.1 (сентябрь 2026) — средний тир после флагмана Astra. Код, агентные задачи, документы. Дешевле GPT-5.5 в 2.5 раза.",
+    category: "balanced",
+    contextTokens: 1_050_000,
+    pricing: { input: 2.0, output: 10.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "openai/gpt-5.4",
     name: "GPT-5.4",
     vendor: "openai",
-    description: "Свежий флагман OpenAI. Хорош в фактах, в коде, в анализе.",
+    description: "Прошлое поколение флагмана OpenAI. Хорош в фактах, в коде, в анализе; GPT-6.1 Sol новее и заметно дешевле.",
     category: "balanced",
     contextTokens: 1_050_000,
     pricing: { input: 2.5, output: 15.0 },
@@ -90,10 +102,34 @@ export const TEXT_MODELS: TextModel[] = [
     id: "openai/gpt-5.5",
     name: "GPT-5.5",
     vendor: "openai",
-    description: "Новейшая GPT с глубоким reasoning. Самая умная в линейке OpenAI.",
+    description: "GPT-5 с глубоким reasoning. GPT-6.1 Sol новее и в 2.5 раза дешевле, GPT-6 Astra — умнее.",
     category: "smart",
     contextTokens: 1_050_000,
     pricing: { input: 5.0, output: 30.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "openai/gpt-6-astra",
+    name: "GPT-6 Astra",
+    vendor: "openai",
+    description: "Флагман OpenAI GPT-6 (сентябрь 2026) для самых сложных задач: анализ, разработка, исследования. Дорогая — $10/$50.",
+    category: "smart",
+    contextTokens: 1_050_000,
+    pricing: { input: 10.0, output: 50.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "anthropic/claude-fable-5.1",
+    name: "Claude Fable 5.1",
+    vendor: "anthropic",
+    description: "Старший тир Anthropic (сентябрь 2026): лучшая в линейке в агентном коде и долгих задачах. Дорогая — $10/$50.",
+    category: "smart",
+    contextTokens: 1_000_000,
+    pricing: { input: 10.0, output: 50.0 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -150,10 +186,34 @@ export const TEXT_MODELS: TextModel[] = [
     id: "google/gemini-3.5-flash",
     name: "Gemini 3.5 Flash",
     vendor: "google",
-    description: "Новейшая Flash от Google (май 2026). 1M контекст, баланс цены и качества — между Haiku и Sonnet.",
+    description: "Flash от Google (май 2026). 1M контекст. Gemini 3.8 Flash новее и вдвое дешевле.",
     category: "fast",
     contextTokens: 1_049_000,
     pricing: { input: 1.5, output: 9.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "google/gemini-3.8-flash",
+    name: "Gemini 3.8 Flash",
+    vendor: "google",
+    description: "Новейшая Flash от Google (сентябрь 2026): сильнее в коде и агентных задачах, 1M контекст. Вдвое дешевле Gemini 3.5 Flash.",
+    category: "fast",
+    contextTokens: 1_049_000,
+    pricing: { input: 0.75, output: 3.75 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "openai/gpt-6-luna",
+    name: "GPT-6 Luna",
+    vendor: "openai",
+    description: "Быстрая и самая дешёвая GPT-6: чат, классификация, массовая обработка. 1M контекст, $0.1/$0.5.",
+    category: "fast",
+    contextTokens: 1_050_000,
+    pricing: { input: 0.1, output: 0.5 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -208,7 +268,7 @@ export const TEXT_MODELS: TextModel[] = [
     id: "x-ai/grok-4.3",
     name: "Grok 4.3",
     vendor: "xai",
-    description: "Новейший Grok (апр 2026). 1M контекст, очень быстрый, дешевле Haiku по выходу.",
+    description: "Grok (апр 2026). 1M контекст, очень быстрый, дешевле Haiku по выходу. Grok 4.7 новее и умнее.",
     category: "alt",
     contextTokens: 1_000_000,
     pricing: { input: 1.25, output: 2.5 },
@@ -240,6 +300,42 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "x-ai/grok-4.7",
+    name: "Grok 4.7",
+    vendor: "xai",
+    description: "Флагман xAI (сентябрь 2026): код, агентные задачи, проверка собственной работы. 500K контекст.",
+    category: "alt",
+    contextTokens: 500_000,
+    pricing: { input: 2.0, output: 6.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "qwen/qwen3.8-max-0902",
+    name: "Qwen 3.8 Max",
+    vendor: "qwen",
+    description: "Alibaba — флагман Qwen 3.8 (сентябрь 2026): 1M контекст, картинки и видео на входе. Сильная альтернатива за небольшие деньги.",
+    category: "alt",
+    contextTokens: 1_000_000,
+    pricing: { input: 2.0, output: 6.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "qwen/qwen3.8-flash",
+    name: "Qwen 3.8 Flash",
+    vendor: "qwen",
+    description: "Alibaba — быстрая и дешёвая Qwen 3.8: код, документы, графики, длинное видео. 1M контекст.",
+    category: "alt",
+    contextTokens: 1_000_000,
+    pricing: { input: 0.15, output: 0.47 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "deepseek/deepseek-v4-pro",
     name: "DeepSeek V4 Pro",
     vendor: "deepseek",
@@ -251,10 +347,23 @@ export const TEXT_MODELS: TextModel[] = [
     // реселлера StreamLake $0.5262/$1.052; в W36 дефолт прыгнул вверх до
     // $1.04226/$2.08452; в W37 просел до $0.95526/$1.91052; в W38 дефолт подскочил
     // до $1.6/$3.2 (+67%); в W39 откатился обратно к $0.95526/$1.91052 (−40%,
-    // сверено с живым /models). Реселлеры сильно волатильны, следующий аудит сверит снова.
-    pricing: { input: 0.955, output: 1.911 },
+    // сверено с живым /models); W41 (07.10.2026) — просел до $0.2088/$0.4176 (−78%).
+    // Реселлеры сильно волатильны, следующий аудит сверит снова.
+    pricing: { input: 0.209, output: 0.418 },
     isNew: true,
     streaming: true,
+  },
+  {
+    id: "deepseek/deepseek-v4.1-flash",
+    name: "DeepSeek V4.1 Flash",
+    vendor: "deepseek",
+    description: "Свежая DeepSeek (сентябрь 2026): новая архитектура, дешевле V4 Flash по входу, принимает картинки. Open-source.",
+    category: "alt",
+    contextTokens: 1_049_000,
+    pricing: { input: 0.05, output: 1.2 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
   },
   {
     id: "deepseek/deepseek-v4-flash",
@@ -286,6 +395,7 @@ export const VENDOR_COLORS: Record<TextModel["vendor"], { dot: string; text: str
   google:    { dot: "bg-blue-400", text: "text-blue-300", label: "Google" },
   xai:       { dot: "bg-violet-400", text: "text-violet-300", label: "xAI" },
   deepseek:  { dot: "bg-cyan-400", text: "text-cyan-300", label: "DeepSeek" },
+  qwen:      { dot: "bg-indigo-400", text: "text-indigo-300", label: "Qwen" },
 }
 
 /** Форматирование размера контекста для UI */

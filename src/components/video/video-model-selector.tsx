@@ -85,7 +85,7 @@ export function VideoModelSelector({ selectedModel, onModelChange }: VideoModelS
                       <span className="rounded bg-white/[0.05] px-1.5 py-0.5">
                         {m.resolutions[m.resolutions.length - 1]}
                       </span>
-                      {m.supportsAudio ? (
+                      {m.supportsAudio || m.builtInAudio ? (
                         <span className={`rounded bg-white/[0.05] px-1.5 py-0.5 ${RUSSIAN_SPEECH_INFO[m.russianSpeech].text}`}>
                           звук · {RUSSIAN_SPEECH_INFO[m.russianSpeech].short}
                         </span>

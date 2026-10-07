@@ -1,3 +1,5 @@
+import { openRouterImagePrice } from "../providers/openrouter-image-models"
+
 /**
  * Расчёт стоимости генерации изображений.
  * Цены актуальны на апрель 2026.
@@ -65,8 +67,12 @@ export function calculateCost(
     }
 
     case "openrouter": {
-      // FLUX per-megapixel (доступны на OpenRouter по прямому slug)
-      if (model.includes("flux")) {
+      // Модели Images API (окт. 2026) — цена по реестру, с учётом tier разрешения
+      const registryPrice = openRouterImagePrice(model, params.image_size as string | undefined)
+      if (registryPrice !== null) {
+        pricePerImage = registryPrice
+      } else if (model.includes("flux")) {
+        // FLUX per-megapixel (доступны на OpenRouter по прямому slug)
         const sizeKey = (params.image_size as string) || "1K"
         const sizeMP: Record<string, number> = { "0.5K": 0.25, "1K": 1, "2K": 4 }
         const mp = sizeMP[sizeKey] || 1

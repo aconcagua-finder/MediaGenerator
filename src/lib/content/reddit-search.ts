@@ -28,6 +28,10 @@ const OPENAI_PRICING: Record<string, { input: number; output: number }> = {
   "gpt-5.4": { input: 2.5, output: 15.0 },
   "gpt-5.5": { input: 5.0, output: 30.0 },
   "gpt-5-mini": { input: 0.25, output: 2.0 },
+  "gpt-6.1-sol": { input: 2.0, output: 10.0 },
+  "gpt-6-sol": { input: 2.0, output: 10.0 },
+  "gpt-6-astra": { input: 10.0, output: 50.0 },
+  "gpt-6-luna": { input: 0.1, output: 0.5 },
 }
 
 function normalizeOpenAiModel(model: string): string {

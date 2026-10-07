@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { db } from "../db"
 import { modelRegistry } from "../db/schema"
 import { SEED_MODELS } from "../providers/seed-models"
+import { planSeeding } from "../providers/seed-plan"
 import { requireAdmin } from "../utils/admin-guard"
 
 /**
@@ -52,14 +53,20 @@ export async function getModel(provider: string, modelId: string) {
 
 /**
  * Заполнить таблицу model_registry начальными данными.
- * Добавляет только отсутствующие модели (по provider + modelId).
+ * Добавляет отсутствующие модели (по provider + modelId) и заполняет заглушки,
+ * которые вставил крон model-check (неактивные, с пустыми параметрами и ценой).
  */
 export async function seedModels() {
   const existing = await db
-    .select({ provider: modelRegistry.provider, modelId: modelRegistry.modelId })
+    .select({
+      id: modelRegistry.id,
+      provider: modelRegistry.provider,
+      modelId: modelRegistry.modelId,
+      isActive: modelRegistry.isActive,
+      paramsSchema: modelRegistry.paramsSchema,
+      pricing: modelRegistry.pricing,
+    })
     .from(modelRegistry)
-
-  const existingSet = new Set(existing.map((m) => `${m.provider}:${m.modelId}`))
 
   // Деактивируем устаревшие preview-слаги (идемпотентно)
   await db
@@ -72,23 +79,40 @@ export async function seedModels() {
       ),
     )
 
-  const toInsert = SEED_MODELS
-    .filter((m) => !existingSet.has(`${m.provider}:${m.modelId}`))
-    .map((m) => ({
-      provider: m.provider,
-      modelId: m.modelId,
-      displayName: m.displayName,
-      description: m.description,
-      paramsSchema: m.paramsSchema,
-      pricing: m.pricing,
-      isActive: true,
-    }))
+  // Крон model-check вставляет найденные модели неактивными и с пустой схемой —
+  // «оживляем» такие заглушки данными сида, иначе модель остаётся скрытой навсегда.
+  const { toInsert, toUpgrade } = planSeeding(existing, SEED_MODELS)
 
-  if (toInsert.length === 0) return { seeded: false, count: 0 }
+  for (const { id, seed } of toUpgrade) {
+    await db
+      .update(modelRegistry)
+      .set({
+        displayName: seed.displayName,
+        description: seed.description,
+        paramsSchema: seed.paramsSchema,
+        pricing: seed.pricing,
+        isActive: true,
+      })
+      .where(eq(modelRegistry.id, id))
+  }
 
-  await db.insert(modelRegistry).values(toInsert)
+  if (toInsert.length > 0) {
+    await db.insert(modelRegistry).values(
+      toInsert.map((m) => ({
+        provider: m.provider,
+        modelId: m.modelId,
+        displayName: m.displayName,
+        description: m.description,
+        paramsSchema: m.paramsSchema,
+        pricing: m.pricing,
+        isActive: true,
+      })),
+    )
+  }
 
-  return { seeded: true, count: toInsert.length }
+  const count = toInsert.length + toUpgrade.length
+  if (count === 0) return { seeded: false, count: 0 }
+  return { seeded: true, count }
 }
 
 /**

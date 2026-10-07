@@ -181,8 +181,16 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
         return { amount: pricePerImage * n, exact: true }
       }
 
+      // Цена по tier разрешения (FLUX.3, Seedream 5 Pro, Qwen, Riverflow и др.)
+      const bySize = (pricing as { bySize?: Record<string, number> }).bySize
+      if (bySize) {
+        const sizeKey = (params.image_size || paramsSchema?.image_size?.default || "1K") as string
+        const price = bySize[sizeKey] ?? Math.max(...Object.values(bySize))
+        return { amount: price * n, exact: false }
+      }
+
       // Flat per-image (Seedream, Gemini, GPT-5)
-      if (p.perImage) return { amount: p.perImage * n, exact: false }
+      if (p.perImage !== undefined) return { amount: p.perImage * n, exact: false }
     }
 
     return null

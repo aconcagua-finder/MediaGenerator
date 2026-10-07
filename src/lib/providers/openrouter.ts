@@ -1,7 +1,9 @@
 import type { ImageProvider, GenerateRequest, GenerateResult, ModelInfo, EditRequest } from "./types"
 import { calculateCost } from "../utils/cost-calculator"
+import { readImageMeta } from "../utils/image-meta"
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions"
+const IMAGES_API_URL = "https://openrouter.ai/api/v1/images"
 const MODELS_URL = "https://openrouter.ai/api/v1/models?output_modalities=image"
 const TIMEOUT = 180_000 // 3 минуты
 
@@ -32,10 +34,179 @@ const TEXT_AND_IMAGE_MODELS = [
   "openai/",
 ]
 
+/**
+ * Модели, которые работают через chat/completions (modalities: ["image"|"image","text"]).
+ * Всё остальное ходит через выделенный Images API (`POST /api/v1/images`): часть новых
+ * моделей (FLUX.3, Recraft V4, Krea и др.) через chat/completions отвечает 400
+ * «is an image generation model and cannot be used with the chat/completions endpoint».
+ */
+const CHAT_COMPLETIONS_MODELS = new Set<string>([
+  "google/gemini-3.1-flash-image",
+  "google/gemini-3.1-flash-image-preview",
+  "google/gemini-3.1-flash-lite-image",
+  "google/gemini-3-pro-image",
+  "google/gemini-3-pro-image-preview",
+  "google/gemini-2.5-flash-image",
+  "openai/gpt-5-image",
+  "openai/gpt-5-image-mini",
+  "openai/gpt-5.4-image-2",
+  "black-forest-labs/flux.2-pro",
+  "black-forest-labs/flux.2-max",
+  "black-forest-labs/flux.2-flex",
+  "bytedance-seed/seedream-4.5",
+])
+
+export function usesImagesApi(model: string): boolean {
+  return !CHAT_COMPLETIONS_MODELS.has(model)
+}
+
+/** Наши значения image_size → tier Images API (`resolution`) */
+function toResolutionTier(imageSize: string): string {
+  return imageSize === "0.5K" ? "512" : imageSize
+}
+
+/** Векторные модели Recraft отдают SVG только при явном output_format */
+function imagesApiOutputFormat(model: string): string | undefined {
+  return /-vector$/.test(model) ? "svg" : undefined
+}
+
+function imagesApiHeaders(apiKey: string, title: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    "X-Title": title,
+  }
+}
+
+interface ImagesApiResponse {
+  data?: Array<{ b64_json?: string; url?: string; media_type?: string }>
+  usage?: { cost?: number }
+  error?: { message?: string; code?: number }
+}
+
+/**
+ * Один запрос к Images API (n=1). Параллелим по `count` на стороне вызывающего:
+ * многие модели принимают только n=1, а так поведение одинаково для всех.
+ */
+async function imagesApiRequest(
+  model: string,
+  prompt: string,
+  params: Record<string, unknown>,
+  apiKey: string,
+  title: string,
+  reference?: { dataUrl: string },
+): Promise<{ image: GenerateResult["images"][number]; cost: number | null; raw: ImagesApiResponse }> {
+  const body: Record<string, unknown> = { model, prompt, n: 1 }
+  if (params.aspect_ratio) body.aspect_ratio = params.aspect_ratio
+  if (params.image_size) body.resolution = toResolutionTier(String(params.image_size))
+  if (params.quality) body.quality = params.quality
+  const format = imagesApiOutputFormat(model)
+  if (format) body.output_format = format
+  if (reference) {
+    body.input_references = [{ type: "image_url", image_url: { url: reference.dataUrl } }]
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT)
+  try {
+    const response = await fetch(IMAGES_API_URL, {
+      method: "POST",
+      headers: imagesApiHeaders(apiKey, title),
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    const data = (await response.json().catch(() => ({}))) as ImagesApiResponse
+    if (!response.ok || data.error) {
+      throw new Error(data.error?.message || `OpenRouter Images API ошибка: ${response.status}`)
+    }
+
+    const item = data.data?.[0]
+    let buffer: Buffer | null = null
+    let mediaType = item?.media_type || ""
+    if (item?.b64_json) {
+      buffer = Buffer.from(item.b64_json, "base64")
+    } else if (item?.url) {
+      const fileResp = await fetch(item.url, { signal: controller.signal })
+      if (fileResp.ok) {
+        buffer = Buffer.from(await fileResp.arrayBuffer())
+        mediaType = mediaType || fileResp.headers.get("content-type") || ""
+      }
+    }
+    if (!buffer || buffer.length === 0) {
+      throw new Error(`${model}: модель не вернула изображений. Попробуйте другую модель или повторите позже.`)
+    }
+
+    let format2 = "png"
+    if (mediaType.includes("svg")) format2 = "svg"
+    else if (mediaType.includes("jpeg") || mediaType.includes("jpg")) format2 = "jpeg"
+    else if (mediaType.includes("webp")) format2 = "webp"
+    else if (mediaType.includes("png")) format2 = "png"
+    else {
+      const meta = readImageMeta(buffer)
+      if (meta) format2 = meta.mimeType.replace("image/", "")
+    }
+
+    // Реальные размеры из заголовка файла; для SVG — оценка по соотношению сторон
+    const meta = format2 === "svg" ? null : readImageMeta(buffer)
+    const aspectRatio = (params.aspect_ratio as string) || "1:1"
+    const baseDims = ASPECT_RATIO_SIZES[aspectRatio] || ASPECT_RATIO_SIZES["1:1"]
+    const multiplier = SIZE_MULTIPLIER[(params.image_size as string) || "1K"] || 1
+
+    return {
+      image: {
+        data: buffer,
+        format: format2,
+        width: meta?.width ?? Math.round(baseDims.width * multiplier),
+        height: meta?.height ?? Math.round(baseDims.height * multiplier),
+      },
+      cost: typeof data.usage?.cost === "number" ? data.usage.cost : null,
+      raw: data,
+    }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+async function runImagesApi(
+  request: GenerateRequest | EditRequest,
+  title: string,
+  reference?: { dataUrl: string },
+): Promise<GenerateResult> {
+  const { model, prompt, params, count, apiKey } = request
+  const settled = await Promise.allSettled(
+    Array.from({ length: count }, () =>
+      imagesApiRequest(model, prompt, params, apiKey, title, reference),
+    ),
+  )
+
+  const ok = settled.filter(
+    (r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof imagesApiRequest>>> => r.status === "fulfilled",
+  )
+  if (ok.length === 0) {
+    const first = settled.find((r): r is PromiseRejectedResult => r.status === "rejected")
+    throw first?.reason instanceof Error ? first.reason : new Error(`${model}: генерация не удалась`)
+  }
+
+  // Платим только за успешные; реальная сумма — из usage.cost, иначе оценка по реестру цен
+  const fallbackEach = calculateCost("openrouter", model, params, 1)
+  const cost = ok.reduce((sum, r) => sum + (r.value.cost ?? fallbackEach), 0)
+
+  return {
+    images: ok.map((r) => r.value.image),
+    cost,
+    rawResponse: ok.map((r) => r.value.raw),
+  }
+}
+
 export const openrouterProvider: ImageProvider = {
   id: "openrouter",
 
   async generate(request: GenerateRequest): Promise<GenerateResult> {
+    if (usesImagesApi(request.model)) {
+      return runImagesApi(request, "MediaGenerator")
+    }
     const { model, prompt, params, count, apiKey } = request
 
     // Gemini/GPT-5 поддерживают text+image, FLUX/Seedream — только image
@@ -180,6 +351,10 @@ export const openrouterProvider: ImageProvider = {
     const { model, prompt, params, count, apiKey, image, imageMimeType } = request
 
     const dataUrl = `data:${imageMimeType};base64,${image.toString("base64")}`
+
+    if (usesImagesApi(model)) {
+      return runImagesApi(request, "MediaGenerator Edit", { dataUrl })
+    }
 
     const body: Record<string, unknown> = {
       model,

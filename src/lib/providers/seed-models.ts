@@ -3,6 +3,8 @@
  * Используется при первом запуске для заполнения реестра моделей.
  */
 
+import { OPENROUTER_IMAGE_SPECS, type OpenRouterImageSpec } from "./openrouter-image-models"
+
 export interface SeedModel {
   provider: string
   modelId: string
@@ -722,3 +724,45 @@ export const SEED_MODELS: SeedModel[] = [
     pricing: { perImage: 0.08 },
   },
 ]
+
+/**
+ * Сид-запись OpenRouter image-модели из спецификации: форма параметров и pricing
+ * в формате, который читают форма генерации и cost-calculator.
+ */
+function openrouterImageSeed(spec: OpenRouterImageSpec): SeedModel {
+  const paramsSchema: Record<string, unknown> = {}
+  if (spec.aspects.length > 0) {
+    paramsSchema.aspect_ratio = {
+      type: "select",
+      label: "Соотношение сторон",
+      options: spec.aspects,
+      default: spec.aspects.includes("1:1") ? "1:1" : spec.aspects[0],
+    }
+  }
+  if (spec.sizes.length > 0) {
+    paramsSchema.image_size = {
+      type: "select",
+      label: "Размер",
+      options: spec.sizes,
+      default: spec.sizes[0],
+    }
+  }
+  if (spec.quality) {
+    paramsSchema.quality = {
+      type: "select",
+      label: "Качество",
+      options: spec.quality.options,
+      default: spec.quality.default,
+    }
+  }
+  return {
+    provider: "openrouter",
+    modelId: spec.modelId,
+    displayName: spec.displayName,
+    description: spec.description,
+    paramsSchema,
+    pricing: { ...spec.price },
+  }
+}
+
+SEED_MODELS.push(...OPENROUTER_IMAGE_SPECS.map(openrouterImageSeed))

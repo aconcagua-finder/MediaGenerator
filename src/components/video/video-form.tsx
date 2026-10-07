@@ -371,14 +371,16 @@ export function VideoForm({ hasOpenRouterKey }: VideoFormProps) {
           <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-snug">
             <span
               className={`mt-1 size-1.5 shrink-0 rounded-full ${
-                model.supportsAudio ? RUSSIAN_SPEECH_INFO[model.russianSpeech].dot : "bg-neutral-600"
+                model.supportsAudio || model.builtInAudio ? RUSSIAN_SPEECH_INFO[model.russianSpeech].dot : "bg-neutral-600"
               }`}
             />
-            <span className={model.supportsAudio ? RUSSIAN_SPEECH_INFO[model.russianSpeech].text : "text-neutral-500"}>
+            <span className={model.supportsAudio || model.builtInAudio ? RUSSIAN_SPEECH_INFO[model.russianSpeech].text : "text-neutral-500"}>
               {model.supportsAudio
                 ? RUSSIAN_SPEECH_INFO[model.russianSpeech].label
-                : "Без звука — озвучку добавляйте отдельно"}
-              {model.supportsAudio && model.russianSpeech !== "good" && (
+                : model.builtInAudio
+                  ? `Звук встроен и не отключается · ${RUSSIAN_SPEECH_INFO[model.russianSpeech].label}`
+                  : "Без звука — озвучку добавляйте отдельно"}
+              {(model.supportsAudio || model.builtInAudio) && model.russianSpeech !== "good" && (
                 <>
                   {" · для русской речи — "}
                   <button
