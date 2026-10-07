@@ -87,6 +87,12 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
   // сохранённые в localStorage режим и модель подставляются после монтирования.
   const [formMode, setFormMode] = useState<FormMode>("generate")
   const modeModels = useMemo(() => modelsForMode(formMode, { hasFalKey }), [formMode, hasFalKey])
+  // В списке показываем и fal-модели без ключа — серыми, без возможности выбора
+  const visibleModels = useMemo(() => modelsForMode(formMode, { hasFalKey: true }), [formMode])
+  const lockedModelIds = useMemo(
+    () => new Set(hasFalKey ? [] : visibleModels.filter((m) => m.provider === "fal").map((m) => m.id)),
+    [hasFalKey, visibleModels],
+  )
   const [modelId, setModelId] = useState(DEFAULT_VIDEO_MODEL)
   // Модель, выбранная раньше, может быть недоступна в этом режиме (напр. fal без ключа)
   const model =
@@ -540,10 +546,16 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
       <div className="space-y-6">
         <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <h3 className="mb-4 text-sm font-bold text-white">Модель</h3>
-          <VideoModelSelector selectedModel={model.id} onModelChange={handleModelChange} models={modeModels} />
+          <VideoModelSelector
+            selectedModel={model.id}
+            onModelChange={handleModelChange}
+            models={visibleModels}
+            disabledIds={lockedModelIds}
+            disabledNote="нужен ключ fal"
+          />
           {formMode === "v2v" && !hasFalKey && (
             <p className="mt-2 text-[11px] leading-snug text-neutral-500">
-              Kling Motion Control скрыт: нужен ключ fal.ai в настройках.
+              Kling Motion Control (ваше видео + фото персонажа) пока недоступен: нужен ключ fal.ai в настройках.
             </p>
           )}
           {/* Индикатор русской озвучки выбранной модели */}

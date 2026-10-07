@@ -16,13 +16,23 @@ interface VideoModelSelectorProps {
   onModelChange: (id: string) => void
   /** Какие модели показывать (по режиму формы). По умолчанию — весь реестр. */
   models?: VideoModel[]
+  /** Модели, видимые в списке, но недоступные для выбора (например, нет ключа fal) */
+  disabledIds?: ReadonlySet<string>
+  /** Пометка у недоступной модели */
+  disabledNote?: string
 }
 
 /**
  * Селектор видеомодели: одна выпадашка, модели сгруппированы по вендору.
  * Все модели идут через OpenRouter, поэтому значение — просто id модели.
  */
-export function VideoModelSelector({ selectedModel, onModelChange, models = VIDEO_MODELS }: VideoModelSelectorProps) {
+export function VideoModelSelector({
+  selectedModel,
+  onModelChange,
+  models = VIDEO_MODELS,
+  disabledIds,
+  disabledNote = "Недоступно",
+}: VideoModelSelectorProps) {
   const current = models.find((m) => m.id === selectedModel)
   const currentColors = current ? VIDEO_VENDOR_COLORS[current.vendor] : null
 
@@ -56,17 +66,27 @@ export function VideoModelSelector({ selectedModel, onModelChange, models = VIDE
               <SelectLabel className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-neutral-500">
                 {colors.label}
               </SelectLabel>
-              {vendorModels.map((m) => (
+              {vendorModels.map((m) => {
+                const isDisabled = disabledIds?.has(m.id) ?? false
+                return (
                 <SelectItem
                   key={m.id}
                   value={m.id}
-                  className="cursor-pointer rounded-md py-2 data-[highlighted]:bg-white/[0.04]"
+                  disabled={isDisabled}
+                  className={`rounded-md py-2 data-[highlighted]:bg-white/[0.04] ${
+                    isDisabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+                  }`}
                 >
                   <div className="flex w-full flex-col gap-1">
                     <div className="flex w-full items-center gap-1.5">
                       <span className={`size-2 shrink-0 rounded-full ${colors.dot}`} />
                       <span className="min-w-0 flex-1 truncate font-medium text-white">{m.name}</span>
-                      {m.isNew && (
+                      {isDisabled && (
+                        <span className="shrink-0 rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neutral-400">
+                          {disabledNote}
+                        </span>
+                      )}
+                      {m.isNew && !isDisabled && (
                         <span className="shrink-0 rounded-full bg-x-blue/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-x-blue">
                           Новинка
                         </span>
@@ -111,7 +131,8 @@ export function VideoModelSelector({ selectedModel, onModelChange, models = VIDE
                     </div>
                   </div>
                 </SelectItem>
-              ))}
+                )
+              })}
             </SelectGroup>
           )
         })}
