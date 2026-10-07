@@ -8,15 +8,19 @@ interface PromptInputProps {
   onChange: (value: string) => void
   onSubmit?: () => void
   disabled?: boolean
+  /** Подпись поля (по умолчанию «Промпт») */
+  label?: string
+  /** Плейсхолдер (по умолчанию — для картинок) */
+  placeholder?: string
 }
 
-export function PromptInput({ value, onChange, onSubmit, disabled }: PromptInputProps) {
+export function PromptInput({ value, onChange, onSubmit, disabled, label = "Промпт", placeholder }: PromptInputProps) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="prompt" className="text-sm font-medium text-neutral-400">Промпт</Label>
+      <Label htmlFor="prompt" className="text-sm font-medium text-neutral-400">{label}</Label>
       <Textarea
         id="prompt"
-        placeholder="Опишите изображение, которое хотите сгенерировать..."
+        placeholder={placeholder ?? "Опишите изображение, которое хотите сгенерировать..."}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import type { VideoLibraryItem } from "@/lib/actions/videos"
+import { VoiceChangeButton } from "@/components/video/voice-change-button"
 
 interface VideoLightboxProps {
   video: VideoLibraryItem
@@ -160,6 +161,13 @@ export function VideoLightbox({ video, onClose, onDelete, onMove }: VideoLightbo
               <Download className="mr-2 size-4" />
               Скачать
             </Button>
+            {/* Видна только при активном ключе fal.ai и наличии звука */}
+            <VoiceChangeButton
+              videoId={video.id}
+              durationSeconds={video.durationSeconds}
+              hasAudio={video.hasAudio}
+              className="flex h-7 w-full items-center justify-center gap-1.5 rounded-[min(var(--radius-md),12px)] border border-border bg-background text-[0.8rem] font-medium transition-colors hover:bg-muted"
+            />
             <Button variant="outline" size="sm" onClick={onMove}>
               <FolderInput className="mr-2 size-4" />
               В папку

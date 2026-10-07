@@ -115,6 +115,55 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
 4. **Поллинг статуса целиком клиентский** (браузер дёргает `/status`). Если вкладку закрыли — задачу дочищает cron `video-reconcile` (каждые 15 мин): опрашивает провайдера, скачивает mp4 в S3 при успехе или ставит `error`. Без него закрытая вкладка = вечный `processing`. ❗ Добавление в cron-команду требует `--force-recreate cron` (см. п.12 мониторинга).
 5. **Биллинг — только за успех.** `user.totalSpent` растёт лишь в ветке `done`; упавшая задача → `cost = NULL`. OpenRouter за `failed` денег не берёт (нет `usage.cost`, политика Zero Completion Insurance).
 
+#### Видео → видео (Runway Aleph 2, Kling Motion Control) и замена голоса
+
+На `/video` переключатель режима «Текст / картинка → видео» | «Видео → видео». В v2v пользователь грузит
+своё видео (mp4/mov/webm, ≤ 30 сек, ≤ 100 МБ), описывает, что изменить; результат — обычное видео в библиотеке.
+Модели: `runway/aleph-2` (OpenRouter, заменяет персонажа/одежду/обстановку, сохраняя движения и мимику) и,
+только при активном ключе fal, `fal-ai/kling-video/v3/{standard,pro}/motion-control` (движения из видео →
+персонаж с картинки). Пост-шаг «Заменить голос» на готовом видео (fal, нужен ключ fal). Подключение fal — `docs/FAL_SETUP.md`.
+
+**Ключевые файлы:**
+- `src/lib/providers/video-models.ts` — режим `v2v`, модель `provider: "fal"`, `estimateV2VCost`, `modelsForMode`
+- `src/lib/providers/video/openrouter-video.ts` — `buildOpenRouterVideoBody` (v2v: `input_references`)
+- `src/lib/providers/video/fal-video.ts` — адаптер fal queue REST (submit/poll/fetch), `validateFalKey`
+- `src/lib/providers/voice-change-models.ts` — движки замены голоса (ElevenLabs, Chatterbox HD), пресеты, цены
+- `src/lib/media-link/{token,serve,links}.ts` + `src/app/api/media-link/[...slug]/route.ts` — публичные ссылки
+- `src/app/api/video/source/route.ts` — загрузка исходника (сырое тело → диск → ffprobe → S3)
+- `src/app/api/video/voice-change/route.ts` — замена голоса; `src/lib/video/{ffmpeg-audio,result-video,probe,limits,source-limits}.ts`
+- `src/components/video/{source-upload,voice-change-button}.tsx`; миграция `0017_video_sources_media_links`
+
+**Архитектурные принципы:**
+1. **Провайдеру нужен ПУБЛИЧНЫЙ HTTPS-URL** (`data:` и http отвергаются: «Only HTTPS URLs are allowed»). MinIO снаружи
+   недоступен, поэтому файл отдаётся через публичный маршрут `/api/media-link/{токен}/{имя}`: токен 256 бит
+   (`public_media_links`, в БД только SHA-256), TTL 24 ч, отзыв (`revoked_at`) при завершении задачи
+   (`releaseGenerationResources` в `finalize.ts`), любой отказ — одинаковый 404, поддержка Range/HEAD.
+   Базовый адрес — `BETTER_AUTH_URL` (запасной `NEXT_PUBLIC_APP_URL`), оба `https://mediagenerator.sanktum.net`; не-https = ошибка.
+   Маршрут добавлен в `publicPaths` в `proxy.ts`.
+2. **`/api/video/source` исключён из matcher'а `proxy.ts`.** ❗ proxy буферизует тело запроса в памяти и **молча режет на
+   10 МБ** (`proxyClientMaxBodySize`) — видео до 100 МБ оказалось бы обрезано. Маршрут принимает СЫРОЕ тело (не multipart),
+   стримит на диск, проверяет ffprobe, грузит в S3 потоком (`uploadFile`), сам проверяет сессию. Лимиты (≤30 сек, ≤100 МБ)
+   проверяются и в браузере (`source-limits.ts`), и на сервере.
+3. **Исходник живёт 24 ч** (`video_sources`, крон `video-reconcile` чистит) и переиспользуется: после отказа модерации
+   пользователь правит промпт и повторяет без новой загрузки. Ссылка же создаётся на каждую задачу и отзывается по её завершении.
+4. **Aleph 2: нет duration/resolution/audio** — длина результата ≈ длине исходника, звук исходника сохраняется. Живой
+   SKU: $0.28/сек, минимум $0.56. ❗ Но замеры: исходник 4.0 сек И исходник 7.2 сек оба дали `usage.cost` $1.40 (= 5 × $0.28),
+   поэтому нижняя граница оценки — $1.40 (`minPerGeneration`), выше — 0.28 × секунды (для длинных не подтверждено, консервативно).
+   Биллинг — по `usage.cost`. Оценка v2v = длительность исходника × цена (`estimateV2VCost`). `params.duration` v2v-задачи = секунды исходника.
+5. **Модерация Runway** (`SAFETY.INPUT.MULTIMODAL…` — «busty», «curvy», «low-cut») → `failed`, не тарифицируется;
+   `humanizeVideoError` показывает русскую подсказку «уберите откровенные формулировки про фигуру/одежду».
+6. **fal.ai спит без ключа:** провайдер `fal` в `api_keys` (шифрование как у остальных), модели `provider:"fal"` скрыты
+   (`modelsForMode`), кнопка «Заменить голос» не рисуется (`GET /api/video/voice-change` → `available`), submit без ключа = 400.
+   Реестр аудита OpenRouter сверяет только модели OpenRouter (fal-модели не «пропали»). ❗ **Адаптер fal НЕ проверен живым
+   вызовом** (ключа нет): контракт из документации. Адрес статуса fal строится по первым двум сегментам model id
+   (`fal-ai/kling-video`), но берём `status_url`/`response_url` из ответа submit (`params.providerState`).
+7. **Замена голоса — обычная строка `video_generations`** (`mode:"voice"`, `provider:"fal"`, `model` = endpoint движка):
+   ffmpeg вынимает звук → `video-sources/{genId}/audio.mp3` + публичная ссылка → fal → в `finalize.ts` результат (аудио)
+   подкладывается под исходное видео (`-c:v copy`, `result-video.ts`) и сохраняется как НОВОЕ видео (`videos.video_generation_id`),
+   поэтому владелец-join'ы, статус, cron и биллинг общие. Стоимость — оценка (fal не отдаёт `usage.cost`).
+8. `finalize.ts` для v2v/voice берёт реальные размеры/длительность/наличие звука из ffprobe результата, а не из
+   параметров; `VideoProvider.poll/fetchVideo` получают `ctx` (`model`, `params`) — нужен fal.
+
 #### Редактор склейки (`/video/editor`)
 
 Базовый видеоредактор: выбрать несколько готовых клипов, задать порядок, подрезать,

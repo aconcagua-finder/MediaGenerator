@@ -265,8 +265,10 @@ export async function runRegistryAudit(): Promise<RegistryAuditSummary> {
     | null
 
   if (videoResp?.data) {
+    // fal-модели (Kling Motion Control и т.п.) в списке OpenRouter не бывают —
+    // сверяем только то, что реально вызывается через OpenRouter
     const { removed, added } = auditModelSet(
-      VIDEO_MODELS.map((v) => v.id),
+      VIDEO_MODELS.filter((v) => (v.provider ?? "openrouter") === "openrouter").map((v) => v.id),
       videoResp.data.map((m) => ({ id: m.id, name: m.name })),
     )
     summary.videoAdded = added.length

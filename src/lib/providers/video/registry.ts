@@ -1,12 +1,15 @@
 import type { VideoProvider } from "./types"
 import { openrouterVideoProvider } from "./openrouter-video"
+import { falVideoProvider } from "./fal-video"
 
 /**
- * Реестр видео-провайдеров. Пока только OpenRouter (единый ключ + нормализованная
- * схема). Задел: при необходимости сюда добавится fal.ai/Replicate тем же интерфейсом.
+ * Реестр видео-провайдеров. OpenRouter — основной (единый ключ + нормализованная
+ * схема). fal.ai — Kling Motion Control и замена голоса; доступен только при
+ * активном ключе `fal` (без него модели скрыты в UI, а submit возвращает 400).
  */
 const videoProviders: Record<string, VideoProvider> = {
   openrouter: openrouterVideoProvider,
+  fal: falVideoProvider,
 }
 
 export function getVideoProvider(id: string): VideoProvider {

@@ -29,34 +29,71 @@ function authHeaders(apiKey: string, title: string): Record<string, string> {
   }
 }
 
+/** Публичный URL для провайдера: только HTTPS (data:-URI и http отклоняются) */
+function assertHttpsUrl(url: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error("Некорректная ссылка на исходное видео")
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("Ссылка на исходное видео должна быть публичной HTTPS: провайдер не принимает data: и http")
+  }
+}
+
+/**
+ * Тело запроса `POST /api/v1/videos`. Вынесено из `submit` для юнит-тестов.
+ *
+ * - t2v/i2v: `{ model, prompt, duration?, resolution?, aspect_ratio?, generate_audio?, seed?, frame_images? }`;
+ * - v2v (есть `sourceVideoUrl`): `{ model, prompt, aspect_ratio?, seed?, input_references }` — БЕЗ
+ *   duration/resolution/generate_audio (длина результата = длине исходника, звук исходника сохраняется).
+ *   `input_references` — массив объектов `{ type: "video_url", video_url: { url } }`.
+ */
+export function buildOpenRouterVideoBody(request: VideoSubmitRequest): Record<string, unknown> {
+  const { model, prompt, params, frameImageDataUrl, sourceVideoUrl } = request
+
+  const body: Record<string, unknown> = { model, prompt }
+
+  if (sourceVideoUrl) {
+    assertHttpsUrl(sourceVideoUrl)
+    if (params.aspect_ratio) body.aspect_ratio = params.aspect_ratio
+    if (params.seed != null) body.seed = params.seed
+    body.input_references = [{ type: "video_url", video_url: { url: sourceVideoUrl } }]
+    return body
+  }
+
+  if (params.duration != null) body.duration = params.duration
+  if (params.resolution) body.resolution = params.resolution
+  if (params.aspect_ratio) body.aspect_ratio = params.aspect_ratio
+  if (params.generate_audio != null) body.generate_audio = params.generate_audio
+  if (params.seed != null) body.seed = params.seed
+
+  // image-to-video: первый кадр. OpenRouter ждёт `frame_images` —
+  // массив ОБЪЕКТОВ в OpenAI-совместимом формате (`type: "image_url"` +
+  // `image_url.url` с data:-URI или URL), каждый с обязательным
+  // `frame_type` (`first_frame` | `last_frame`). Передаём стартовый кадр.
+  // ❗ Раньше слали массив строк → OpenRouter отвечал 400
+  // "expected object, received string", и i2v молча падал (t2v работал).
+  if (frameImageDataUrl) {
+    body.frame_images = [
+      {
+        type: "image_url",
+        image_url: { url: frameImageDataUrl },
+        frame_type: "first_frame",
+      },
+    ]
+  }
+
+  return body
+}
+
 export const openrouterVideoProvider: VideoProvider = {
   id: "openrouter",
 
   async submit(request: VideoSubmitRequest): Promise<VideoSubmitResult> {
-    const { model, prompt, params, apiKey, frameImageDataUrl } = request
-
-    const body: Record<string, unknown> = { model, prompt }
-    if (params.duration != null) body.duration = params.duration
-    if (params.resolution) body.resolution = params.resolution
-    if (params.aspect_ratio) body.aspect_ratio = params.aspect_ratio
-    if (params.generate_audio != null) body.generate_audio = params.generate_audio
-    if (params.seed != null) body.seed = params.seed
-
-    // image-to-video: первый кадр. OpenRouter ждёт `frame_images` —
-    // массив ОБЪЕКТОВ в OpenAI-совместимом формате (`type: "image_url"` +
-    // `image_url.url` с data:-URI или URL), каждый с обязательным
-    // `frame_type` (`first_frame` | `last_frame`). Передаём стартовый кадр.
-    // ❗ Раньше слали массив строк → OpenRouter отвечал 400
-    // "expected object, received string", и i2v молча падал (t2v работал).
-    if (frameImageDataUrl) {
-      body.frame_images = [
-        {
-          type: "image_url",
-          image_url: { url: frameImageDataUrl },
-          frame_type: "first_frame",
-        },
-      ]
-    }
+    const { apiKey } = request
+    const body = buildOpenRouterVideoBody(request)
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT)
