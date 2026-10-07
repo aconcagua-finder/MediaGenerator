@@ -3,9 +3,12 @@ import { db } from "@/lib/db"
 import { videoGenerations, videos, user } from "@/lib/db/schema"
 import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { getVideoProvider } from "@/lib/providers/video/registry"
-import { getVideoModel, estimateVideoCost } from "@/lib/providers/video-models"
-import { upload, ensureBucket } from "@/lib/storage/s3"
+import { getVideoModel, estimateVideoCost, estimateV2VCost } from "@/lib/providers/video-models"
+import { getVoiceEngineByEndpoint, estimateVoiceChangeCost } from "@/lib/providers/voice-change-models"
+import { upload, ensureBucket, remove as s3Remove } from "@/lib/storage/s3"
+import { revokeLinksForGeneration, cleanupExpiredMediaSources } from "@/lib/media-link/links"
 import { humanizeVideoError } from "./humanize-error"
+import { buildResultVideo } from "./result-video"
 
 /**
  * Финализация одной видео-генерации: опрос провайдера → скачивание mp4 в S3 →
@@ -91,6 +94,7 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
       userId: videoGenerations.userId,
       provider: videoGenerations.provider,
       model: videoGenerations.model,
+      mode: videoGenerations.mode,
       status: videoGenerations.status,
       providerJobId: videoGenerations.providerJobId,
       params: videoGenerations.params,
@@ -127,9 +131,11 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
     return { status: "processing", state: "pending" }
   }
 
+  const jobCtx = { model: gen.model, params: (gen.params || null) as Record<string, unknown> | null }
+
   let poll
   try {
-    poll = await getVideoProvider(gen.provider).poll(gen.providerJobId, apiKey)
+    poll = await getVideoProvider(gen.provider).poll(gen.providerJobId, apiKey, jobCtx)
   } catch (pollErr) {
     // Транзиентная ошибка опроса — не валим задачу, повторим позже
     const msg = pollErr instanceof Error ? pollErr.message : "Ошибка опроса"
@@ -149,6 +155,7 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
       .update(videoGenerations)
       .set({ status: "error", errorMessage: errMsg, completedAt: new Date() })
       .where(and(eq(videoGenerations.id, gen.id), eq(videoGenerations.status, "processing")))
+    await releaseGenerationResources(gen.id)
     return { status: "error", error: errMsg }
   }
 
@@ -167,20 +174,51 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
   }
 
   try {
-    // Скачиваем mp4 авторизованно (unsigned_urls без ключа отдают 401) и кладём в S3
-    const { buffer: buf } = await getVideoProvider(gen.provider).fetchVideo(gen.providerJobId, apiKey, 0)
-
-    await ensureBucket()
-    const s3Key = `videos/${gen.id}/0.mp4`
-    await upload(s3Key, buf, "video/mp4")
+    // Скачиваем результат авторизованно (unsigned_urls без ключа отдают 401) и кладём в S3
+    const { buffer: fetched } = await getVideoProvider(gen.provider).fetchVideo(
+      gen.providerJobId,
+      apiKey,
+      0,
+      jobCtx
+    )
 
     const p = (gen.params || {}) as {
       duration?: number
       resolution?: string
       aspect_ratio?: string
       generate_audio?: boolean
+      source_has_audio?: boolean
+      source_video_id?: string
     }
-    const { width, height } = dims(p.resolution, p.aspect_ratio)
+
+    // v2v / замена голоса: реальные размеры и длительность берём из ffprobe самого
+    // результата (у v2v нет ни duration, ни resolution в параметрах); для голоса
+    // сначала подкладываем новый звук под исходное видео
+    let buf = fetched
+    let width: number | null
+    let height: number | null
+    let durationSeconds: number | null = p.duration ?? null
+    let hasAudio = Boolean(p.generate_audio)
+    if (gen.mode === "v2v" || gen.mode === "voice") {
+      const built = await buildResultVideo({
+        mode: gen.mode,
+        fetched,
+        sourceVideoId: p.source_video_id,
+        fallbackAudio: gen.mode === "v2v" ? Boolean(p.source_has_audio) : true,
+        fallbackDuration: p.duration ?? null,
+      })
+      buf = built.buffer
+      width = built.width
+      height = built.height
+      durationSeconds = built.durationSeconds
+      hasAudio = built.hasAudio
+    } else {
+      ;({ width, height } = dims(p.resolution, p.aspect_ratio))
+    }
+
+    await ensureBucket()
+    const s3Key = `videos/${gen.id}/0.mp4`
+    await upload(s3Key, buf, "video/mp4")
 
     const [savedVideo] = await db
       .insert(videos)
@@ -188,27 +226,31 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
         videoGenerationId: gen.id,
         s3Key,
         s3Url: s3Key,
-        durationSeconds: p.duration ?? null,
+        durationSeconds,
         width,
         height,
         format: "mp4",
-        hasAudio: Boolean(p.generate_audio),
+        hasAudio,
         sizeBytes: buf.length,
       })
       .returning({ id: videos.id })
 
     // Стоимость: факт от провайдера, иначе оценка
     const model = getVideoModel(gen.model)
-    const cost =
-      typeof poll.cost === "number"
-        ? poll.cost
-        : model
-          ? estimateVideoCost(model, {
-              durationSeconds: p.duration ?? 0,
-              resolution: p.resolution,
-              audio: Boolean(p.generate_audio),
-            })
-          : 0
+    let estimated = 0
+    if (gen.mode === "voice") {
+      const engine = getVoiceEngineByEndpoint(gen.model)
+      estimated = engine ? estimateVoiceChangeCost(engine, p.duration ?? 0) : 0
+    } else if (gen.mode === "v2v") {
+      estimated = model ? estimateV2VCost(model, p.duration ?? 0) : 0
+    } else if (model) {
+      estimated = estimateVideoCost(model, {
+        durationSeconds: p.duration ?? 0,
+        resolution: p.resolution,
+        audio: Boolean(p.generate_audio),
+      })
+    }
+    const cost = typeof poll.cost === "number" ? poll.cost : estimated
 
     await db
       .update(videoGenerations)
@@ -222,14 +264,16 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
         .where(eq(user.id, gen.userId))
     }
 
+    await releaseGenerationResources(gen.id)
+
     return {
       status: "done",
       video: videoDto({
         id: savedVideo.id,
-        durationSeconds: p.duration ?? null,
+        durationSeconds,
         width,
         height,
-        hasAudio: Boolean(p.generate_audio),
+        hasAudio,
       }),
       cost,
     }
@@ -240,7 +284,23 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
       .update(videoGenerations)
       .set({ status: "error", errorMessage: msg, completedAt: new Date() })
       .where(eq(videoGenerations.id, gen.id))
+    await releaseGenerationResources(gen.id)
     return { status: "error", error: msg }
+  }
+}
+
+/**
+ * Завершение задачи (успех или ошибка): отзываем публичные ссылки на входные
+ * файлы и удаляем временный звук замены голоса. Исходное видео v2v остаётся
+ * до TTL (24 ч), чтобы можно было повторить задачу с другим промптом (например,
+ * после отказа модерации) без повторной загрузки.
+ */
+export async function releaseGenerationResources(genId: string): Promise<void> {
+  try {
+    await revokeLinksForGeneration(genId)
+    await s3Remove(`video-sources/${genId}/audio.mp3`).catch(() => {})
+  } catch (err) {
+    console.error(`[video/finalize] release ${genId}:`, err instanceof Error ? err.message : err)
   }
 }
 
@@ -286,6 +346,7 @@ export async function reconcileStaleVideoJobs(minAgeMs = 2 * 60 * 1000): Promise
       ),
     )
     .returning({ id: videoGenerations.id })
+  for (const o of orphaned) await releaseGenerationResources(o.id)
 
   // 2. Активные задачи с id — опрашиваем и финализируем
   const stale = await db
@@ -315,6 +376,16 @@ export async function reconcileStaleVideoJobs(minAgeMs = 2 * 60 * 1000): Promise
       console.error(`[video/reconcile] ${row.id}:`, msg)
       stillProcessing++
     }
+  }
+
+  // 3. Дочистка загруженных исходников v2v / образцов голоса старше 24 ч и мёртвых ссылок
+  try {
+    const cleaned = await cleanupExpiredMediaSources()
+    if (cleaned.sources > 0 || cleaned.links > 0) {
+      console.log("[video/reconcile] media cleanup", JSON.stringify(cleaned))
+    }
+  } catch (err) {
+    console.error("[video/reconcile] media cleanup:", err instanceof Error ? err.message : err)
   }
 
   return {

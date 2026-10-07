@@ -23,7 +23,21 @@ export type VideoVendor =
   | "bfl"
   | "heygen"
 
-export type VideoMode = "t2v" | "i2v"
+/**
+ * Режимы модели:
+ * - t2v / i2v — генерация из текста / из стартового кадра;
+ * - v2v — «видео → видео»: на вход идёт исходное видео пользователя (замена
+ *   персонажа/одежды/обстановки у Runway Aleph 2, перенос движений на персонажа
+ *   у Kling Motion Control). Длительность результата = длительности исходника.
+ *
+ * Сама запись `video_generations.mode` дополнительно бывает `voice` — пост-шаг
+ * «Заменить голос» на готовом видео (см. `voice-change-models.ts`), в реестр
+ * видеомоделей он не входит.
+ */
+export type VideoMode = "t2v" | "i2v" | "v2v"
+
+/** Через какой API вызывается модель */
+export type VideoApiProvider = "openrouter" | "fal"
 
 /**
  * Поддержка русской речи в озвучке:
@@ -49,6 +63,8 @@ export interface VideoPrice {
   perSecond: Record<string, number>
   /** USD за секунду по разрешению СО звуком — задаётся только если звук меняет цену */
   perSecondAudio?: Record<string, number>
+  /** Минимальная плата за одну генерацию (USD), если провайдер её задаёт */
+  minPerGeneration?: number
 }
 
 export interface VideoModel {
@@ -81,6 +97,17 @@ export interface VideoModel {
   price: VideoPrice
   /** Пометка «новинка» */
   isNew?: boolean
+  /** API, через который вызывается модель (по умолчанию OpenRouter) */
+  provider?: VideoApiProvider
+  /**
+   * Только для v2v: нужна ли картинка-персонаж (Kling Motion Control переносит
+   * движения из видео на персонажа с картинки).
+   */
+  requiresCharacterImage?: boolean
+  /** Только для v2v: максимальная длина исходного видео, сек (по умолчанию 30) */
+  maxSourceSeconds?: number
+  /** Только для v2v: можно ли отправить без промпта */
+  promptOptional?: boolean
 }
 
 export const VIDEO_MODELS: VideoModel[] = [
@@ -365,6 +392,66 @@ export const VIDEO_MODELS: VideoModel[] = [
     price: { perSecond: { "720p": 0.0988, "1080p": 0.1694 } },
   },
 
+  // ===== Видео → видео =====
+  {
+    id: "runway/aleph-2",
+    name: "Runway Aleph 2",
+    vendor: "runway",
+    description:
+      "Runway — заменяет персонажа, одежду или обстановку в вашем видео, сохраняя движения и мимику. Загрузите ролик до 30 секунд и опишите, что изменить. Звук исходного видео сохраняется. Откровенные формулировки про фигуру и одежду отклоняются модерацией.",
+    modes: ["v2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [],
+    resolutions: ["source"],
+    aspectRatios: ["16:9", "4:3", "3:2", "1:1", "2:3", "3:4", "9:16", "21:9"],
+    // Живой SKU: cents_per_second_output 28 → $0.28/сек, minimum_cents_per_generation 56 → $0.56.
+    // ❗ Но ФАКТ (live E2E 2026-10-07): исходник 4.0 сек → usage.cost $1.40, исходник 7.2 сек → тоже $1.40
+    // (= 5 × $0.28; Runway тарифицирует как минимум 5 сек). Поэтому нижняя граница оценки — $1.40, а не
+    // $0.56 из SKU (иначе короткий клип недооценён в 2.5 раза). Для длинных исходников ставка $0.28/сек
+    // не подтверждена замером — оценка консервативна. Точная сумма всегда берётся из usage.cost.
+    price: { perSecond: { source: 0.28 }, minPerGeneration: 1.4 },
+    isNew: true,
+  },
+  {
+    id: "fal-ai/kling-video/v3/standard/motion-control",
+    name: "Kling Motion Control",
+    vendor: "kuaishou",
+    description:
+      "Kling через fal.ai — переносит движения из вашего видео на персонажа с картинки: танец, жесты, мимику. Загрузите видео с движением и фото персонажа. Стандартное качество, дешевле Pro. Нужен ключ fal.ai в настройках.",
+    modes: ["v2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [],
+    resolutions: ["source"],
+    aspectRatios: [],
+    // fal.ai: $0.126 за секунду выходного видео
+    price: { perSecond: { source: 0.126 } },
+    provider: "fal",
+    requiresCharacterImage: true,
+    promptOptional: true,
+    isNew: true,
+  },
+  {
+    id: "fal-ai/kling-video/v3/pro/motion-control",
+    name: "Kling Motion Control Pro",
+    vendor: "kuaishou",
+    description:
+      "Kling через fal.ai — перенос движений из вашего видео на персонажа с картинки, режим Pro: выше качество сложных движений. Нужен ключ fal.ai в настройках.",
+    modes: ["v2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [],
+    resolutions: ["source"],
+    aspectRatios: [],
+    // fal.ai: $0.168 за секунду выходного видео
+    price: { perSecond: { source: 0.168 } },
+    provider: "fal",
+    requiresCharacterImage: true,
+    promptOptional: true,
+    isNew: true,
+  },
+
   // ===== Быстрые и дешёвые =====
   {
     id: "bytedance/seedance-2.0-fast",
@@ -561,6 +648,7 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "alibaba/wan-3.0-prime": { duration_seconds_480p: 0.068, duration_seconds_720p: 0.14, duration_seconds_1080p: 0.28 },
   "bytedance/seedance-2.0-mini": { video_tokens: 0.0000035, video_tokens_without_audio: 0.0000035, video_tokens_with_video_input: 0.0000021 },
   "bytedance/seedance-2.5": { video_tokens: 0.0000107, video_tokens_without_audio: 0.0000107, video_tokens_with_video_input: 0.0000064 },
+  "runway/aleph-2": { cents_per_second_output: 28, minimum_cents_per_generation: 56 },
   "heygen/heygen-video-1": {
     duration_seconds_480p: 0.02, duration_seconds_768p: 0.03, duration_seconds_2k: 0.09,
     reference_duration_seconds_480p: 0.04, reference_duration_seconds_768p: 0.06, reference_duration_seconds_2k: 0.18,
@@ -595,6 +683,35 @@ export function getVideoModel(id: string): VideoModel | null {
   return VIDEO_MODELS.find((m) => m.id === id) || null
 }
 
+/** Модель принимает исходное видео («видео → видео») */
+export function isV2VModel(model: VideoModel): boolean {
+  return model.modes.includes("v2v")
+}
+
+/** Модель вызывается через fal.ai (доступна только при активном ключе fal) */
+export function isFalModel(model: VideoModel): boolean {
+  return model.provider === "fal"
+}
+
+/** Провайдер модели (OpenRouter по умолчанию) */
+export function videoModelProvider(model: VideoModel): VideoApiProvider {
+  return model.provider ?? "openrouter"
+}
+
+/**
+ * Модели для выбранного режима формы: «видео → видео» — только v2v, обычный
+ * режим — только t2v/i2v. fal-модели скрыты, пока нет ключа fal.
+ */
+export function modelsForMode(
+  mode: "generate" | "v2v",
+  opts: { hasFalKey: boolean } = { hasFalKey: false },
+): VideoModel[] {
+  return VIDEO_MODELS.filter((m) => {
+    if (isFalModel(m) && !opts.hasFalKey) return false
+    return mode === "v2v" ? isV2VModel(m) : m.modes.some((x) => x === "t2v" || x === "i2v")
+  })
+}
+
 /** Поддерживает ли модель image-to-video (референс-кадр) */
 export function supportsImageToVideo(id: string): boolean {
   return getVideoModel(id)?.modes.includes("i2v") ?? false
@@ -613,9 +730,9 @@ export function defaultVideoParams(model: VideoModel): {
   generate_audio: boolean
 } {
   return {
-    duration: model.durations[0],
-    resolution: model.resolutions.includes("720p") ? "720p" : model.resolutions[0],
-    aspect_ratio: model.aspectRatios.includes("16:9") ? "16:9" : model.aspectRatios[0],
+    duration: model.durations[0] ?? 0,
+    resolution: model.resolutions.includes("720p") ? "720p" : (model.resolutions[0] ?? ""),
+    aspect_ratio: model.aspectRatios.includes("16:9") ? "16:9" : (model.aspectRatios[0] ?? ""),
     generate_audio: model.supportsAudio,
   }
 }
@@ -652,5 +769,17 @@ export function estimateVideoCost(
   model: VideoModel,
   opts: { durationSeconds: number; resolution?: string; audio?: boolean }
 ): number {
-  return videoPricePerSecond(model, opts.resolution, opts.audio) * opts.durationSeconds
+  const raw = videoPricePerSecond(model, opts.resolution, opts.audio) * opts.durationSeconds
+  const min = model.price.minPerGeneration
+  return min != null && opts.durationSeconds > 0 ? Math.max(raw, min) : raw
+}
+
+/**
+ * Оценка стоимости «видео → видео»: длительность результата = длительности
+ * исходника, поэтому цена = секунды исходника × цена за секунду (но не меньше
+ * минимальной платы за генерацию). Точная сумма берётся из `usage.cost`.
+ */
+export function estimateV2VCost(model: VideoModel, sourceSeconds: number): number {
+  if (!(sourceSeconds > 0)) return 0
+  return estimateVideoCost(model, { durationSeconds: sourceSeconds })
 }

@@ -5,6 +5,7 @@ import { db } from "../db"
 import { apiKeys, user } from "../db/schema"
 import { encrypt, decrypt, getKeyHint } from "../utils/crypto"
 import { getProvider } from "../providers/registry"
+import { validateFalKey } from "../providers/video/fal-video"
 import { auth } from "../auth"
 import { headers } from "next/headers"
 
@@ -36,9 +37,12 @@ export async function saveApiKey(provider: string, rawKey: string) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) throw new Error("Не авторизован")
 
-  // Валидация ключа
-  const providerAdapter = getProvider(provider)
-  const isValid = await providerAdapter.validateKey(rawKey)
+  // Валидация ключа. fal.ai — не картиночный провайдер (нет адаптера в реестре
+  // image-провайдеров), у него своя бесплатная проверка через очередь.
+  const isValid =
+    provider === "fal"
+      ? await validateFalKey(rawKey)
+      : await getProvider(provider).validateKey(rawKey)
   if (!isValid) {
     return { success: false, error: "Ключ недействителен. Проверьте правильность ключа." }
   }

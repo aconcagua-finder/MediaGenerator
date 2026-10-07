@@ -84,6 +84,13 @@ export const PROVIDER_INFO: Record<string, { name: string; description: string; 
     text: "text-cyan-300",
     label: "Perplexity",
   },
+  fal: {
+    name: "fal.ai",
+    description: "Kling Motion Control (перенос движений на персонажа) и замена голоса в видео. Предоплаченный баланс. Без ключа эти функции скрыты",
+    dot: "bg-indigo-400",
+    text: "text-indigo-300",
+    label: "fal.ai",
+  },
   recraft: {
     name: "Recraft",
     description: "Векторная генерация (SVG) — логотипы, иконки, веб-графика. Нужен ключ recraft.ai",

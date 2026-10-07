@@ -9,24 +9,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { VIDEO_MODELS, VIDEO_VENDOR_COLORS, RUSSIAN_SPEECH_INFO, videoPriceFrom, type VideoVendor } from "@/lib/providers/video-models"
+import { VIDEO_MODELS, VIDEO_VENDOR_COLORS, RUSSIAN_SPEECH_INFO, videoPriceFrom, isV2VModel, type VideoModel, type VideoVendor } from "@/lib/providers/video-models"
 
 interface VideoModelSelectorProps {
   selectedModel: string
   onModelChange: (id: string) => void
+  /** Какие модели показывать (по режиму формы). По умолчанию — весь реестр. */
+  models?: VideoModel[]
 }
 
 /**
  * Селектор видеомодели: одна выпадашка, модели сгруппированы по вендору.
  * Все модели идут через OpenRouter, поэтому значение — просто id модели.
  */
-export function VideoModelSelector({ selectedModel, onModelChange }: VideoModelSelectorProps) {
-  const current = VIDEO_MODELS.find((m) => m.id === selectedModel)
+export function VideoModelSelector({ selectedModel, onModelChange, models = VIDEO_MODELS }: VideoModelSelectorProps) {
+  const current = models.find((m) => m.id === selectedModel)
   const currentColors = current ? VIDEO_VENDOR_COLORS[current.vendor] : null
 
   // Порядок вендоров — по первому появлению в списке
   const vendors: VideoVendor[] = []
-  for (const m of VIDEO_MODELS) {
+  for (const m of models) {
     if (!vendors.includes(m.vendor)) vendors.push(m.vendor)
   }
 
@@ -47,14 +49,14 @@ export function VideoModelSelector({ selectedModel, onModelChange }: VideoModelS
       </SelectTrigger>
       <SelectContent className="!w-auto w-[400px] max-w-[min(440px,92vw)] p-1">
         {vendors.map((vendor) => {
-          const models = VIDEO_MODELS.filter((m) => m.vendor === vendor)
+          const vendorModels = models.filter((m) => m.vendor === vendor)
           const colors = VIDEO_VENDOR_COLORS[vendor]
           return (
             <SelectGroup key={vendor}>
               <SelectLabel className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-neutral-500">
                 {colors.label}
               </SelectLabel>
-              {models.map((m) => (
+              {vendorModels.map((m) => (
                 <SelectItem
                   key={m.id}
                   value={m.id}
@@ -79,13 +81,23 @@ export function VideoModelSelector({ selectedModel, onModelChange }: VideoModelS
                       </span>
                     )}
                     <div className="flex flex-wrap gap-1 text-[10px] text-neutral-500">
-                      <span className="rounded bg-white/[0.05] px-1.5 py-0.5">
-                        {m.durations[0]}–{m.durations[m.durations.length - 1]} сек
-                      </span>
-                      <span className="rounded bg-white/[0.05] px-1.5 py-0.5">
-                        {m.resolutions[m.resolutions.length - 1]}
-                      </span>
-                      {m.supportsAudio || m.builtInAudio ? (
+                      {isV2VModel(m) ? (
+                        <span className="rounded bg-white/[0.05] px-1.5 py-0.5">
+                          до {m.maxSourceSeconds ?? 30} сек · длина как у исходника
+                        </span>
+                      ) : (
+                        <>
+                          <span className="rounded bg-white/[0.05] px-1.5 py-0.5">
+                            {m.durations[0]}–{m.durations[m.durations.length - 1]} сек
+                          </span>
+                          <span className="rounded bg-white/[0.05] px-1.5 py-0.5">
+                            {m.resolutions[m.resolutions.length - 1]}
+                          </span>
+                        </>
+                      )}
+                      {isV2VModel(m) ? (
+                        <span className="rounded bg-white/[0.05] px-1.5 py-0.5">звук исходника сохраняется</span>
+                      ) : m.supportsAudio || m.builtInAudio ? (
                         <span className={`rounded bg-white/[0.05] px-1.5 py-0.5 ${RUSSIAN_SPEECH_INFO[m.russianSpeech].text}`}>
                           звук · {RUSSIAN_SPEECH_INFO[m.russianSpeech].short}
                         </span>

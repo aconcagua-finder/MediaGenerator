@@ -7,6 +7,9 @@ import {
   CreateBucketCommand,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+import { createReadStream, createWriteStream } from "node:fs"
+import { pipeline } from "node:stream/promises"
+import type { Readable } from "node:stream"
 
 const BUCKET = process.env.S3_BUCKET || "mediagenerator"
 
@@ -47,6 +50,33 @@ export async function upload(
       ContentType: contentType,
     })
   )
+  return key
+}
+
+/**
+ * Загрузить файл с диска в S3 потоком (без чтения целиком в память) —
+ * для крупных исходников видео (до 100 МБ), контейнер app ограничен 768 МБ.
+ */
+export async function uploadFile(
+  key: string,
+  filePath: string,
+  contentType: string,
+  sizeBytes: number
+): Promise<string> {
+  const stream = createReadStream(filePath)
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: stream,
+        ContentType: contentType,
+        ContentLength: sizeBytes,
+      })
+    )
+  } finally {
+    stream.destroy()
+  }
   return key
 }
 
@@ -92,6 +122,16 @@ export async function downloadBuffer(key: string): Promise<{
     buffer: Buffer.from(bytes),
     contentType: response.ContentType || "application/octet-stream",
   }
+}
+
+/**
+ * Скачать файл из S3 прямо на диск (без загрузки целиком в память) —
+ * для ffmpeg/ffprobe над крупными видео.
+ */
+export async function downloadToFile(key: string, filePath: string): Promise<void> {
+  const response = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
+  if (!response.Body) throw new Error("S3: пустой ответ при скачивании файла")
+  await pipeline(response.Body as Readable, createWriteStream(filePath))
 }
 
 /**

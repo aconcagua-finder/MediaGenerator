@@ -20,9 +20,28 @@ const TRANSIENT =
 const FILTERED =
   /content.{0,20}filter|filtered|safety|moderation|blocked|policy|prohibited|nsfw|inappropriate/i
 
+/**
+ * Модерация Runway (Aleph): «Runway video generation was rejected by content
+ * moderation: SAFETY.INPUT.MULTIMODAL...». Срабатывает на откровенные формулировки
+ * про фигуру/одежду («busty», «curvy», «low-cut»); нейтральные проходят. Упавшая
+ * задача не тарифицируется.
+ */
+const RUNWAY_MODERATION = /runway.{0,60}(moderation|rejected)|SAFETY\.INPUT/i
+
+/** fal.ai: кончились деньги на предоплаченном балансе / ключ заблокирован */
+const FAL_BALANCE = /exhausted balance|insufficient (balance|funds|credits)|user is locked|payment required/i
+
 export function humanizeVideoError(raw: string | null | undefined): string {
   const msg = (raw ?? "").trim()
   if (!msg) return "Генерация не удалась на стороне провайдера"
+
+  if (RUNWAY_MODERATION.test(msg)) {
+    return "Модерация Runway отклонила запрос: уберите откровенные формулировки про фигуру и одежду (например, «busty», «curvy», «low-cut») и опишите образ нейтрально — например, «элегантное вечернее платье». За отклонённую задачу деньги не списываются."
+  }
+
+  if (FAL_BALANCE.test(msg)) {
+    return "На балансе fal.ai закончились деньги (он предоплаченный) или ключ заблокирован. Пополните баланс на fal.ai/dashboard/billing и повторите."
+  }
 
   if (TRANSIENT.test(msg)) {
     return "Провайдер модели временно перегружен и не смог обработать запрос — это нагрузка на стороне провайдера, не вашего сервера. Повторите через минуту или выберите другую модель (Seedance, Kling, Wan устойчивее)."

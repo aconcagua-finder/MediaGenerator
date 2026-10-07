@@ -239,17 +239,24 @@ MediaGenerator/
 |------|-----|----------|
 | id | uuid PK | ID генерации видео |
 | user_id | text FK → users | Владелец |
-| provider | text | Всегда `openrouter` |
-| model | text | ID видеомодели (напр. `bytedance/seedance-2.0`) |
+| provider | text | `openrouter` или `fal` (Kling Motion Control, замена голоса) |
+| model | text | ID видеомодели (напр. `bytedance/seedance-2.0`; для замены голоса — endpoint fal) |
 | prompt | text | Текстовый промпт |
-| mode | text | `t2v` / `i2v` |
-| params | jsonb | duration, resolution, aspect_ratio, generate_audio |
+| mode | text | `t2v` / `i2v` / `v2v` (видео → видео) / `voice` (замена голоса) |
+| params | jsonb | duration, resolution, aspect_ratio, generate_audio; у v2v — source_id, character_orientation; у fal — providerState (status/response URL) |
 | status | text | pending / processing / saving / done / error |
 | provider_job_id | text | ID задачи на стороне OpenRouter |
 | cost | numeric(10,4) | Факт после генерации (`usage.cost`) |
 | error_message | text | Текст ошибки |
 | hidden | boolean | Скрыто из истории |
 | created_at / completed_at | timestamp | Время |
+
+### video_sources и public_media_links (миграция `0017`)
+Входные файлы пользователя для v2v / замены голоса и временные публичные ссылки на файлы в S3.
+| Таблица | Поля |
+|---------|------|
+| video_sources | id, user_id, kind (`video`/`audio`), s3_key (`video-sources/{id}/...`), content_type, size_bytes, duration_seconds, width, height, has_audio, original_name, created_at — чистится кроном через 24 ч |
+| public_media_links | id, token_hash (SHA-256, unique), s3_key, content_type, size_bytes, purpose, user_id, generation_id FK → video_generations, expires_at (24 ч), revoked_at, created_at — отдаётся публичным маршрутом `/api/media-link/{токен}` |
 
 ### videos
 Готовые mp4-файлы (зеркало `images`).

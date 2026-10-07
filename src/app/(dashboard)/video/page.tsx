@@ -1,11 +1,16 @@
 import Link from "next/link"
 import { Scissors } from "lucide-react"
 import { getApiKeys } from "@/lib/actions/api-keys"
+import { getSession } from "@/lib/auth-server"
+import { hasActiveProviderKey } from "@/lib/provider-keys"
 import { VideoForm } from "@/components/video/video-form"
 
 export default async function VideoPage() {
   const keys = await getApiKeys()
   const hasOpenRouterKey = keys.some((k) => k.provider === "openrouter" && k.isActive)
+  const session = await getSession()
+  // fal.ai-функции (Kling Motion Control, замена голоса) видны только при активном ключе
+  const hasFalKey = session?.user ? await hasActiveProviderKey(session.user.id, "fal") : false
 
   return (
     <div className="space-y-6 py-6">
@@ -13,7 +18,8 @@ export default async function VideoPage() {
         <div>
           <h1 className="text-xl font-bold text-white">Видео</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Генерация видео из текста или из картинки. Все модели — через OpenRouter, тем же ключом.
+            Генерация видео из текста или из картинки, а также режим «Видео → видео»: замена персонажа, одежды
+            или обстановки в вашем ролике с сохранением движений. Модели — через OpenRouter, тем же ключом.
             Готовый клип можно сразу посмотреть и скачать.
           </p>
         </div>
@@ -26,7 +32,7 @@ export default async function VideoPage() {
         </Link>
       </div>
 
-      <VideoForm hasOpenRouterKey={hasOpenRouterKey} />
+      <VideoForm hasOpenRouterKey={hasOpenRouterKey} hasFalKey={hasFalKey} />
     </div>
   )
 }

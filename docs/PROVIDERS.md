@@ -693,10 +693,8 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 > частично устаревшей — видеочасть открылась (image-часть FLUX 3 всё ещё 404, см. раздел
 > OpenRouter выше).
 >
-> ⏭️ **Намеренно НЕ добавлен `runway/aleph-2`** — это модель *редактирования существующего
-> видео* (in-context video editing по тексту/кейфреймам поверх входного клипа), а наш пайплайн
-> умеет только t2v/i2v через `frame_images` и не принимает входное видео. Крон `model-check` будет
-> еженедельно показывать её как «новую» — это ожидаемо, добавлять её нельзя без video-input флоу.
+> ✅ **`runway/aleph-2` добавлен 2026-10-07 как режим «Видео → видео»** (см. подраздел ниже) —
+> раньше сознательно пропускался, пока пайплайн не принимал входное видео.
 >
 > ⏭️ **`bytedance/seedance-2.5` (07.08.2026) — новая, но пока НЕ добавлена (решение владельца).**
 > Появилась в `/videos/models` (канонический слаг `-20260807`). Это t2v/i2v (first/last-кадр),
@@ -761,6 +759,46 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 > поэтому `aspectRatios: []` и параметр `aspect_ratio` в API не отправляется.
 > Цена по SKU OpenRouter: 480p $0.08 / 720p $0.14 / 1080p $0.25 за секунду
 > (прямой прайс xAI — плоские $0.080/сек).
+
+### Видео → видео (`runway/aleph-2`, режим `v2v`)
+
+Заменяет персонажа, одежду или обстановку в загруженном ролике, сохраняя движения и мимику.
+Проверено живым вызовом 2026-10-07.
+
+- **Запрос:** `POST /api/v1/videos` с `{ model, prompt, aspect_ratio, input_references: [{ type: "video_url", video_url: { url } }] }`.
+  Полей `duration`/`resolution`/`generate_audio` нет — длина результата ≈ длине исходника, звук исходника сохраняется.
+  Поддерживаются `seed` и passthrough `contentModeration`, `keyframes` (у нас не используются).
+  Соотношения сторон: 16:9, 4:3, 3:2, 1:1, 2:3, 3:4, 9:16, 21:9.
+- ❗ `url` ДОЛЖЕН быть публичным HTTPS. `data:`-URI отвергаются («Only HTTPS URLs are allowed»). Поэтому исходник
+  кладётся в MinIO и отдаётся провайдеру по временной ссылке `https://<домен>/api/media-link/<токен>/source.mp4`
+  (токен 256 бит, в БД только SHA-256, TTL 24 ч, отзыв при завершении задачи). Публичный адрес — `BETTER_AUTH_URL`
+  (запасной `NEXT_PUBLIC_APP_URL`), оба в `.env` = `https://mediagenerator.sanktum.net`; не-https — ошибка.
+- **Цена:** живой SKU `cents_per_second_output: 28` ($0.28/сек), `minimum_cents_per_generation: 56` ($0.56 минимум).
+  ❗ Замеры: исходник 7.2 сек → `usage.cost` $1.40; исходник 4.0 сек (E2E через наше приложение) → тоже $1.40
+  (= ровно 5 × $0.28: Runway тарифицирует минимум 5 сек, а не $0.56 из SKU). Поэтому оценка в UI = max($1.40, секунды × $0.28);
+  для длинных исходников ставка $0.28/сек замером не подтверждена. Биллинг — по факту `usage.cost`.
+- **Модерация:** откровенные формулировки про фигуру/одежду («busty», «curvy», «low-cut») → задача `failed` с
+  `Runway video generation was rejected by content moderation: SAFETY.INPUT.MULTIMODAL...`; нейтральные («элегантное
+  вечернее платье») проходят. Упавшая задача не тарифицируется. Пользователю показывается русская подсказка
+  (`humanize-error.ts`).
+- **Выход:** ~612×1088 для исходника 9:16, со звуком исходника.
+
+### fal.ai (Kling Motion Control, замена голоса) — подготовлено, без ключа спит
+
+Подробная инструкция по подключению — `docs/FAL_SETUP.md`. Адаптер `src/lib/providers/video/fal-video.ts` работает
+через queue REST API (`POST https://queue.fal.run/<model-id>` → `status_url` → `response_url`, заголовок
+`Authorization: Key <ключ>`), входные файлы — публичные HTTPS-ссылки того же `/api/media-link`.
+**Живым вызовом не проверено** (ключа fal в системе нет): контракт взят из документации и `llms.txt` моделей.
+
+| Функция | fal model id | Цена (fal.ai, 2026-10-07) |
+|---|---|---|
+| Kling Motion Control, standard | `fal-ai/kling-video/v3/standard/motion-control` | $0.126 / сек выходного видео |
+| Kling Motion Control, pro | `fal-ai/kling-video/v3/pro/motion-control` | $0.168 / сек |
+| Замена голоса, ElevenLabs | `fal-ai/elevenlabs/voice-changer` | $0.30 / мин |
+| Замена голоса, Chatterbox HD | `resemble-ai/chatterboxhd/speech-to-speech` | $0.02 / мин |
+
+Kling MC: `image_url` (персонаж) + `video_url` (движение) + `character_orientation` (`video` — видео до 30 сек,
+`image` — до 10 сек) + опц. `prompt`. fal не отдаёт стоимость в ответе — биллинг по оценке (секунды × цена).
 
 ### Поток
 `POST /api/video/generate` (submit) → `GET /api/video/[id]/status` (polling, скачивание mp4 в S3 при `completed`)
