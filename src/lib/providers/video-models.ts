@@ -21,6 +21,7 @@ export type VideoVendor =
   | "alibaba"
   | "runway"
   | "bfl"
+  | "heygen"
 
 export type VideoMode = "t2v" | "i2v"
 
@@ -63,6 +64,11 @@ export interface VideoModel {
   modes: VideoMode[]
   /** Поддерживает ли генерацию звука */
   supportsAudio: boolean
+  /**
+   * Звук всегда вшит в результат и не отключается (параметра generate_audio нет).
+   * Для UI: вместо «Без звука» показываем, что звук встроен.
+   */
+  builtInAudio?: boolean
   /** Умеет ли озвучивать на русском (для звуковых моделей) */
   russianSpeech: RussianSpeech
   /** Допустимые длительности клипа в секундах */
@@ -159,20 +165,6 @@ export const VIDEO_MODELS: VideoModel[] = [
     price: { perSecond: { "720p": 0.112 } },
     isNew: true,
   },
-  {
-    id: "openai/sora-2-pro",
-    name: "Sora 2 Pro",
-    vendor: "openai",
-    description: "OpenAI — премиум со звуком, длинные клипы до 20 сек. Русский — частично (мультиязычная озвучка).",
-    modes: ["t2v"],
-    supportsAudio: true,
-    russianSpeech: "partial",
-    durations: [4, 8, 12, 16, 20],
-    resolutions: ["720p", "1080p"],
-    aspectRatios: ["16:9", "9:16"],
-    // звук включён в цену; тариф по разрешению
-    price: { perSecond: { "720p": 0.3, "1080p": 0.5 } },
-  },
 
   // ===== Баланс цены и качества =====
   {
@@ -242,6 +234,21 @@ export const VIDEO_MODELS: VideoModel[] = [
     isNew: true,
   },
   {
+    id: "minimax/hailuo-3-max",
+    name: "Hailuo 3 Max",
+    vendor: "minimax",
+    description: "MiniMax — ускоренная версия Hailuo 3 (совместно с fal.ai): из текста, стартового и конечного кадра, до 768p, клипы до 15 сек. Без звука — озвучку добавляйте отдельно.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [5, 10, 15],
+    resolutions: ["480p", "768p"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    // duration_seconds_480p $0.05, duration_seconds_768p $0.08
+    price: { perSecond: { "480p": 0.05, "768p": 0.08 } },
+    isNew: true,
+  },
+  {
     id: "runway/gen-4.5",
     name: "Gen-4.5",
     vendor: "runway",
@@ -289,7 +296,7 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "alibaba/wan-3.0",
     name: "Wan 3.0",
     vendor: "alibaba",
-    description: "Alibaba — новейшее поколение Wan: длинные клипы до 30 сек, разрешения от 480p до 1080p, со звуком и i2v по первому кадру. Русская озвучка не гарантирована. Wan 3.0 Prime — премиум-вариант (дороже, качественнее).",
+    description: "Alibaba — новейшее поколение Wan: длинные клипы до 30 сек, разрешения от 480p до 1080p, со звуком и i2v по первому кадру. Русская озвучка не гарантирована. Wan 3.0 Prime — быстрый режим той же модели (дороже).",
     modes: ["t2v", "i2v"],
     supportsAudio: true,
     russianSpeech: "partial",
@@ -298,6 +305,21 @@ export const VIDEO_MODELS: VideoModel[] = [
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
     // тариф по разрешению (duration_seconds_Xp), звук включён в цену
     price: { perSecond: { "480p": 0.05, "720p": 0.1, "1080p": 0.2 } },
+    isNew: true,
+  },
+  {
+    id: "alibaba/wan-3.0-prime",
+    name: "Wan 3.0 Prime",
+    vendor: "alibaba",
+    description: "Alibaba — быстрый режим Wan 3.0: из текста или стартового кадра, клипы до 30 сек, от 480p до 1080p, со звуком. Дороже обычного Wan 3.0. Русская озвучка не гарантирована.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: true,
+    russianSpeech: "partial",
+    durations: [5, 10, 15, 20, 30],
+    resolutions: ["480p", "720p", "1080p"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+    // тариф по разрешению (duration_seconds_Xp), звук включён в цену
+    price: { perSecond: { "480p": 0.068, "720p": 0.14, "1080p": 0.28 } },
     isNew: true,
   },
   {
@@ -360,6 +382,36 @@ export const VIDEO_MODELS: VideoModel[] = [
     isNew: true,
   },
   {
+    id: "bytedance/seedance-2.0-mini",
+    name: "Seedance 2.0 Mini",
+    vendor: "bytedance",
+    description: "ByteDance — самая дешёвая версия Seedance 2.0: из текста, стартового и конечного кадра, до 720p, со звуком. Без русской озвучки.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: true,
+    russianSpeech: "none",
+    durations: [4, 8, 12],
+    resolutions: ["480p", "720p"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
+    // video_tokens $0.0000035 (звук не влияет): 854×480×0.0234375×цена и 1280×720×0.0234375×цена
+    price: { perSecond: { "480p": 0.0336, "720p": 0.0756 } },
+    isNew: true,
+  },
+  {
+    id: "bytedance/seedance-2.5",
+    name: "Seedance 2.5",
+    vendor: "bytedance",
+    description: "ByteDance — новое поколение Seedance для длинных историй: клипы до 30 сек, стартовый и конечный кадр, до 720p, со звуком. Дороже Seedance 2.0 при том же разрешении. Без русской озвучки.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: true,
+    russianSpeech: "none",
+    durations: [4, 8, 12, 16, 20, 30],
+    resolutions: ["480p", "720p"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    // video_tokens $0.0000107 (звук не влияет): 854×480×0.0234375×цена и 1280×720×0.0234375×цена
+    price: { perSecond: { "480p": 0.1028, "720p": 0.2311 } },
+    isNew: true,
+  },
+  {
     id: "bytedance/seedance-1-5-pro",
     name: "Seedance 1.5 Pro",
     vendor: "bytedance",
@@ -380,16 +432,30 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "x-ai/grok-imagine-video-1.5",
     name: "Grok Imagine Video 1.5",
     vendor: "xai",
-    description: "xAI — новое поколение Grok Imagine: лучше движение и физика, до 1080p. Работает ТОЛЬКО из картинки (оживляет стартовый кадр), текст задаёт движение. На OpenRouter без звука.",
-    modes: ["i2v"],
+    description: "xAI — новое поколение Grok Imagine: лучше движение и физика, до 1080p. Из текста или из стартового кадра. На OpenRouter без звука.",
+    modes: ["t2v", "i2v"],
     supportsAudio: false,
     russianSpeech: "none",
     durations: [5, 10],
     resolutions: ["480p", "720p", "1080p"],
-    // OpenRouter отдаёт supported_aspect_ratios: null — формат наследуется от
-    // стартового кадра. Пустой список => aspect_ratio не отправляется в API.
-    aspectRatios: [],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"],
     price: { perSecond: { "480p": 0.08, "720p": 0.14, "1080p": 0.25 } },
+    isNew: true,
+  },
+  {
+    id: "x-ai/grok-imagine-video-1.5-lite",
+    name: "Grok Imagine Video 1.5 Lite",
+    vendor: "xai",
+    description: "xAI — облегчённая и быстрая версия Grok Imagine 1.5 (дистиллят): из текста или из стартового кадра, до 1080p, заметно дешевле. На OpenRouter без звука. Цена 1080p резко выше 720p.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [5, 10, 15],
+    resolutions: ["480p", "720p", "1080p"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"],
+    // cents_per_video_output_second_*: 480p 2, 720p 3, 1080p 14; cents_per_image_input 1 —
+    // плоская доплата за стартовый кадр, в оценку за секунду не входит
+    price: { perSecond: { "480p": 0.02, "720p": 0.03, "1080p": 0.14 } },
     isNew: true,
   },
   {
@@ -404,6 +470,23 @@ export const VIDEO_MODELS: VideoModel[] = [
     resolutions: ["480p", "720p"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"],
     price: { perSecond: { "480p": 0.05, "720p": 0.07 } },
+  },
+  {
+    id: "heygen/heygen-video-1",
+    name: "HeyGen Video",
+    vendor: "heygen",
+    description: "HeyGen — универсальная видеомодель: из текста или стартового кадра, клипы 5-15 сек, до 2K. Звук (диалоги, фон, эффекты) генерируется всегда и не отключается. Русская озвучка не подтверждена — лучше проверить.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: false,
+    builtInAudio: true,
+    russianSpeech: "partial",
+    durations: [5, 10, 15],
+    resolutions: ["480p", "768p", "2K"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    // duration_seconds_480p $0.02, _768p $0.03, _2k $0.09; reference_duration_seconds_*
+    // (с референсами) вдвое дороже — в оценку за секунду не входит
+    price: { perSecond: { "480p": 0.02, "768p": 0.03, "2K": 0.09 } },
+    isNew: true,
   },
 ]
 
@@ -432,7 +515,6 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
     image_to_video_duration_seconds_1080p: 0.112,
   },
   "kwaivgi/kling-video-o1": { duration_seconds: 0.112 },
-  "openai/sora-2-pro": { duration_seconds_720p: 0.3, duration_seconds_1024p: 0.5, duration_seconds_1080p: 0.5 },
   "google/veo-3.1-fast": {
     duration_seconds_with_audio: 0.12, duration_seconds_with_audio_4k: 0.3, duration_seconds_with_audio_720p: 0.1,
     duration_seconds_without_audio: 0.1, duration_seconds_without_audio_4k: 0.25, duration_seconds_without_audio_720p: 0.08,
@@ -471,6 +553,18 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
     cents_per_image_input: 1, cents_per_video_output_second_480p: 8,
     cents_per_video_output_second_720p: 14, cents_per_video_output_second_1080p: 25,
   },
+  "x-ai/grok-imagine-video-1.5-lite": {
+    cents_per_image_input: 1, cents_per_video_output_second_480p: 2,
+    cents_per_video_output_second_720p: 3, cents_per_video_output_second_1080p: 14,
+  },
+  "minimax/hailuo-3-max": { duration_seconds: 0.08, duration_seconds_480p: 0.05, duration_seconds_768p: 0.08 },
+  "alibaba/wan-3.0-prime": { duration_seconds_480p: 0.068, duration_seconds_720p: 0.14, duration_seconds_1080p: 0.28 },
+  "bytedance/seedance-2.0-mini": { video_tokens: 0.0000035, video_tokens_without_audio: 0.0000035, video_tokens_with_video_input: 0.0000021 },
+  "bytedance/seedance-2.5": { video_tokens: 0.0000107, video_tokens_without_audio: 0.0000107, video_tokens_with_video_input: 0.0000064 },
+  "heygen/heygen-video-1": {
+    duration_seconds_480p: 0.02, duration_seconds_768p: 0.03, duration_seconds_2k: 0.09,
+    reference_duration_seconds_480p: 0.04, reference_duration_seconds_768p: 0.06, reference_duration_seconds_2k: 0.18,
+  },
 }
 
 /** Цветовая маркировка вендоров для UI */
@@ -484,6 +578,7 @@ export const VIDEO_VENDOR_COLORS: Record<VideoVendor, { dot: string; text: strin
   alibaba:   { dot: "bg-amber-400", text: "text-amber-300", label: "Alibaba" },
   runway:    { dot: "bg-fuchsia-400", text: "text-fuchsia-300", label: "Runway" },
   bfl:       { dot: "bg-lime-400", text: "text-lime-300", label: "Black Forest Labs" },
+  heygen:    { dot: "bg-pink-400", text: "text-pink-300", label: "HeyGen" },
 }
 
 /** Подписи/цвета для индикатора русской озвучки */

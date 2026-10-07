@@ -63,25 +63,54 @@ describe("оценка стоимости видео", () => {
   })
 
   /**
-   * Grok Imagine Video 1.5 — первая i2v-ONLY модель в реестре и первая с пустым
-   * списком aspectRatios (OpenRouter отдаёт supported_aspect_ratios: null —
-   * формат наследуется от стартового кадра). Пустой список должен приводить к
-   * тому, что aspect_ratio вообще НЕ уходит в API, а не к undefined-строке.
+   * Grok Imagine Video 1.5 раньше работал ТОЛЬКО из картинки и без aspectRatios
+   * (OpenRouter отдавал supported_aspect_ratios: null). С октября 2026 живой
+   * список моделей отдаёт форматы, а описание — «из текста с опциональным
+   * стартовым кадром», поэтому реестр теперь t2v + i2v.
    */
-  it("Grok Imagine Video 1.5 — i2v-only, aspect_ratio не отправляется", () => {
+  it("Grok Imagine Video 1.5 — t2v + i2v, форматы заданы, звука нет", () => {
     const grok15 = getVideoModel("x-ai/grok-imagine-video-1.5")!
-    expect(grok15.modes).toEqual(["i2v"])
-    expect(grok15.modes).not.toContain("t2v")
-    expect(grok15.aspectRatios).toEqual([])
+    expect(grok15.modes).toEqual(["t2v", "i2v"])
+    expect(grok15.aspectRatios.length).toBeGreaterThan(0)
 
     const params = defaultVideoParams(grok15)
-    expect(params.aspect_ratio).toBeUndefined()
-    // адаптер шлёт поле только если оно truthy — проверяем именно это условие
-    expect(Boolean(params.aspect_ratio)).toBe(false)
+    expect(params.aspect_ratio).toBe("16:9")
     expect(params.generate_audio).toBe(false)
 
     // цена по SKU OpenRouter: 720p $0.14/сек
     expect(estimateVideoCost(grok15, { durationSeconds: 5, resolution: "720p" })).toBeCloseTo(0.7, 4)
+  })
+
+  it("пустой aspectRatios (если провайдер отдаст null) не превращается в undefined-строку", () => {
+    const stub = { ...getVideoModel("x-ai/grok-imagine-video-1.5")!, aspectRatios: [] as string[] }
+    const params = defaultVideoParams(stub)
+    expect(Boolean(params.aspect_ratio)).toBe(false)
+  })
+
+  /**
+   * Новые модели (окт. 2026): цены выведены из живых pricing_skus.
+   * Seedance — по токенной формуле w×h×0.0234375×цена_токена.
+   */
+  it("новые модели: цена за секунду совпадает с SKU OpenRouter", () => {
+    const p = (id: string, res: string) => videoPricePerSecond(getVideoModel(id)!, res)
+    expect(p("x-ai/grok-imagine-video-1.5-lite", "480p")).toBeCloseTo(0.02, 4)
+    expect(p("x-ai/grok-imagine-video-1.5-lite", "1080p")).toBeCloseTo(0.14, 4)
+    expect(p("minimax/hailuo-3-max", "768p")).toBeCloseTo(0.08, 4)
+    expect(p("alibaba/wan-3.0-prime", "1080p")).toBeCloseTo(0.28, 4)
+    expect(p("heygen/heygen-video-1", "2K")).toBeCloseTo(0.09, 4)
+    expect(p("bytedance/seedance-2.0-mini", "720p")).toBeCloseTo(1280 * 720 * 0.0234375 * 0.0000035, 3)
+    expect(p("bytedance/seedance-2.5", "720p")).toBeCloseTo(1280 * 720 * 0.0234375 * 0.0000107, 3)
+    expect(p("bytedance/seedance-2.5", "480p")).toBeCloseTo(854 * 480 * 0.0234375 * 0.0000107, 3)
+  })
+
+  it("HeyGen Video: звук встроен и не переключается", () => {
+    const hg = getVideoModel("heygen/heygen-video-1")!
+    expect(hg.supportsAudio).toBe(false)
+    expect(hg.builtInAudio).toBe(true)
+  })
+
+  it("Sora 2 Pro убрана — OpenRouter больше не отдаёт эндпоинтов", () => {
+    expect(getVideoModel("openai/sora-2-pro")).toBeNull()
   })
 
   it("каждая модель: у каждого поддерживаемого разрешения есть цена", () => {

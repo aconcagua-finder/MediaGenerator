@@ -93,9 +93,11 @@
 
 ## 3. OpenRouter (агрегатор)
 
-**Endpoint:** `POST https://openrouter.ai/api/v1/chat/completions`
+**Endpoints:**
+- `POST https://openrouter.ai/api/v1/chat/completions` — chat completions с `modalities: ["image"]` (или `["image","text"]`). Так работают модели из таблицы «Модели» ниже (Gemini, GPT-5 Image, FLUX.2, Seedream 4.5).
+- `POST https://openrouter.ai/api/v1/images` — выделенный Images API (окт 2026). Через него ходят **все остальные** модели (таблица «Images API» ниже): часть из них (FLUX.3, Recraft V4 и др.) через chat/completions отвечает 400 `is an image generation model and cannot be used with the chat/completions endpoint`.
 
-Использует chat completions формат с `modalities: ["image"]`.
+Выбор эндпоинта — `usesImagesApi()` в `src/lib/providers/openrouter.ts`: модель из набора `CHAT_COMPLETIONS_MODELS` идёт в chat, всё остальное — в Images API.
 
 ### Модели
 
@@ -156,6 +158,88 @@
 > который сам отключён 25.06.2026 — строка у Google протухла, реальная цель — GA
 > `gemini-3.1-flash-image` (у нас уже он). Imagen (`imagen-4.0-*`, отключение
 > 17.08.2026) в проекте не используется — проверено grep'ом.
+
+### Images API — модели, добавленные 2026-10-07
+
+Источник правды — `src/lib/providers/openrouter-image-models.ts` (спецификации; из них строятся сид,
+`cost-calculator.ts`, карта правок `capabilities.ts` и бейдж «Новинка»). Параметры и цены сверены с
+`GET /api/v1/images/models` и `GET /api/v1/images/models/{slug}/endpoints`.
+
+| Модель | ID | Цена за изобр. | Размеры | Референс (правка) |
+|--------|----|----------------|---------|-------------------|
+| GPT Image 2.5 Sunburst | `openai/gpt-image-2.5-sunburst` | $0.12 | — | да |
+| GPT Image 2.5 Flare | `openai/gpt-image-2.5-flare` | $0.12 | — | да |
+| FLUX.3 Image | `black-forest-labs/flux-3-image` | 1K $0.048 / 2K $0.1 / 4K $0.607 | 1K/2K/4K | да |
+| Seedream 5.0 Pro | `bytedance-seed/seedream-5-0-pro` | 1K $0.045 / 2K $0.09 | 1K/2K | да |
+| Seedream 5.0 Lite | `bytedance-seed/seedream-5-0-lite` | $0.035 | 2K/4K | да |
+| Seedream 5.0 Flash | `bytedance-seed/seedream-5-0-flash` | $0.018 | 1K/2K | да |
+| Grok Imagine Image 2.0 | `x-ai/grok-imagine-image-2.0` | 1K $0.06 / 2K $0.08 | 1K/2K | да |
+| Nano Banana 2.1 | `google/gemini-nano-banana-2.1` | 1K $0.034 / 2K $0.051 / 4K $0.076 | 1K/2K/4K | да |
+| Qwen Image 3 | `qwen/qwen-image-3` | 1K $0.03 / 2K $0.03 | 1K/2K | да |
+| Qwen Image 3 Pro | `qwen/qwen-image-3-pro` | 1K $0.04 / 2K $0.075 | 1K/2K | да |
+| Recraft V4 | `recraft/recraft-v4` | $0.04 | — | да |
+| Recraft V4 Pro | `recraft/recraft-v4-pro` | $0.25 | — | да |
+| Recraft V4 Вектор (SVG) | `recraft/recraft-v4-vector` | $0.08 | — | да |
+| Recraft V4 Pro Вектор (SVG) | `recraft/recraft-v4-pro-vector` | $0.3 | — | да |
+| Recraft V4.1 | `recraft/recraft-v4.1` | $0.035 | — | да |
+| Recraft V4.1 Flash | `recraft/recraft-v4.1-flash` | $0.007 | — | нет |
+| Recraft V4.1 Pro | `recraft/recraft-v4.1-pro` | $0.21 | — | да |
+| Recraft V4.1 Utility | `recraft/recraft-v4.1-utility` | $0.035 | — | да |
+| Recraft V4.1 Utility Pro | `recraft/recraft-v4.1-utility-pro` | $0.21 | — | да |
+| Recraft V4.1 Вектор (SVG) | `recraft/recraft-v4.1-vector` | $0.08 | — | да |
+| Recraft V4.1 Pro Вектор (SVG) | `recraft/recraft-v4.1-pro-vector` | $0.3 | — | да |
+| MAI-Image 2.5 | `microsoft/mai-image-2.5` | $0.048 | — | да |
+| MAI-Image 2.5 Pro | `microsoft/mai-image-2.5-pro` | $0.111 | — | да |
+| MAI-Image 2.6 | `microsoft/mai-image-2.6` | $0.039 | — | да |
+| MAI-Image 2.6 Flash | `microsoft/mai-image-2.6-flash` | $0.0195 | — | да |
+| Krea 2 Large | `krea/krea-2-large` | $0.06 | — | да |
+| Krea 2 Medium | `krea/krea-2-medium` | $0.03 | — | да |
+| Krea 2 Medium Turbo | `krea/krea-2-medium-turbo` | $0.015 | — | да |
+| Meta Muse Image | `meta/muse-image` | $0.01 | — | да |
+| Hy Image 3.5 (preview) | `tencent/hy-image-v3.5-preview` | 1K $0.024 / 2K $0.096 | 1K/2K | да |
+| Ming Image 0.1 Design | `inclusionai/ming-image-0.1-design` | бесплатно | — | нет |
+| Riverflow V2 Fast | `sourceful/riverflow-v2-fast` | 1K $0.02 / 2K $0.04 | 1K/2K | да |
+| Riverflow V2 Pro | `sourceful/riverflow-v2-pro` | 1K $0.15 / 2K $0.15 / 4K $0.33 | 1K/2K/4K | да |
+| Riverflow V2.5 Fast | `sourceful/riverflow-v2.5-fast` | 1K $0.019 / 2K $0.021 | 1K/2K | да |
+| Riverflow V2.5 Pro | `sourceful/riverflow-v2.5-pro` | 1K $0.13 / 2K $0.15 / 4K $0.17 | 1K/2K/4K | да |
+
+Запрос: `{ model, prompt, n: 1, aspect_ratio?, resolution?, quality?, output_format?, input_references? }`
+(`image_size` формы → `resolution`, `0.5K` → `512`). Ответ: `data[].b64_json` + `media_type`, `usage.cost`.
+- Адаптер делает **`count` параллельных запросов с `n=1`** (многие модели принимают только 1 и режут `n>1`),
+  при частичном отказе возвращает удавшиеся и считает деньги только за них.
+- Сумма списания берётся из `usage.cost`; цена реестра — оценка для формы и лимитов.
+  Если `usage.cost` нет — оценка реестра.
+- Векторные модели (`*-vector`) получают `output_format: "svg"`, результат хранится как SVG.
+- Правка (`/api/edit` и вложение в форме генерации) идёт в `input_references` как data-URI.
+- Реальные размеры берутся из заголовка файла (`image-meta.ts`).
+
+Живая проверка 07.10.2026 (Images API, 1:1): Seedream 5.0 Lite $0.035 (2048×2048 даже при `1K` —
+у модели минимум 2K), Krea 2 Medium Turbo $0.015, Hy Image 3.5 1K $0.024 (15000 токенов),
+MAI-Image 2.6 Flash $0.0195 (1024 токена на изображение), FLUX.3 Image 1K списал **$0.024** при прайсе
+$0.048 (OpenRouter сейчас даёт скидку 50%). Цены Gemini-подобных (`Nano Banana 2.1`), `Hy 2K`, `GPT Image 2.5`,
+`MAI 2.5/2.5 Pro` и `Krea Large/Medium`, `Meta Muse` — оценка по токенному тарифу.
+
+Не добавлены намеренно:
+- `recraft/recraft-v4-styles`, `-styles-pro`, `-styles-vector`, `-styles-pro-vector` — требуют **минимум 1
+  референс-картинку** (`input_references.min = 1`), в text-to-image форме их не вызвать;
+- `inclusionai/ming-image-0.1-design-layer` — тоже обязательный входной файл;
+- `openai/gpt-image-2`, `gpt-image-1`, `gpt-image-1-mini`, `x-ai/grok-imagine-image-quality`,
+  `black-forest-labs/flux.2-klein-4b`, `recraft/recraft-v3` — уже есть как прямые провайдеры;
+- `google/gemini-3-pro-image-preview`, `google/gemini-3.1-flash-image-preview` — есть GA;
+- `openrouter/auto`, `openrouter/auto-beta` — роутеры, не модель.
+
+⚠️ `meta/muse-image` отвечает 403 «18+ age confirmation», пока в настройках аккаунта OpenRouter
+(`/settings/preferences`) не подтверждён возраст — это действие владельца аккаунта.
+
+> ❗ **Заглушки крона `model-check`.** Все эти модели крон уже успел вставить в `model_registry`
+> как `is_active=false` с пустыми `params_schema`/`pricing`; insert-only сид их пропускал.
+> `seedModels()` теперь «оживляет» такие заглушки (`planSeeding` в `seed-plan.ts`: неактивная строка
+> с пустыми схемой И ценой → обновить данными сида и включить). Вручную отключённые админом модели
+> (цена заполнена) не трогаются. То же коснулось `google/gemini-3-pro-image` и
+> `openai/gpt-5.4-image-2`, которые сейчас стоят заглушками — после сидирования они станут активными.
+
+> 🔎 **2026-10-07: FLUX 3 image открыта** — `black-forest-labs/flux-3-image` (флагман, до 10 референсов).
+> Это снимает заметку W33 «image-часть FLUX 3 без публичного API».
 
 ### Параметры
 
@@ -371,6 +455,22 @@
 
 В реестре одна модель: `recraft-v3-vector` (SVG, $0.08/изобр.).
 
+> 🔎 **Обновление 2026-10-07 (тексты, сверка с живым `/models`).**
+> - **Добавлены флагманы:** `openai/gpt-6.1-sol` ($2/$10, 1.05M), `openai/gpt-6-astra` ($10/$50),
+>   `openai/gpt-6-luna` ($0.1/$0.5), `anthropic/claude-fable-5.1` ($10/$50, 1M), `google/gemini-3.8-flash`
+>   ($0.75/$3.75), `x-ai/grok-4.7` ($2/$6, 500K), `deepseek/deepseek-v4.1-flash` ($0.05/$1.2, vision),
+>   `qwen/qwen3.8-max-0902` ($2/$6, 1M) и `qwen/qwen3.8-flash` ($0.15/$0.47) — новый вендор `qwen` в
+>   `text-models.ts`. `-pro`-варианты GPT-6 (`reasoning.mode: pro`, «тратит заметно больше») не добавлены.
+>   Qwen 3.8 Max взят в dated-слаге `-0902` (стабильного `qwen3.8-max` в списке нет; `max-prime` — отдельный
+>   дорогой SKU $4/$12): если слаг уберут, аудит покажет `missing`.
+> - **Дрейф цены:** `deepseek/deepseek-v4-pro` $0.955/$1.911 → **$0.209/$0.418** (в W41 дрейф был
+>   отмечен в заметке, но `pricing` не обновили). После правки `auditTextPricing` по всему реестру пуст.
+> - Описания GPT-5.4/5.5, Gemini 3.5 Flash, Grok 4.3 больше не называют себя «новейшими».
+> - `reddit-search.ts` `OPENAI_PRICING` дополнен `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-astra`, `gpt-6-luna`;
+>   `cover-models.ts` без изменений (все его slug'и живы, цены совпадают).
+> - Не менялось (продуктовые решения): `DEFAULT_TEXT_MODEL` остаётся `claude-sonnet-4.6`
+>   (Sonnet 5.5 сейчас дешевле и новее), дефолт классификатора мониторинга.
+
 > 🔎 **Аудит 2026-W30:** у Recraft вышла линейка **V4.1**, и она дешевле V4 при
 > том же назначении: V4.1 Vector $0.08 (= V3), V4.1 растр $0.035 против $0.04 у V4,
 > V4.1 Pro растр $0.21 против $0.25 у V4 Pro. Депрекейшенов **нет вообще** — всё
@@ -528,24 +628,55 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 | `google/veo-3.1` | оба | да | 4/6/8 | 720p/1080p/4K | ~0.40 |
 | `kwaivgi/kling-v3.0-pro` | оба | да | 5/10 | 720p | ~0.168 |
 | `kwaivgi/kling-video-o1` | оба | да | 5/10 | 720p | ~0.112 |
-| `openai/sora-2-pro` | t2v | да | 4/8/12/16/20 | 720p/1080p | ~0.30 |
 | `google/veo-3.1-fast` | оба | да | 4/6/8 | 720p/1080p/4K | ~0.12 |
 | `google/veo-3.1-lite` | оба | да | 4/6/8 | 720p/1080p | ~0.05 |
 | `kwaivgi/kling-v3.0-std` | оба | да | 5/10 | 720p | ~0.126 |
 | `minimax/hailuo-3` | оба | да³ | 5/10 | 2K | ~0.13 |
 | `runway/gen-4.5` | оба | нет | 5/10 | 720p | ~0.12 |
 | `black-forest-labs/flux-3-video` | оба | да⁴ | 5/10/15/20 | 720p/1080p | ~0.17 |
+| `minimax/hailuo-3-max` | оба | нет | 5/10/15 | 480p/768p | ~0.05–0.08 |
 | `minimax/hailuo-2.3` | оба | нет | 6/10 | 1080p | ~0.082 |
 | `alibaba/wan-3.0` | оба | да | 5–30 | 480p/720p/1080p | ~0.10 |
+| `alibaba/wan-3.0-prime` | оба | да | 5–30 | 480p/720p/1080p | ~0.14 |
 | `alibaba/wan-2.6` | оба | да | 5/10 | 720p/1080p | ~0.10 |
 | `alibaba/wan-2.7` | оба | да | 5/10 | 720p/1080p | ~0.10 |
+| `bytedance/seedance-2.5` | оба | да | 4–30 | 480p/720p | ~0.10–0.23 |
 | `bytedance/seedance-2.0-fast` | оба | да | 4/8/12 | 480p/720p | ~0.04 |
+| `bytedance/seedance-2.0-mini` | оба | да | 4/8/12 | 480p/720p | ~0.034–0.076 |
 | `bytedance/seedance-1-5-pro` | оба | да | 4/8/12 | 480p/720p/1080p | ~0.02 |
 | `x-ai/grok-imagine-video` | оба | нет | 5/10 | 480p/720p | ~0.06 |
-| `x-ai/grok-imagine-video-1.5` | **только i2v** | нет² | 5/10 | 480p/720p/1080p | ~0.08 |
+| `x-ai/grok-imagine-video-1.5` | оба² | нет² | 5/10 | 480p/720p/1080p | ~0.08–0.25 |
+| `x-ai/grok-imagine-video-1.5-lite` | оба | нет | 5/10/15 | 480p/720p/1080p | ~0.02–0.14 |
+| `heygen/heygen-video-1` | оба | встроен⁵ | 5/10/15 | 480p/768p/2K | ~0.02–0.09 |
 
 Источник правды — `src/lib/providers/video-models.ts`. Цены за секунду — ориентир для UI;
 точная сумма берётся из ответа OpenRouter (`usage.cost`) после генерации.
+
+> 🆕 **Обновление 2026-10-07 (по запросу владельца, сверка с живым `GET /videos/models`, 30 моделей).**
+> - **Добавлены:** `x-ai/grok-imagine-video-1.5-lite` (480p $0.02 / 720p $0.03 / 1080p $0.14, 1–15 сек, t2v+i2v),
+>   `minimax/hailuo-3-max` (480p $0.05 / 768p $0.08, 5–15 сек, first/last-кадр, без звука),
+>   `alibaba/wan-3.0-prime` (480p $0.068 / 720p $0.14 / 1080p $0.28, 2–30 сек, звук),
+>   `bytedance/seedance-2.0-mini` ($0.0000035/токен → 480p $0.0336 / 720p $0.0756),
+>   `bytedance/seedance-2.5` ($0.0000107/токен → 480p $0.1028 / 720p $0.2311, 4–30 сек),
+>   `heygen/heygen-video-1` (480p $0.02 / 768p $0.03 / 2K $0.09, 5–15 сек; новый вендор `heygen`).
+>   Seedance считается по формуле из `video-models.ts` (ширина × высота × 0.0234375 × цена токена).
+>   Это отменяет заметки выше «НЕ добавлена» для `seedance-2.5`, `seedance-2.0-mini`, `wan-3.0-prime`
+>   и `hailuo-3-max` (там — историческое обоснование; решение владельца изменилось).
+> - **Удалена:** `openai/sora-2-pro` — исчезла из `/videos/models`, `GET /models/openai/sora-2-pro/endpoints` → `endpoints: []`.
+> - **Исправлено:** `x-ai/grok-imagine-video-1.5` теперь отдаёт `supported_aspect_ratios` (16:9, 9:16, 1:1, 4:3, 3:4, 3:2, 2:3),
+>   а его описание на OpenRouter — «из текстовых промптов, с опциональным стартовым кадром», поэтому режим расширен
+>   до t2v+i2v (ниже примечание ² про «только i2v» устарело). ⚠️ Реальной генерацией t2v не проверялось.
+>   Описание `alibaba/wan-3.0`: Prime — «быстрый режим» (по описанию OpenRouter), а не «премиум».
+> - Остальные записи сверены с живыми capabilities (длительности/разрешения/форматы — подмножества живых,
+>   `pricing_skus` совпали со снимком, дрейф `auditVideoPricing` пуст).
+> - **Не добавлены (нужен входной ВИДЕО-файл):** `runway/aleph-2`, `black-forest-labs/flux-video-edit`,
+>   `black-forest-labs/flux-video-upscale` — отдельная фича. `heygen/avatar-iv` — фото → говорящая голова:
+>   нет `supported_frame_images`/длительностей, цена `duration_seconds` $0.05, параметры только
+>   `voice_id`/`voice_settings`/`motion_prompt`/… — не вписывается в форму `prompt + frame_images`
+>   (нужен звук/голос на входе). Крон `model-check` будет показывать эти четыре как «новые» — ожидаемо.
+> - ⁵ `heygen/heygen-video-1`: звук (диалоги, фон, эффекты) генерируется всегда, `generate_audio:false`
+>   (параметра нет), поэтому `supportsAudio:false`, `builtInAudio:true` — в UI «Звук встроен и не отключается».
+>   Отдельные SKU `reference_duration_seconds_*` ($0.04/$0.06/$0.18) — тариф с референсами, в оценку не входит.
 
 > ³ **Новинки аудита 2026-W32:** `minimax/hailuo-3` (MiniMax H3 — 2K-only, длит. 5–15,
 > `generate_audio:true`, i2v по first/last-кадру; SKU `duration_seconds` $0.13 + `reference_images`
@@ -605,7 +736,7 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 
 > ❗ **Звук влияет на цену.** У моделей со звуком цена в таблице — с включённым
 > звуком (он включён по умолчанию): Kling 3.0 Pro $0.112→$0.168, Std $0.084→$0.126.
-> Seedance/Wan за звук берут столько же; Veo и Sora считают звук по отдельному тарифу.
+> Seedance/Wan за звук берут столько же; Veo считает звук по отдельному тарифу.
 > `alibaba/wan-2.6` теперь **генерирует звук** (`generate_audio:true` в API — раньше было
 > `false`; обновлено в аудите 2026-W27), но русская озвучка не гарантирована.
 >
@@ -613,7 +744,7 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 > с нативным звуком/lip-sync, но на OpenRouter `generate_audio` не выставляется
 > (`null`), а i2v принимает только первый кадр — поэтому в реестре `supportsAudio:false`.
 
-> ² **Grok Imagine Video 1.5** — появилась на OpenRouter 19.07.2026 (канонический слаг
+> ² **Grok Imagine Video 1.5** (исторически: на момент W30 — «только i2v»; с 07.10.2026 в реестре t2v+i2v, см. выше) — появилась на OpenRouter 19.07.2026 (канонический слаг
 > `x-ai/grok-imagine-video-1.5-20260719`) и добавлена в реестр в аудите 2026-W30.
 > ❗ Это **image-to-video ONLY**: карточка модели на docs.x.ai описывает её как «оживить
 > кадр по текстовому промпту», а reference-to-video прямо не поддерживается («requires

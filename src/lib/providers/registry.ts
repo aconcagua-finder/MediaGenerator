@@ -6,6 +6,7 @@ import { bflProvider } from "./bfl"
 import { googleProvider } from "./google"
 import { perplexityProvider } from "./perplexity"
 import { recraftProvider } from "./recraft"
+import { OPENROUTER_IMAGE_SPECS } from "./openrouter-image-models"
 
 /**
  * Реестр провайдеров.
@@ -99,4 +100,5 @@ export const NEW_IMAGE_MODELS = new Set([
   "openrouter:google/gemini-3.1-flash-image",
   "openrouter:google/gemini-3.1-flash-lite-image",
   "recraft:recraft-v3-vector",
+  ...OPENROUTER_IMAGE_SPECS.map((s) => `openrouter:${s.modelId}`),
 ])

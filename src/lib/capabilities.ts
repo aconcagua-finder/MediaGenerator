@@ -11,6 +11,8 @@
  * отправить запрос, который провайдер отвергнет с малопонятной ошибкой.
  */
 
+import { OPENROUTER_IMAGE_INPUT_IDS } from "./providers/openrouter-image-models"
+
 /** Текстовые модели в чате, которые понимают image_url (через OpenRouter). */
 export const VISION_TEXT_MODELS = new Set<string>([
   // Anthropic — все Claude 4.x и 5.x понимают изображения
@@ -21,19 +23,29 @@ export const VISION_TEXT_MODELS = new Set<string>([
   "anthropic/claude-sonnet-4.6",
   "anthropic/claude-opus-4.8",
   "anthropic/claude-haiku-4.5",
+  "anthropic/claude-fable-5.1",
   // OpenAI — GPT-5 семейство мультимодальное
   "openai/gpt-5.4",
   "openai/gpt-5.5",
   "openai/gpt-5-mini",
+  "openai/gpt-6.1-sol",
+  "openai/gpt-6-astra",
+  "openai/gpt-6-luna",
   // Google — Gemini 3.x все принимают картинки
   "google/gemini-3.1-pro-preview",
   "google/gemini-3.5-flash",
   "google/gemini-3-flash-preview",
   "google/gemini-3.1-flash-lite",
+  "google/gemini-3.8-flash",
   // xAI — Grok 4.x с vision
   "x-ai/grok-4.20",
   "x-ai/grok-4.20-multi-agent",
   "x-ai/grok-4.3",
+  "x-ai/grok-4.7",
+  // Qwen 3.8 и DeepSeek V4.1 — мультимодальные
+  "qwen/qwen3.8-max-0902",
+  "qwen/qwen3.8-flash",
+  "deepseek/deepseek-v4.1-flash",
 ])
 
 /**
@@ -54,6 +66,8 @@ export const IMAGE_INPUT_MODELS: Record<string, string[]> = {
     "openai/gpt-5-image",
     "openai/gpt-5-image-mini",
     "openai/gpt-5.4-image-2",
+    // Images API (input_references)
+    ...OPENROUTER_IMAGE_INPUT_IDS,
   ],
 }
 
