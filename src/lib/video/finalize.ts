@@ -9,6 +9,8 @@ import { upload, ensureBucket, remove as s3Remove } from "@/lib/storage/s3"
 import { revokeLinksForGeneration, cleanupExpiredMediaSources } from "@/lib/media-link/links"
 import { humanizeVideoError } from "./humanize-error"
 import { buildResultVideo } from "./result-video"
+import { startVoiceChange } from "./voice-change"
+import { readVoiceOver, voiceOverDto, type VoiceOverFollowUp, type VoiceOverParams } from "./voice-over"
 
 /**
  * Финализация одной видео-генерации: опрос провайдера → скачивание mp4 в S3 →
@@ -79,8 +81,54 @@ export async function findVideoDto(generationId: string): Promise<VideoDto | nul
 export type FinalizeOutcome =
   | { status: "not_found" }
   | { status: "processing"; state: "pending" | "in_progress"; transientError?: string }
-  | { status: "done"; video: VideoDto | null; cost?: number }
+  | { status: "done"; video: VideoDto | null; cost?: number; voiceOver?: VoiceOverFollowUp }
   | { status: "error"; error: string }
+
+/**
+ * Запуск автопереозвучки готового v2v-видео. Ошибка запуска не валит саму
+ * генерацию: видео с исходным звуком уже в библиотеке, ошибку показываем рядом.
+ */
+async function startAutoVoiceOver(opts: {
+  genId: string
+  userId: string
+  /** null — в результате нет звука */
+  videoId: string | null
+  voiceOver: VoiceOverParams
+}): Promise<VoiceOverFollowUp> {
+  let result: { generation_id?: string; error?: string }
+  if (!opts.videoId) {
+    result = { error: "В результате нет звука — переозвучивать нечего" }
+  } else {
+    try {
+      const started = await startVoiceChange({
+        userId: opts.userId,
+        isAdmin: false,
+        videoId: opts.videoId,
+        engine: opts.voiceOver.engine,
+        voice: opts.voiceOver.voice,
+        skipLimits: true,
+        parentGenerationId: opts.genId,
+      })
+      result = started.ok ? { generation_id: started.generationId } : { error: started.error }
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Не удалось запустить переозвучку"
+      console.error(`[video/finalize] автопереозвучка ${opts.genId}:`, raw)
+      result = { error: humanizeVideoError(raw) }
+    }
+  }
+  const stored: VoiceOverParams = { ...opts.voiceOver, ...result }
+  try {
+    // Точечно дописываем voice_over, не трогая остальные поля params
+    await db
+      .update(videoGenerations)
+      .set({ params: sql`coalesce(${videoGenerations.params}, '{}'::jsonb) || jsonb_build_object('voice_over', ${JSON.stringify(stored)}::jsonb)` })
+      .where(eq(videoGenerations.id, opts.genId))
+  } catch (err) {
+    // Видео уже сохранено и оплачено — не валим генерацию; зависшую запись подберёт реконсилятор
+    console.error(`[video/finalize] запись voice_over ${opts.genId}:`, err instanceof Error ? err.message : err)
+  }
+  return voiceOverDto(stored)!
+}
 
 /**
  * Опрашивает провайдера и доводит генерацию до терминального состояния.
@@ -108,7 +156,12 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
 
   // Терминальные / промежуточные состояния — без обращения к провайдеру
   if (gen.status === "done") {
-    return { status: "done", video: await findVideoDto(gen.id), cost: gen.cost ? parseFloat(gen.cost) : undefined }
+    return {
+      status: "done",
+      video: await findVideoDto(gen.id),
+      cost: gen.cost ? parseFloat(gen.cost) : undefined,
+      voiceOver: voiceOverDto(readVoiceOver(gen.params)),
+    }
   }
   if (gen.status === "error") {
     return { status: "error", error: gen.errorMessage || "Ошибка генерации" }
@@ -117,7 +170,12 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
     // Другой опрос уже забрал задачу на скачивание
     const v = await findVideoDto(gen.id)
     return v
-      ? { status: "done", video: v, cost: gen.cost ? parseFloat(gen.cost) : undefined }
+      ? {
+          status: "done",
+          video: v,
+          cost: gen.cost ? parseFloat(gen.cost) : undefined,
+          voiceOver: voiceOverDto(readVoiceOver(gen.params)),
+        }
       : { status: "processing", state: "in_progress" }
   }
 
@@ -169,7 +227,12 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
   if (claimed.length === 0) {
     const v = await findVideoDto(gen.id)
     return v
-      ? { status: "done", video: v, cost: gen.cost ? parseFloat(gen.cost) : undefined }
+      ? {
+          status: "done",
+          video: v,
+          cost: gen.cost ? parseFloat(gen.cost) : undefined,
+          voiceOver: voiceOverDto(readVoiceOver(gen.params)),
+        }
       : { status: "processing", state: "in_progress" }
   }
 
@@ -266,6 +329,18 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
 
     await releaseGenerationResources(gen.id)
 
+    // Заказанная при запуске переозвучка (только v2v и только если в результате есть звук)
+    const requestedVoiceOver = gen.mode === "v2v" ? readVoiceOver(gen.params) : null
+    let voiceOver: VoiceOverFollowUp | undefined
+    if (requestedVoiceOver) {
+      voiceOver = await startAutoVoiceOver({
+        genId: gen.id,
+        userId: gen.userId,
+        videoId: hasAudio ? savedVideo.id : null,
+        voiceOver: requestedVoiceOver,
+      })
+    }
+
     return {
       status: "done",
       video: videoDto({
@@ -276,14 +351,20 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
         hasAudio,
       }),
       cost,
+      voiceOver,
     }
   } catch (saveErr) {
     const msg = saveErr instanceof Error ? saveErr.message : "Ошибка сохранения видео"
     console.error(`[video/finalize] save ${gen.id}:`, msg)
-    await db
+    // Только если ещё не done: после сохранения видео ошибка не должна перечёркивать результат
+    const failed = await db
       .update(videoGenerations)
       .set({ status: "error", errorMessage: msg, completedAt: new Date() })
-      .where(eq(videoGenerations.id, gen.id))
+      .where(and(eq(videoGenerations.id, gen.id), eq(videoGenerations.status, "saving")))
+      .returning({ id: videoGenerations.id })
+    if (failed.length === 0) {
+      return { status: "done", video: await findVideoDto(gen.id), cost: gen.cost ? parseFloat(gen.cost) : undefined }
+    }
     await releaseGenerationResources(gen.id)
     return { status: "error", error: msg }
   }
@@ -303,6 +384,8 @@ export async function releaseGenerationResources(genId: string): Promise<void> {
     console.error(`[video/finalize] release ${genId}:`, err instanceof Error ? err.message : err)
   }
 }
+
+const VOICE_OVER_STUCK_ERROR = "Переозвучка не запустилась. Запустите её вручную кнопкой «Заменить голос»."
 
 export interface ReconcileSummary {
   swept: number
@@ -378,7 +461,30 @@ export async function reconcileStaleVideoJobs(minAgeMs = 2 * 60 * 1000): Promise
     }
   }
 
-  // 3. Дочистка загруженных исходников v2v / образцов голоса старше 24 ч и мёртвых ссылок
+  // 3. Автопереозвучка, которая так и не запустилась (процесс упал между сохранением
+  // видео и запуском замены голоса) — помечаем ошибкой, чтобы клиент не ждал вечно
+  const voiceOverCutoff = new Date(Date.now() - 10 * 60 * 1000)
+  try {
+    await db
+      .update(videoGenerations)
+      .set({
+        params: sql`jsonb_set(${videoGenerations.params}, '{voice_over,error}', to_jsonb(${VOICE_OVER_STUCK_ERROR}::text))`,
+      })
+      .where(
+        and(
+          eq(videoGenerations.status, "done"),
+          eq(videoGenerations.mode, "v2v"),
+          sql`${videoGenerations.params} ? 'voice_over'`,
+          sql`not (${videoGenerations.params}->'voice_over' ? 'generation_id')`,
+          sql`not (${videoGenerations.params}->'voice_over' ? 'error')`,
+          lt(videoGenerations.completedAt, voiceOverCutoff),
+        ),
+      )
+  } catch (err) {
+    console.error("[video/reconcile] voice_over sweep:", err instanceof Error ? err.message : err)
+  }
+
+  // 4. Дочистка загруженных исходников v2v / образцов голоса старше 24 ч и мёртвых ссылок
   try {
     const cleaned = await cleanupExpiredMediaSources()
     if (cleaned.sources > 0 || cleaned.links > 0) {

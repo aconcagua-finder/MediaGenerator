@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Video, Loader2, DollarSign, Volume2, VolumeX, ImagePlus, Download, Scissors, Wand2, Clapperboard } from "lucide-react"
+import { Video, Loader2, DollarSign, Volume2, VolumeX, ImagePlus, Download, Scissors, Wand2, Clapperboard, Mic2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -15,6 +15,7 @@ import { PromptInput } from "@/components/generate/prompt-input"
 import { VideoModelSelector } from "./video-model-selector"
 import { SourceUpload, type ReadySource } from "./source-upload"
 import { VoiceChangeButton } from "./voice-change-button"
+import { VoicePresetPicker } from "./voice-preset-picker"
 import { useImageAttachments } from "@/hooks/use-image-attachments"
 import { AttachmentTray } from "@/components/shared/attachment-tray"
 import {
@@ -29,6 +30,12 @@ import {
   RUSSIAN_SPEECH_INFO,
 } from "@/lib/providers/video-models"
 import { closestAspectRatio, MAX_SOURCE_SECONDS } from "@/lib/video/source-limits"
+import {
+  AUTO_VOICE_ENGINE,
+  estimateVoiceChangeCost,
+  getVoiceEngine,
+  voicePresetTitle,
+} from "@/lib/providers/voice-change-models"
 import { toast } from "sonner"
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -42,6 +49,15 @@ interface VideoResult {
   durationSeconds: number | null
 }
 
+interface VoiceOverJob {
+  /** Голос ElevenLabs (имя пресета) */
+  voice: string
+  status: "waiting" | "processing" | "done" | "error"
+  generationId?: string
+  video?: VideoResult
+  error?: string
+}
+
 interface VideoJob {
   id: string
   status: "processing" | "done" | "error"
@@ -51,7 +67,17 @@ interface VideoJob {
   startedAt: number
   video?: VideoResult
   error?: string
+  /** Автопереозвучка через ElevenLabs после видео → видео */
+  voiceOver?: VoiceOverJob
 }
+
+interface VoiceOverStatus {
+  voice: string
+  generationId?: string
+  error?: string
+}
+
+const voiceEngine = getVoiceEngine(AUTO_VOICE_ENGINE)!
 
 interface VideoFormProps {
   hasOpenRouterKey: boolean
@@ -107,6 +133,21 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
     character_orientation: "video",
   }))
   const [source, setSource] = useState<ReadySource | null>(null)
+  // Переозвучка результата v2v через ElevenLabs (fal.ai): выключено = исходный звук
+  const [voiceOverOn, setVoiceOverOn] = useState(false)
+  const [voiceOverVoice, setVoiceOverVoice] = useState(voiceEngine.defaultFemale)
+  const voiceOverBlocked = !hasFalKey
+    ? "Переозвучка работает через fal.ai: нужен ключ fal в настройках."
+    : source && !source.hasAudio
+      ? "В исходном видео нет звука, переозвучивать нечего."
+      : null
+  const voiceOverActive = isV2V && voiceOverOn && !voiceOverBlocked
+
+  useEffect(() => {
+    setVoiceOverOn(loadSaved("video_voice_over", "") === "1")
+    const savedVoice = loadSaved("video_voice_over_voice", "")
+    if (voiceEngine.presets.some((p) => p.id === savedVoice)) setVoiceOverVoice(savedVoice)
+  }, [])
 
   useEffect(() => {
     const savedMode: FormMode = loadSaved("video_form_mode", "generate") === "v2v" ? "v2v" : "generate"
@@ -128,9 +169,10 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
   const router = useRouter()
 
   // Готовые клипы этой сессии — для быстрой склейки
+  // Для склейки берём переозвученную версию, если она готова
   const doneVideoIds = jobs
     .filter((j) => j.status === "done" && j.video)
-    .map((j) => j.video!.id)
+    .map((j) => (j.voiceOver?.status === "done" && j.voiceOver.video ? j.voiceOver.video.id : j.video!.id))
 
   // Картинка: стартовый кадр (i2v) или персонаж (Motion Control)
   const modelTakesImage = isV2V ? Boolean(model.requiresCharacterImage) : model.modes.includes("i2v")
@@ -152,6 +194,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
     return () => clearInterval(t)
   }, [jobs])
 
+  const voiceOverCost = voiceOverActive ? estimateVoiceChangeCost(voiceEngine, source?.durationSeconds ?? 0) : 0
   const costEstimate = useMemo(
     () =>
       isV2V
@@ -162,7 +205,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
             audio: params.generate_audio,
           }),
     [model, isV2V, source?.durationSeconds, params.duration, params.resolution, params.generate_audio]
-  )
+  ) + voiceOverCost
 
   const handleModelChange = useCallback(
     (newId: string) => {
@@ -224,10 +267,14 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
     []
   )
 
-  async function pollJob(genId: string) {
+  async function pollJob(genId: string, expectVoiceOver?: string) {
     if (pollingRef.current.has(genId)) return
     pollingRef.current.add(genId)
     const maxAttempts = 240 // ~12 минут при шаге 3с
+    let doneAnnounced = false
+    // Ожидание запуска переозвучки — отдельный короткий бюджет, чтобы не съесть общий
+    let voWaitAttempts = 0
+    const VO_WAIT_MAX = 40 // ~2 минуты
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       await sleep(attempt === 0 ? 2000 : 3000)
@@ -235,7 +282,13 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
         pollingRef.current.delete(genId)
         return
       }
-      let data: { status?: string; video?: VideoResult; error?: string; cost?: number } = {}
+      let data: {
+        status?: string
+        video?: VideoResult
+        error?: string
+        cost?: number
+        voiceOver?: VoiceOverStatus
+      } = {}
       try {
         const r = await fetch(`/api/video/${genId}/status`)
         data = await r.json()
@@ -244,13 +297,52 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
       }
 
       if (data.status === "done") {
+        // Заказанная переозвучка, о которой сервер ещё не отчитался (гонка опросов) — ждём
+        const vo: VoiceOverStatus | undefined =
+          data.voiceOver ?? (expectVoiceOver ? { voice: expectVoiceOver } : undefined)
+        let voPending = Boolean(vo && !vo.generationId && !vo.error)
+        if (voPending && ++voWaitAttempts > VO_WAIT_MAX) {
+          voPending = false
+          vo!.error = "Переозвучка не запустилась. Запустите её вручную кнопкой «Заменить голос»."
+        }
         setJobs((prev) =>
-          prev.map((j) => (j.id === genId ? { ...j, status: "done", video: data.video } : j))
+          prev.map((j) => {
+            if (j.id !== genId) return j
+            return {
+              ...j,
+              status: "done",
+              video: data.video,
+              ...(vo
+                ? {
+                    voiceOver: {
+                      voice: vo.voice,
+                      status: vo.error ? "error" : vo.generationId ? "processing" : "waiting",
+                      generationId: vo.generationId,
+                      error: vo.error,
+                    },
+                  }
+                : {}),
+            }
+          })
         )
+        if (!doneAnnounced) {
+          doneAnnounced = true
+          toast.success("Видео готово!", {
+            description: [
+              typeof data.cost === "number" ? `Стоимость: $${data.cost.toFixed(3)}` : null,
+              vo && !vo.error ? `Переозвучиваем голосом ${vo.voice}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined,
+          })
+        }
+        if (voPending) continue
         pollingRef.current.delete(genId)
-        toast.success("Видео готово!", {
-          description: typeof data.cost === "number" ? `Стоимость: $${data.cost.toFixed(3)}` : undefined,
-        })
+        if (vo?.error) {
+          toast.error("Переозвучка не запустилась", { description: vo.error, duration: 8000 })
+        } else if (vo?.generationId) {
+          void pollVoiceOver(genId, vo.generationId)
+        }
         return
       }
       if (data.status === "error") {
@@ -264,14 +356,48 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
       // status === "processing" → продолжаем опрос
     }
 
+    // Готовое видео не превращаем в ошибку из-за таймаута
     setJobs((prev) =>
       prev.map((j) =>
-        j.id === genId
+        j.id === genId && j.status !== "done"
           ? { ...j, status: "error", error: "Превышено время ожидания. Попробуйте позже." }
           : j
       )
     )
     pollingRef.current.delete(genId)
+  }
+
+  /** Поллинг автопереозвучки: результат подменяет видео в карточке */
+  async function pollVoiceOver(jobId: string, voiceGenId: string) {
+    const patch = (vo: Partial<VoiceOverJob>) =>
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId && j.voiceOver ? { ...j, voiceOver: { ...j.voiceOver, ...vo } } : j))
+      )
+    for (let attempt = 0; attempt < 120; attempt++) {
+      await sleep(attempt === 0 ? 2000 : 3000)
+      if (!mountedRef.current) return
+      let st: { status?: string; video?: VideoResult; error?: string } = {}
+      try {
+        st = await (await fetch(`/api/video/${voiceGenId}/status`)).json()
+      } catch {
+        continue
+      }
+      if (st.status === "done") {
+        if (!st.video) {
+          patch({ status: "error", error: "Видео не найдено. Проверьте библиотеку." })
+          return
+        }
+        patch({ status: "done", video: st.video })
+        toast.success("Переозвучка готова", { description: "Новое видео сохранено в библиотеке" })
+        return
+      }
+      if (st.status === "error") {
+        patch({ status: "error", error: st.error || "Неизвестная ошибка" })
+        toast.error("Не удалось переозвучить", { description: st.error, duration: 8000 })
+        return
+      }
+    }
+    patch({ status: "error", error: "Превышено время ожидания. Проверьте библиотеку чуть позже." })
   }
 
   async function handleGenerate() {
@@ -322,7 +448,11 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
           prompt: prompt.trim(),
           params,
           ...(isV2V
-            ? { sourceId: source!.id, ...(model.requiresCharacterImage ? { characterUploadId: uploadId } : {}) }
+            ? {
+                sourceId: source!.id,
+                ...(model.requiresCharacterImage ? { characterUploadId: uploadId } : {}),
+                ...(voiceOverActive ? { voiceOver: { voice: voiceOverVoice } } : {}),
+              }
             : uploadId
               ? { uploadId }
               : {}),
@@ -350,6 +480,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
         modelName: model.name,
         aspect: isV2V && source?.width && source?.height ? `${source.width}:${source.height}` : params.aspect_ratio || "16:9",
         startedAt: Date.now(),
+        ...(voiceOverActive ? { voiceOver: { voice: voiceOverVoice, status: "waiting" as const } } : {}),
       }
       setJobs((prev) => [job, ...prev])
       att.clear()
@@ -358,7 +489,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
           ? "Обработка видео обычно занимает 1–3 минуты"
           : "Генерация видео обычно занимает 30 сек – 2 минуты",
       })
-      void pollJob(data.videoGenerationId)
+      void pollJob(data.videoGenerationId, voiceOverActive ? voiceOverVoice : undefined)
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Не удалось подключиться к серверу"
       toast.error("Сетевая ошибка", { description: msg })
@@ -561,7 +692,9 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
           {/* Индикатор русской озвучки выбранной модели */}
           {isV2V ? (
             <p className="mt-3 text-[11px] leading-snug text-neutral-500">
-              Звук исходного видео сохраняется в результате. Длина результата равна длине исходного видео.
+              {voiceOverActive
+                ? `Звук результата переозвучится голосом ${voiceOverVoice} (ElevenLabs). Длина результата равна длине исходного видео.`
+                : "Звук исходного видео сохраняется в результате. Длина результата равна длине исходного видео."}
             </p>
           ) : (
           <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-snug">
@@ -637,6 +770,57 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
                 «Как в видео» — до 30 сек, лучше для сложных движений. «Как на картинке» — до 10 сек, лучше повторяет движения камеры.
               </p>
             )}
+            {isV2V && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="block text-sm font-medium leading-tight text-neutral-400">Звук</Label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {([
+                    { on: false, label: "Исходный" },
+                    { on: true, label: "Переозвучить" },
+                  ] as const).map((o) => {
+                    const selected = o.on ? voiceOverActive : !voiceOverActive
+                    return (
+                      <button
+                        key={o.label}
+                        type="button"
+                        disabled={isSubmitting || (o.on && Boolean(voiceOverBlocked))}
+                        onClick={() => {
+                          setVoiceOverOn(o.on)
+                          savePref("video_voice_over", o.on ? "1" : "")
+                        }}
+                        className={`flex h-9 items-center justify-center gap-1.5 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                          selected
+                            ? "border-x-blue/40 bg-x-blue/[0.12] text-x-blue"
+                            : "border-white/[0.12] bg-white/[0.02] text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        {o.on ? <Mic2 className="size-4" /> : <Volume2 className="size-4" />}
+                        {o.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {voiceOverBlocked ? (
+                  <p className="text-[11px] leading-snug text-neutral-500">{voiceOverBlocked}</p>
+                ) : voiceOverActive ? (
+                  <>
+                    <VoicePresetPicker
+                      engine={voiceEngine}
+                      value={voiceOverVoice}
+                      onChange={(v) => {
+                        setVoiceOverVoice(v)
+                        savePref("video_voice_over_voice", v)
+                      }}
+                      disabled={isSubmitting}
+                    />
+                    <p className="text-[11px] leading-snug text-neutral-600">
+                      После готовности речь из ролика заменится голосом ElevenLabs с той же интонацией
+                      (${voiceEngine.pricePerMinute.toFixed(2)}/мин). В библиотеке останутся обе версии.
+                    </p>
+                  </>
+                ) : null}
+              </div>
+            )}
             {!isV2V && model.supportsAudio && (
               <div className="space-y-1.5">
                 <Label className="block text-sm font-medium leading-tight text-neutral-400">Звук</Label>
@@ -671,7 +855,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
               Цена зависит от длины исходного видео (≈${videoPricePerSecond(model, "source").toFixed(3)}/сек
               {source ? ` × ${source.durationSeconds.toFixed(1)} сек` : ""}
               {model.price.minPerGeneration ? `, минимум $${model.price.minPerGeneration.toFixed(2)}` : ""}
-              ). Точная сумма спишется по факту после обработки; за отклонённую или упавшую задачу деньги не берутся.
+              ){voiceOverActive ? ` + переозвучка ~$${voiceOverCost.toFixed(3)}` : ""}. Точная сумма спишется по факту после обработки; за отклонённую или упавшую задачу деньги не берутся.
             </>
           ) : (
             <>
@@ -727,10 +911,14 @@ function VideoCard({ job }: { job: VideoJob }) {
   })()
 
   if (job.status === "done" && job.video) {
+    const vo = job.voiceOver
+    // Готовая переозвучка подменяет видео в карточке; оригинал остаётся ссылкой
+    const shown = vo?.status === "done" && vo.video ? vo.video : job.video
     return (
       <div className="overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.02]">
         <video
-          src={job.video.url}
+          key={shown.id}
+          src={shown.url}
           controls
           preload="metadata"
           playsInline
@@ -741,17 +929,17 @@ function VideoCard({ job }: { job: VideoJob }) {
           <p className="min-w-0 flex-1 truncate text-xs text-neutral-400" title={job.prompt}>
             {job.prompt}
           </p>
-          {job.video.durationSeconds != null && (
-            <span className="shrink-0 text-[11px] text-neutral-500">{job.video.durationSeconds}с</span>
+          {shown.durationSeconds != null && (
+            <span className="shrink-0 text-[11px] text-neutral-500">{shown.durationSeconds}с</span>
           )}
-          {job.video.hasAudio ? (
+          {shown.hasAudio ? (
             <Volume2 className="size-3.5 shrink-0 text-neutral-500" />
           ) : (
             <VolumeX className="size-3.5 shrink-0 text-neutral-600" />
           )}
           <a
-            href={job.video.url}
-            download={`video-${job.video.id}.mp4`}
+            href={shown.url}
+            download={`video-${shown.id}.mp4`}
             className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white transition-colors hover:bg-x-blue"
             title="Скачать"
             aria-label="Скачать"
@@ -759,11 +947,37 @@ function VideoCard({ job }: { job: VideoJob }) {
             <Download className="size-3.5" />
           </a>
         </div>
-        {job.video.hasAudio && (
+        {vo && (
+          <div className="flex items-center gap-1.5 border-t border-white/[0.08] px-3 py-2 text-[11px]">
+            {vo.status === "done" ? (
+              <>
+                <Mic2 className="size-3.5 shrink-0 text-x-blue" />
+                <span className="min-w-0 flex-1 truncate text-neutral-400">
+                  Переозвучено: {voicePresetTitle(voiceEngine.presets.find((p) => p.id === vo.voice) ?? voiceEngine.presets[0])}
+                </span>
+                <a
+                  href={job.video.url}
+                  download={`video-${job.video.id}.mp4`}
+                  className="shrink-0 text-x-blue hover:underline"
+                >
+                  Оригинал со звуком
+                </a>
+              </>
+            ) : vo.status === "error" ? (
+              <span className="text-red-400">Переозвучка не удалась: {vo.error}</span>
+            ) : (
+              <>
+                <Loader2 className="size-3.5 shrink-0 animate-spin text-x-blue" />
+                <span className="text-neutral-400">Переозвучиваем голосом {vo.voice}…</span>
+              </>
+            )}
+          </div>
+        )}
+        {shown.hasAudio && (!vo || vo.status === "done" || vo.status === "error") && (
           <VoiceChangeButton
-            videoId={job.video.id}
-            durationSeconds={job.video.durationSeconds}
-            hasAudio={job.video.hasAudio}
+            videoId={shown.id}
+            durationSeconds={shown.durationSeconds}
+            hasAudio={shown.hasAudio}
             variant="card"
           />
         )}

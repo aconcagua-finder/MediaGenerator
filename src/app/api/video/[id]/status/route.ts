@@ -43,7 +43,7 @@ export async function GET(
       case "not_found":
         return NextResponse.json({ error: "Генерация не найдена" }, { status: 404 })
       case "done":
-        return NextResponse.json({ status: "done", video: out.video, cost: out.cost })
+        return NextResponse.json({ status: "done", video: out.video, cost: out.cost, voiceOver: out.voiceOver })
       case "error":
         return NextResponse.json({ status: "error", error: out.error })
       case "processing":

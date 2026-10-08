@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { SourceUpload, type ReadySource } from "./source-upload"
+import { VoicePresetPicker } from "./voice-preset-picker"
 import {
   DEFAULT_VOICE_ENGINE,
   VOICE_CHANGE_ENGINES,
@@ -199,37 +200,23 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
 
             <div className="space-y-1.5">
               <p className="text-sm font-medium text-neutral-400">Голос</p>
-              <div className="flex flex-wrap gap-1.5">
-                {engine.presets.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    disabled={busy || useSample}
-                    onClick={() => setVoice(p.id)}
-                    className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                      !useSample && selectedVoice === p.id
-                        ? "border-x-blue/50 bg-x-blue/[0.12] text-x-blue"
-                        : "border-white/[0.12] text-neutral-300 hover:text-white"
-                    } disabled:opacity-50`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-                {engine.supportsSample && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setUseSample((v) => !v)}
-                    className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                      useSample
-                        ? "border-x-blue/50 bg-x-blue/[0.12] text-x-blue"
-                        : "border-white/[0.12] text-neutral-300 hover:text-white"
-                    }`}
-                  >
-                    Свой образец
-                  </button>
-                )}
-              </div>
+              {!useSample && (
+                <VoicePresetPicker engine={engine} value={selectedVoice} onChange={setVoice} disabled={busy} />
+              )}
+              {engine.supportsSample && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setUseSample((v) => !v)}
+                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                    useSample
+                      ? "border-x-blue/50 bg-x-blue/[0.12] text-x-blue"
+                      : "border-white/[0.12] text-neutral-300 hover:text-white"
+                  }`}
+                >
+                  {useSample ? "Вернуться к готовым голосам" : "Взять голос из своей записи"}
+                </button>
+              )}
               {useSample && engine.supportsSample && (
                 <SourceUpload
                   kind="audio"

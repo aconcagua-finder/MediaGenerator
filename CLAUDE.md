@@ -121,7 +121,8 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
 своё видео (mp4/mov/webm, ≤ 30 сек, ≤ 100 МБ), описывает, что изменить; результат — обычное видео в библиотеке.
 Модели: `runway/aleph-2` (OpenRouter, заменяет персонажа/одежду/обстановку, сохраняя движения и мимику) и,
 только при активном ключе fal, `fal-ai/kling-video/v3/{standard,pro}/motion-control` (движения из видео →
-персонаж с картинки). Пост-шаг «Заменить голос» на готовом видео (fal, нужен ключ fal). Подключение fal — `docs/FAL_SETUP.md`.
+персонаж с картинки). Пост-шаг «Заменить голос» на готовом видео (fal, нужен ключ fal). В v2v можно сразу заказать
+автопереозвучку (блок «Звук»: «Исходный» / «Переозвучить» + голос ElevenLabs). Подключение fal — `docs/FAL_SETUP.md`.
 
 **Ключевые файлы:**
 - `src/lib/providers/video-models.ts` — режим `v2v`, модель `provider: "fal"`, `estimateV2VCost`, `modelsForMode`
@@ -130,8 +131,9 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
 - `src/lib/providers/voice-change-models.ts` — движки замены голоса (ElevenLabs, Chatterbox HD), пресеты, цены
 - `src/lib/media-link/{token,serve,links}.ts` + `src/app/api/media-link/[...slug]/route.ts` — публичные ссылки
 - `src/app/api/video/source/route.ts` — загрузка исходника (сырое тело → диск → ffprobe → S3)
-- `src/app/api/video/voice-change/route.ts` — замена голоса; `src/lib/video/{ffmpeg-audio,result-video,probe,limits,source-limits}.ts`
-- `src/components/video/{source-upload,voice-change-button}.tsx`; миграция `0017_video_sources_media_links`
+- `src/app/api/video/voice-change/route.ts` — ручная замена голоса (тонкая обёртка над `startVoiceChange` в `src/lib/video/voice-change.ts`);
+  `src/lib/video/{ffmpeg-audio,result-video,probe,limits,source-limits,voice-over}.ts`
+- `src/components/video/{source-upload,voice-change-button,voice-preset-picker}.tsx`; миграция `0017_video_sources_media_links`
 
 **Архитектурные принципы:**
 1. **Провайдеру нужен ПУБЛИЧНЫЙ HTTPS-URL** (`data:` и http отвергаются: «Only HTTPS URLs are allowed»). MinIO снаружи
@@ -163,6 +165,14 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
    поэтому владелец-join'ы, статус, cron и биллинг общие. Стоимость — оценка (fal не отдаёт `usage.cost`).
 8. `finalize.ts` для v2v/voice берёт реальные размеры/длительность/наличие звука из ffprobe результата, а не из
    параметров; `VideoProvider.poll/fetchVideo` получают `ctx` (`model`, `params`) — нужен fal.
+9. **Автопереозвучка v2v (ElevenLabs через fal).** OpenRouter speech-to-speech не умеет (проверено 2026-10-08), поэтому только fal.
+   `POST /api/video/generate` принимает `voiceOver: {voice}` → `params.voice_over = {engine, voice}`, оценка включает
+   переозвучку, нужен звук в исходнике и ключ fal (иначе 400). `finalize.ts`, сохранив v2v-видео (`status=done`), сам
+   вызывает `startVoiceChange` (`skipLimits`, лимиты проверены при запуске) и точечно дописывает в `params.voice_over`
+   `generation_id` или `error` (❗ ключи snake_case, читает `voice-over.ts`). Ошибка переозвучки не валит генерацию.
+   Статус отдаёт `voiceOver`, клиент поллит дочернюю задачу и подменяет видео в карточке (оригинал остаётся в библиотеке).
+   Если процесс упал между done и запуском, реконсилятор через 10 мин пишет `voice_over.error`.
+   Голоса — полный набор fal (21), по умолчанию Jessica (жен.) и Brian (муж.).
 
 #### Редактор склейки (`/video/editor`)
 

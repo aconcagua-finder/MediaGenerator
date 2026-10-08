@@ -18,6 +18,13 @@ import { createMediaLink, revokeLinksForGeneration } from "@/lib/media-link/link
 import { LINK_TTL_MS } from "@/lib/media-link/token"
 import { MAX_SOURCE_SECONDS, fileExtension } from "@/lib/video/source-limits"
 import { checkVideoLimits } from "@/lib/video/limits"
+import { hasActiveProviderKey } from "@/lib/provider-keys"
+import {
+  estimateVoiceChangeCost,
+  getVoiceEngine,
+  parseVoiceOver,
+  type VoiceOverSetting,
+} from "@/lib/providers/voice-change-models"
 import { headers } from "next/headers"
 
 interface GenerateVideoBody {
@@ -37,6 +44,11 @@ interface GenerateVideoBody {
   sourceId?: string
   /** Motion Control: id картинки-персонажа из таблицы uploads */
   characterUploadId?: string
+  /**
+   * video-to-video: переозвучить результат через ElevenLabs (fal.ai) сразу после
+   * готовности. Не передан — остаётся исходный звук.
+   */
+  voiceOver?: { voice?: string }
 }
 
 /** Kling Motion Control с ориентацией «как на картинке» принимает видео не длиннее 10 сек */
@@ -106,6 +118,7 @@ export async function POST(request: NextRequest) {
     } | null = null
     let characterUpload: { s3Key: string; mimeType: string; sizeBytes: number } | null = null
     let characterOrientation: "video" | "image" = "video"
+    let voiceOver: VoiceOverSetting | null = null
     let estimate: number
 
     if (isV2V) {
@@ -189,6 +202,24 @@ export async function POST(request: NextRequest) {
       }
 
       estimate = estimateV2VCost(videoModel, sourceSeconds)
+
+      // Автопереозвучка: нужен звук в исходнике и ключ fal.ai (ElevenLabs идёт через fal)
+      voiceOver = parseVoiceOver(body.voiceOver)
+      if (voiceOver) {
+        if (!row.hasAudio) {
+          return NextResponse.json(
+            { error: "В исходном видео нет звука — переозвучивать нечего. Выключите переозвучку." },
+            { status: 400 }
+          )
+        }
+        if (!(await hasActiveProviderKey(session.user.id, "fal"))) {
+          return NextResponse.json(
+            { error: "Переозвучка через ElevenLabs работает через fal.ai: нужен ключ fal в Настройках." },
+            { status: 400 }
+          )
+        }
+        estimate += estimateVoiceChangeCost(getVoiceEngine(voiceOver.engine)!, sourceSeconds)
+      }
     } else {
       // image-to-video только для поддерживающих моделей
       const wantsImage = Boolean(uploadId)
@@ -271,6 +302,7 @@ export async function POST(request: NextRequest) {
           ...(videoModel.requiresCharacterImage
             ? { character_orientation: characterOrientation, character_upload_id: characterUploadId }
             : {}),
+          ...(voiceOver ? { voice_over: voiceOver } : {}),
         }
       : {
           duration,
