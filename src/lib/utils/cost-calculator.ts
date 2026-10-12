@@ -35,6 +35,7 @@ const OPENAI_PRICES: Record<OpenAIModel, Record<OpenAIQuality, { standard: numbe
 
 const XAI_PRICES: Record<string, number> = {
   "grok-imagine-image": 0.02,
+  "grok-imagine-image-2.0": 0.04,
   "grok-imagine-image-quality": 0.05,
 }
 
@@ -121,6 +122,7 @@ export function calculateCost(
     case "google": {
       const imgSize = (params.image_size as string) || "1K"
       const googlePrices: Record<string, Record<string, number>> = {
+        "gemini-nano-banana-2.1": { "1K": 0.034, "2K": 0.051, "4K": 0.113 },
         "gemini-3.1-flash-image": { "512": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
         "gemini-3-pro-image": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
         "gemini-2.5-flash-image": { "1K": 0.039, "2K": 0.039, "4K": 0.039 },

@@ -192,6 +192,27 @@ export const SEED_MODELS: SeedModel[] = [
   // === xAI ===
   {
     provider: "xai",
+    modelId: "grok-imagine-image-2.0",
+    displayName: "Grok Imagine 2.0",
+    description: "Новое поколение Grok Imagine — xAI рекомендует её по умолчанию. $0.04/изображение.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "2:1", "1:2"],
+        default: "1:1",
+      },
+      resolution: {
+        type: "select",
+        label: "Разрешение",
+        options: ["1k", "2k"],
+        default: "1k",
+      },
+    },
+    pricing: { perImage: 0.04 },
+  },
+  {
+    provider: "xai",
     modelId: "grok-imagine-image-quality",
     displayName: "Grok Imagine Quality",
     description: "Новый флагман xAI (заменил Pro). Лучшее качество за $0.05/изображение.",
@@ -237,7 +258,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openrouter",
     modelId: "google/gemini-3.1-flash-image",
     displayName: "Nano Banana 2",
-    description: "Google Gemini 3.1 Flash. Pro-качество, до 4K, точный текст, edit.",
+    description: "Google Gemini 3.1 Flash. Pro-качество, до 4K, точный текст, edit. ⚠️ Устаревает: Google рекомендует Nano Banana 2.1.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
@@ -300,7 +321,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openrouter",
     modelId: "google/gemini-2.5-flash-image",
     displayName: "Gemini 2.5 Flash Image",
-    description: "Google — стабильная и быстрая генерация. ⚠️ Отключается 02.10.2026 — переходите на Nano Banana 2 (Lite).",
+    description: "Google — стабильная и быстрая генерация. ⚠️ Google назначал отключение на 02.10.2026, модель пока работает, но может пропасть в любой момент — переходите на Nano Banana 2.1 / 2 Lite.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
@@ -610,9 +631,37 @@ export const SEED_MODELS: SeedModel[] = [
   // === Google AI (прямой API) ===
   {
     provider: "google",
+    modelId: "gemini-nano-banana-2.1",
+    displayName: "Nano Banana 2.1",
+    description: "Google Nano Banana 2.1 (GA 06.10.2026) — преемник Nano Banana 2: качество выше, вдвое дешевле, до 4K, сверхширокие форматы.",
+    paramsSchema: {
+      aspect_ratio: {
+        type: "select",
+        label: "Соотношение сторон",
+        options: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "4:5", "5:4", "1:4", "4:1", "1:8", "8:1"],
+        default: "1:1",
+      },
+      image_size: {
+        type: "select",
+        label: "Размер",
+        options: ["1K", "2K", "4K"],
+        default: "1K",
+      },
+      safety: {
+        type: "select",
+        label: "Фильтр",
+        options: ["off", "low", "medium", "strict"],
+        default: "off",
+        optionLabels: { "off": "off — без фильтра", "low": "low — мягкий", "medium": "medium — средний", "strict": "strict — строгий" },
+      },
+    },
+    pricing: { "1K": 0.034, "2K": 0.051, "4K": 0.113 },
+  },
+  {
+    provider: "google",
     modelId: "gemini-3.1-flash-image",
     displayName: "Gemini 3.1 Flash Image",
-    description: "Google Nano Banana 2 (GA). Быстрая, до 4K, safety настраивается.",
+    description: "Google Nano Banana 2 (GA). Быстрая, до 4K. ⚠️ Google объявил устаревшей 06.10.2026 (дата отключения не названа) — замена Nano Banana 2.1.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",
@@ -668,7 +717,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "google",
     modelId: "gemini-2.5-flash-image",
     displayName: "Gemini 2.5 Flash Image",
-    description: "Google. Стабильная, быстрая генерация. ⚠️ Отключается 02.10.2026 — переходите на Nano Banana 2 (Lite).",
+    description: "Google. Стабильная, быстрая генерация. ⚠️ Google назначал отключение на 02.10.2026, модель пока работает, но может пропасть в любой момент — переходите на Nano Banana 2.1 / 2 Lite.",
     paramsSchema: {
       aspect_ratio: {
         type: "select",

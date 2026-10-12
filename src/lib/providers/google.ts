@@ -14,6 +14,7 @@ const SAFETY_MAP: Record<string, string> = {
 
 // GA-идентификаторы (без -preview). Preview-версии Google отключает 25.06.2026.
 const IMAGE_MODELS = [
+  "gemini-nano-banana-2.1",
   "gemini-3.1-flash-image",
   "gemini-3-pro-image",
   "gemini-2.5-flash-image",
@@ -139,6 +140,7 @@ export const googleProvider: ImageProvider = {
     // Расчёт стоимости
     const imageSize = (params.image_size as string) || "1K"
     const priceMap: Record<string, Record<string, number>> = {
+      "gemini-nano-banana-2.1": { "1K": 0.034, "2K": 0.051, "4K": 0.113 },
       "gemini-3.1-flash-image": { "512": 0.045, "0.5K": 0.045, "1K": 0.067, "2K": 0.101, "4K": 0.151 },
       "gemini-3-pro-image": { "1K": 0.134, "2K": 0.134, "4K": 0.24 },
       "gemini-2.5-flash-image": { "1K": 0.039, "2K": 0.039, "4K": 0.039 },

@@ -126,8 +126,10 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     description: "Google — Nano Banana 2.1 (Flash-тир): преемник Nano Banana 2 и Pro, сильнее в ретуши товаров и правках.",
     aspects: A_WIDE,
     sizes: ["1K", "2K", "4K"],
-    // токен $0.00003 — вдвое дешевле Nano Banana 2; оценка по таблице Nano Banana 2 Lite
-    price: { bySize: { "1K": 0.034, "2K": 0.051, "4K": 0.076 } },
+    // по прайсу Google (ai.google.dev/gemini-api/docs/pricing, W42): $30/1М токенов
+    // изображения, 1K 1120 ток. = $0.0336, 2K 1680 = $0.0504, 4K 3780 = $0.113
+    // (4K раньше ошибочно оценивали как у Lite — $0.076)
+    price: { bySize: { "1K": 0.034, "2K": 0.051, "4K": 0.113 } },
     imageInput: true,
   },
 

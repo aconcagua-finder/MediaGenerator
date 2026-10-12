@@ -13,7 +13,7 @@ import { upload, ensureBucket } from "@/lib/storage/s3"
 import { parseJsonFromMessage } from "./utils"
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-const PROMPT_HELPER_MODEL = "anthropic/claude-haiku-4.5"
+const PROMPT_HELPER_MODEL = "anthropic/claude-haiku-5.5"
 
 /** Стилевые пресеты обложки — выбираются в UI. Влияют и на сам image-prompt, и на дефолтную модель. */
 export type CoverStyle = "3d_with_text" | "minimalist" | "photo"
