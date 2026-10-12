@@ -3,7 +3,7 @@
  * Все они вызываются через единый OpenRouter endpoint (chat/completions),
  * поэтому достаточно одного API-ключа OpenRouter.
  *
- * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — 07.10.2026.
+ * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — 12.10.2026.
  */
 
 export interface TextModel {
@@ -219,10 +219,22 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "anthropic/claude-haiku-5.5",
+    name: "Claude Haiku 5.5",
+    vendor: "anthropic",
+    description: "Свежий Haiku (07.10.2026): быстрый, принимает картинки, 1M контекста и в 10 раз дешевле Haiku 4.5.",
+    category: "fast",
+    contextTokens: 1_000_000,
+    pricing: { input: 0.1, output: 0.5 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "anthropic/claude-haiku-4.5",
     name: "Claude Haiku 4.5",
     vendor: "anthropic",
-    description: "Быстрая Anthropic. Для коротких задач, переписки, простых текстов.",
+    description: "Прошлый Haiku. Haiku 5.5 новее и в 10 раз дешевле.",
     category: "fast",
     contextTokens: 200_000,
     pricing: { input: 1.0, output: 5.0 },
@@ -347,9 +359,10 @@ export const TEXT_MODELS: TextModel[] = [
     // реселлера StreamLake $0.5262/$1.052; в W36 дефолт прыгнул вверх до
     // $1.04226/$2.08452; в W37 просел до $0.95526/$1.91052; в W38 дефолт подскочил
     // до $1.6/$3.2 (+67%); в W39 откатился обратно к $0.95526/$1.91052 (−40%,
-    // сверено с живым /models); W41 (07.10.2026) — просел до $0.2088/$0.4176 (−78%).
+    // сверено с живым /models); W41 (07.10.2026) — просел до $0.2088/$0.4176 (−78%);
+    // W42 (12.10.2026) — вернулся к StreamLake $0.95526/$1.91052 (×4.6).
     // Реселлеры сильно волатильны, следующий аудит сверит снова.
-    pricing: { input: 0.209, output: 0.418 },
+    pricing: { input: 0.955, output: 1.911 },
     isNew: true,
     streaming: true,
   },
@@ -360,7 +373,8 @@ export const TEXT_MODELS: TextModel[] = [
     description: "Свежая DeepSeek (сентябрь 2026): новая архитектура, дешевле V4 Flash по входу, принимает картинки. Open-source.",
     category: "alt",
     contextTokens: 1_049_000,
-    pricing: { input: 0.05, output: 1.2 },
+    // W42: дефолт /models сместился с реселлера ($0.05/$1.2) на нативный DeepSeek $0.15/$0.60.
+    pricing: { input: 0.15, output: 0.6 },
     isNew: true,
     streaming: true,
     supportsVision: true,

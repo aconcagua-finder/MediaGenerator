@@ -30,7 +30,7 @@ async function generateChatTitle(
         "X-Title": "MediaGenerator Title",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-haiku-4.5",
+        model: "anthropic/claude-haiku-5.5",
         max_tokens: 30,
         temperature: 0.3,
         messages: [
