@@ -32,6 +32,9 @@ describe("реестр image-моделей OpenRouter (Images API)", () => {
     const ids = OPENROUTER_IMAGE_SPECS.map((s) => s.modelId)
     expect(ids.filter((id) => /recraft-v4(-pro)?-styles|-styles-/.test(id))).toEqual([])
     expect(ids).not.toContain("inclusionai/ming-image-0.1-design-layer")
+    expect(ids).not.toContain("krea/k3-edit")
+    // пропала с OpenRouter (W43)
+    expect(ids).not.toContain("inclusionai/ming-image-0.1-design")
   })
 
   it("все новые модели попадают в SEED_MODELS с корректной схемой параметров", () => {
@@ -64,11 +67,10 @@ describe("реестр image-моделей OpenRouter (Images API)", () => {
     }
   })
 
-  it("правка: image-input моделям открыта, text-only (Flash, Ming Design) — нет", () => {
+  it("правка: image-input моделям открыта, text-only (Recraft Flash) — нет", () => {
     expect(supportsImageInput("openrouter", "black-forest-labs/flux-3-image")).toBe(true)
     expect(supportsImageInput("openrouter", "bytedance-seed/seedream-5-0-lite")).toBe(true)
     expect(supportsImageInput("openrouter", "recraft/recraft-v4.1-flash")).toBe(false)
-    expect(supportsImageInput("openrouter", "inclusionai/ming-image-0.1-design")).toBe(false)
   })
 
   it("новые модели помечены «Новинка»", () => {
@@ -97,8 +99,9 @@ describe("стоимость новых image-моделей OpenRouter", () => 
     expect(openRouterImagePrice("black-forest-labs/flux-3-image", "8K")).toBeCloseTo(0.607, 6)
   })
 
-  it("бесплатная модель стоит 0", () => {
-    expect(calculateCost("openrouter", "inclusionai/ming-image-0.1-design", {}, 4)).toBe(0)
+  it("новые модели W43: FLUX.3 Klein и Qwen Image 2.1 Turbo", () => {
+    expect(calculateCost("openrouter", "black-forest-labs/flux-3-image-klein", { image_size: "4K" }, 1)).toBeCloseTo(0.036, 6)
+    expect(calculateCost("openrouter", "qwen/qwen-image-2.1-turbo", { image_size: "2K" }, 2)).toBeCloseTo(0.0368, 6)
   })
 
   it("FLUX.3 не перехватывается веткой «flux» старых FLUX.2", () => {

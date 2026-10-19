@@ -14,7 +14,12 @@
  * Не добавлены намеренно:
  *  - recraft/recraft-v4-styles(-pro)(-vector): требуют минимум 1 референс-картинку;
  *  - inclusionai/ming-image-0.1-design-layer: тоже требует входное изображение;
+ *  - krea/k3-edit: только правка, требует 1–8 референсов (W43);
+ *  - qwen/qwen-image-2.1-pro: дороже Qwen Image 3 Pro (1K) при старшем поколении (W43);
  *  - *-preview, у которых есть GA, дубли прямых провайдеров и openrouter/auto*.
+ *
+ * Убраны: inclusionai/ming-image-0.1-design — пропала с OpenRouter (404, W43),
+ * строка в model_registry деактивируется через RETIRED_OPENROUTER_MODELS.
  */
 
 export type OpenRouterImagePrice =
@@ -73,6 +78,16 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     sizes: ["1K", "2K", "4K"],
     // SKU по тирам: 1k 0.048, 2k 0.10, 4k 0.607 (сейчас OpenRouter списывает вдвое меньше прайса)
     price: { bySize: { "1K": 0.048, "2K": 0.1, "4K": 0.607 } },
+    imageInput: true,
+  },
+  {
+    modelId: "black-forest-labs/flux-3-image-klein",
+    displayName: "FLUX.3 Image Klein",
+    description: "Black Forest Labs — лёгкая open-weights FLUX.3: генерация и правка по референсам (до 10). Одна из самых дешёвых, до 4K.",
+    aspects: A_WIDE,
+    sizes: ["1K", "2K", "4K"],
+    // SKU по тирам: 1k 0.009, 2k 0.014, 4k 0.036 (1K подтверждено живым вызовом W43: usage.cost $0.009)
+    price: { bySize: { "1K": 0.009, "2K": 0.014, "4K": 0.036 } },
     imageInput: true,
   },
 
@@ -150,6 +165,16 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     aspects: A_NO_ULTRA,
     sizes: ["1K", "2K"],
     price: { bySize: { "1K": 0.04, "2K": 0.075 } },
+    imageInput: true,
+  },
+  {
+    modelId: "qwen/qwen-image-2.1-turbo",
+    displayName: "Qwen Image 2.1 Turbo",
+    description: "Alibaba Qwen — быстрый и дешёвый тир Qwen Image 2.1: генерация и правка, когда важны скорость и цена. Единая цена за 1K и 2K.",
+    aspects: A_NO_ULTRA,
+    sizes: ["1K", "2K"],
+    // output_image 0.0184 (1k и 2k); подтверждено живым вызовом W43: usage.cost $0.0184
+    price: { bySize: { "1K": 0.0184, "2K": 0.0184 } },
     imageInput: true,
   },
 
@@ -348,17 +373,6 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     // 1K подтверждено живым вызовом ($0.024 = 15000 токенов); 2K — оценка ×4
     price: { bySize: { "1K": 0.024, "2K": 0.096 } },
     imageInput: true,
-  },
-
-  // === inclusionAI ===
-  {
-    modelId: "inclusionai/ming-image-0.1-design",
-    displayName: "Ming Image 0.1 Design",
-    description: "inclusionAI — графический дизайн с читаемым текстом на картинке. Бесплатно на OpenRouter, только из текста.",
-    aspects: [],
-    sizes: [],
-    price: { perImage: 0 },
-    imageInput: false,
   },
 
   // === Sourceful Riverflow ===
