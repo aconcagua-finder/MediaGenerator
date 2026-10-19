@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: октябрь 2026 (аудит 2026-W42)
+> Актуально на: октябрь 2026 (аудит 2026-W43)
 
 ---
 
@@ -170,13 +170,15 @@
 | GPT Image 2.5 Sunburst | `openai/gpt-image-2.5-sunburst` | $0.12 | — | да |
 | GPT Image 2.5 Flare | `openai/gpt-image-2.5-flare` | $0.12 | — | да |
 | FLUX.3 Image | `black-forest-labs/flux-3-image` | 1K $0.048 / 2K $0.1 / 4K $0.607 | 1K/2K/4K | да |
+| FLUX.3 Image Klein (W43) | `black-forest-labs/flux-3-image-klein` | 1K $0.009 / 2K $0.014 / 4K $0.036 | 1K/2K/4K | да |
 | Seedream 5.0 Pro | `bytedance-seed/seedream-5-0-pro` | 1K $0.045 / 2K $0.09 | 1K/2K | да |
 | Seedream 5.0 Lite | `bytedance-seed/seedream-5-0-lite` | $0.035 | 2K/4K | да |
 | Seedream 5.0 Flash | `bytedance-seed/seedream-5-0-flash` | $0.018 | 1K/2K | да |
 | Grok Imagine Image 2.0 | `x-ai/grok-imagine-image-2.0` | 1K $0.06 / 2K $0.08 | 1K/2K | да |
-| Nano Banana 2.1 | `google/gemini-nano-banana-2.1` | 1K $0.034 / 2K $0.051 / 4K $0.076 | 1K/2K/4K | да |
+| Nano Banana 2.1 | `google/gemini-nano-banana-2.1` | 1K $0.034 / 2K $0.051 / 4K $0.113 | 1K/2K/4K | да |
 | Qwen Image 3 | `qwen/qwen-image-3` | 1K $0.03 / 2K $0.03 | 1K/2K | да |
 | Qwen Image 3 Pro | `qwen/qwen-image-3-pro` | 1K $0.04 / 2K $0.075 | 1K/2K | да |
+| Qwen Image 2.1 Turbo (W43) | `qwen/qwen-image-2.1-turbo` | $0.0184 | 1K/2K | да |
 | Recraft V4 | `recraft/recraft-v4` | $0.04 | — | да |
 | Recraft V4 Pro | `recraft/recraft-v4-pro` | $0.25 | — | да |
 | Recraft V4 Вектор (SVG) | `recraft/recraft-v4-vector` | $0.08 | — | да |
@@ -197,7 +199,6 @@
 | Krea 2 Medium Turbo | `krea/krea-2-medium-turbo` | $0.015 | — | да |
 | Meta Muse Image | `meta/muse-image` | $0.01 | — | да |
 | Hy Image 3.5 (preview) | `tencent/hy-image-v3.5-preview` | 1K $0.024 / 2K $0.096 | 1K/2K | да |
-| Ming Image 0.1 Design | `inclusionai/ming-image-0.1-design` | бесплатно | — | нет |
 | Riverflow V2 Fast | `sourceful/riverflow-v2-fast` | 1K $0.02 / 2K $0.04 | 1K/2K | да |
 | Riverflow V2 Pro | `sourceful/riverflow-v2-pro` | 1K $0.15 / 2K $0.15 / 4K $0.33 | 1K/2K/4K | да |
 | Riverflow V2.5 Fast | `sourceful/riverflow-v2.5-fast` | 1K $0.019 / 2K $0.021 | 1K/2K | да |
@@ -223,6 +224,9 @@ $0.048 (OpenRouter сейчас даёт скидку 50%). Цены Gemini-по
 - `recraft/recraft-v4-styles`, `-styles-pro`, `-styles-vector`, `-styles-pro-vector` — требуют **минимум 1
   референс-картинку** (`input_references.min = 1`), в text-to-image форме их не вызвать;
 - `inclusionai/ming-image-0.1-design-layer` — тоже обязательный входной файл;
+- `krea/k3-edit` — только правка, обязательны 1–8 референсов (W43);
+- `qwen/qwen-image-2.1-pro` — $0.046, дороже Qwen Image 3 Pro (1K) при старшем поколении (W43);
+- ~~`inclusionai/ming-image-0.1-design`~~ — была в реестре, пропала с OpenRouter (404) в W43, деактивирована через `RETIRED_OPENROUTER_MODELS`;
 - `openai/gpt-image-2`, `gpt-image-1`, `gpt-image-1-mini`, `x-ai/grok-imagine-image-quality`,
   `black-forest-labs/flux.2-klein-4b`, `recraft/recraft-v3` — уже есть как прямые провайдеры;
 - `google/gemini-3-pro-image-preview`, `google/gemini-3.1-flash-image-preview` — есть GA;
@@ -482,6 +486,37 @@ $0.048 (OpenRouter сейчас даёт скидку 50%). Цены Gemini-по
 > - **Классификатор:** дефолт `claude-sonnet-4.6` активен (не раньше 17.02.2027); Haiku 5.5 появилась в списке
 >   моделей шаблона автоматически. **Дубли цен:** `OPENAI_PRICING` и `cover-models.ts` совпадают.
 
+> **Аудит 2026-W43 (19.10.2026).**
+> - ⚠️ **Сервис лежал ~3 дня:** все 4 контейнера стояли `Exited` с 16.10 (SIGTERM/SIGKILL — похоже, рестарт
+>   Docker Desktop; `restart: unless-stopped` не поднимает контейнеры, остановленные вместе с демоном при выходе),
+>   сайт отдавал 502. Поднято `docker compose up -d` в начале аудита. Диск Docker-VM — 27%, не причина.
+> - **Механический дифф.** Видео: 30 id, новых нет; вне реестра — те же осознанные пропуски
+>   `flux-video-edit` (теперь кандидат в режим v2v: $0.03/сек, но контракт не проверен живым вызовом),
+>   `flux-video-upscale` (апскейл — режима нет), `heygen/avatar-iv` (lip-sync по аудио — режима нет).
+>   Картинки: 63 id на `/models?output_modalities=image`. Новые: **добавлены** `black-forest-labs/flux-3-image-klein`
+>   (15.10, open-weights, $0.009/$0.014/$0.036 за 1K/2K/4K) и `qwen/qwen-image-2.1-turbo` ($0.0184 за 1K/2K) — обе
+>   подтверждены живым вызовом Images API (`usage.cost` совпал). **Пропущены:** `krea/k3-edit` (требует 1–8 референсов),
+>   `qwen/qwen-image-2.1-pro` ($0.046 — дороже Qwen Image 3 Pro). Остальные вне реестра — прежние осознанные пропуски.
+>   **Убрана** `inclusionai/ming-image-0.1-design` — исчезла с OpenRouter (Images API 404); генераций ею не было.
+>   `meta/muse-image`: Images API `/endpoints` пустой, но живой вызов прошёл (200, $0.01) — оставлена.
+>   Текст: новая **`google/gemini-4-argon`** (GA 13.10, $2/$10, 1M, vision) — добавлена (живой вызов с `temperature` 200).
+>   Пропущены `deepseek/deepseek-v4.1-flash-1017` (датированный снапшот), `*:batch`, `gpt-6.1-sol-pro` (pro-режим).
+> - **Чат:** дрейф — `gemini-3.8-flash` $0.75/$3.75 → $0.825/$4.125; `deepseek-v4.1-flash` $0.15/$0.60 → $0.04/$0.08;
+>   `deepseek-v4-flash` $0.03/$1.28 → $0.091/$0.182 (реселлеры). Google 08.10 объявил устаревшими `gemini-3.5-flash`
+>   (и 3.7 Flash) — запросы в прямом API перенаправляются; на OpenRouter 3.5 Flash ещё в листинге, в описании пометка.
+> - **Картинки:** FLUX.2 pro/max/flex, Seedream 4.5, все Gemini-слаги — `/endpoints` 200, status 0.
+>   `gemini-2.5-flash-image` по-прежнему жива. Цены всех Images-API спеков совпали с `/endpoints`.
+>   OpenAI: `gpt-image-1` отключается **23.10.2026** — ❗ аудит W44 убирает её (`seed-models.ts`/`cost-calculator.ts`/
+>   `capabilities.ts` + деактивация строки `model_registry`); `gpt-image-1.5`/`-1-mini` — 01.12.2026. Google: у
+>   `gemini-3.1-flash-image` даты отключения всё ещё нет.
+> - **Видео:** `flux-3-video` получил 2K ($0.28/сек) и 4K ($0.41/сек) — добавлены в реестр и снимок SKU.
+>   `heygen-video-1` подорожал: 768p $0.03 → $0.036, 2K $0.09 → $0.10 (+ `reference_input_images` $0.04).
+>   xAI: новее `grok-imagine-video-1.5` нет, депрекейшенов нет.
+> - **Классификатор:** `claude-sonnet-4.6` Active (не раньше 17.02.2027); Haiku 4.5 — «не раньше 15.10.2026», дата
+>   прошла, но модель всё ещё Active. Sonnet 4.5 уходит 30.11.2026 — в реестре нет.
+> - **Perplexity:** даты отключения Sonar Chat Completions в changelog нет; 24.10 из Agent API уходят GPT-5.x — не касается.
+> - **Дубли цен:** `OPENAI_PRICING` (reddit-search), `PERPLEXITY_PRICING`, `cover-models.ts` совпадают с живыми ценами.
+
 ---
 
 ## Recraft (прямой API) — вектор
@@ -666,7 +701,7 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 | `kwaivgi/kling-v3.0-std` | оба | да | 5/10 | 720p | ~0.126 |
 | `minimax/hailuo-3` | оба | да³ | 5/10 | 2K | ~0.13 |
 | `runway/gen-4.5` | оба | нет | 5/10 | 720p | ~0.12 |
-| `black-forest-labs/flux-3-video` | оба | да⁴ | 5/10/15/20 | 720p/1080p | ~0.17 |
+| `black-forest-labs/flux-3-video` | оба | да⁴ | 5/10/15/20 | 720p/1080p/2K/4K | ~0.17–0.41 |
 | `minimax/hailuo-3-max` | оба | нет | 5/10/15 | 480p/768p | ~0.05–0.08 |
 | `minimax/hailuo-2.3` | оба | нет | 6/10 | 1080p | ~0.082 |
 | `alibaba/wan-3.0` | оба | да | 5–30 | 480p/720p/1080p | ~0.10 |
@@ -680,7 +715,7 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 | `x-ai/grok-imagine-video` | оба | нет | 5/10 | 480p/720p | ~0.06 |
 | `x-ai/grok-imagine-video-1.5` | оба² | нет² | 5/10 | 480p/720p/1080p | ~0.08–0.25 |
 | `x-ai/grok-imagine-video-1.5-lite` | оба | нет | 5/10/15 | 480p/720p/1080p | ~0.02–0.14 |
-| `heygen/heygen-video-1` | оба | встроен⁵ | 5/10/15 | 480p/768p/2K | ~0.02–0.09 |
+| `heygen/heygen-video-1` | оба | встроен⁵ | 5/10/15 | 480p/768p/2K | ~0.02–0.10 |
 
 Источник правды — `src/lib/providers/video-models.ts`. Цены за секунду — ориентир для UI;
 точная сумма берётся из ответа OpenRouter (`usage.cost`) после генерации.

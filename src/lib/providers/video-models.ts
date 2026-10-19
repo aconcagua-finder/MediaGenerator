@@ -294,16 +294,17 @@ export const VIDEO_MODELS: VideoModel[] = [
     id: "black-forest-labs/flux-3-video",
     name: "FLUX.3 Video",
     vendor: "bfl",
-    description: "Black Forest Labs — первая видеомодель FLUX: генерация из текста или по опорным кадрам (первый/последний) и продолжение клипа, до 1080p и 20 сек, со звуком. Русская озвучка не подтверждена — лучше проверить.",
+    description: "Black Forest Labs — первая видеомодель FLUX: генерация из текста или по опорным кадрам (первый/последний) и продолжение клипа, до 4K и 20 сек, со звуком. Русская озвучка не подтверждена — лучше проверить.",
     modes: ["t2v", "i2v"],
     supportsAudio: true,
     russianSpeech: "partial",
     durations: [5, 10, 15, 20],
-    resolutions: ["720p", "1080p"],
+    resolutions: ["720p", "1080p", "2K", "4K"],
     aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
-    // cents_per_second_output 720p 17 → $0.17, 1080p 29 → $0.29 (продолжение клипа
-    // дороже — отдельные SKU, в оценку за секунду не входит)
-    price: { perSecond: { "720p": 0.17, "1080p": 0.29 } },
+    // cents_per_second_output 720p 17 → $0.17, 1080p 29 → $0.29, 2K 28 → $0.28,
+    // 4K 41 → $0.41 (2K/4K добавлены в W43; 2K по прайсу дешевле 1080p). Продолжение
+    // клипа дороже — отдельные SKU, в оценку за секунду не входит
+    price: { perSecond: { "720p": 0.17, "1080p": 0.29, "2K": 0.28, "4K": 0.41 } },
     isNew: true,
   },
   {
@@ -570,9 +571,10 @@ export const VIDEO_MODELS: VideoModel[] = [
     durations: [5, 10, 15],
     resolutions: ["480p", "768p", "2K"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
-    // duration_seconds_480p $0.02, _768p $0.03, _2k $0.09; reference_duration_seconds_*
-    // (с референсами) вдвое дороже — в оценку за секунду не входит
-    price: { perSecond: { "480p": 0.02, "768p": 0.03, "2K": 0.09 } },
+    // duration_seconds_480p $0.02, _768p $0.036, _2k $0.10 (W43: 768p 0.03→0.036,
+    // 2K 0.09→0.10); reference_duration_seconds_* (с референсами) дороже, плюс
+    // reference_input_images $0.04 — в оценку за секунду не входит
+    price: { perSecond: { "480p": 0.02, "768p": 0.036, "2K": 0.1 } },
     isNew: true,
   },
 ]
@@ -622,7 +624,9 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "black-forest-labs/flux-3-video": {
     cents_per_second_output: 17,
     cents_per_second_output_720p: 17, cents_per_second_output_1080p: 29,
+    cents_per_second_output_2k: 28, cents_per_second_output_4k: 41,
     cents_per_second_video_continuation_720p: 41, cents_per_second_video_continuation_1080p: 53,
+    cents_per_second_video_continuation_2k: 31, cents_per_second_video_continuation_4k: 45,
   },
   "alibaba/wan-2.6": {
     text_to_video_duration_seconds_480p: 0.04, text_to_video_duration_seconds_720p: 0.08,
@@ -650,8 +654,9 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "bytedance/seedance-2.5": { video_tokens: 0.0000107, video_tokens_without_audio: 0.0000107, video_tokens_with_video_input: 0.0000064 },
   "runway/aleph-2": { cents_per_second_output: 28, minimum_cents_per_generation: 56 },
   "heygen/heygen-video-1": {
-    duration_seconds_480p: 0.02, duration_seconds_768p: 0.03, duration_seconds_2k: 0.09,
-    reference_duration_seconds_480p: 0.04, reference_duration_seconds_768p: 0.06, reference_duration_seconds_2k: 0.18,
+    duration_seconds_480p: 0.02, duration_seconds_768p: 0.036, duration_seconds_2k: 0.1,
+    reference_duration_seconds_480p: 0.07, reference_duration_seconds_768p: 0.1, reference_duration_seconds_2k: 0.18,
+    reference_input_images: 0.04,
   },
 }
 

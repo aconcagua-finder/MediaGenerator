@@ -9,13 +9,15 @@ import { planSeeding } from "../providers/seed-plan"
 import { requireAdmin } from "../utils/admin-guard"
 
 /**
- * OpenRouter-слаги, которые мы заменили на GA-версии (preview → GA).
+ * OpenRouter-слаги, которые мы заменили на GA-версии (preview → GA) или которые
+ * пропали у провайдера.
  * `seedModels()` только добавляет, поэтому ранее засеянные preview-строки
  * остаются активными в селекторе. Деактивируем их идемпотентно при сидинге.
  */
 const RETIRED_OPENROUTER_MODELS = [
   "google/gemini-3.1-flash-image-preview", // → google/gemini-3.1-flash-image (Nano Banana 2 GA)
   "google/gemini-3-pro-image-preview", // → google/gemini-3-pro-image (Nano Banana Pro GA)
+  "inclusionai/ming-image-0.1-design", // пропала с OpenRouter (404, аудит W43)
 ]
 
 /**

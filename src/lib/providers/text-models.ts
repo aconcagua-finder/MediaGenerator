@@ -170,10 +170,23 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "google/gemini-4-argon",
+    name: "Gemini 4 Argon",
+    vendor: "google",
+    description: "Новейший флагман Google (13.10.2026): рассуждающая модель для кода, математики и сложных многошаговых задач. 1M контекст, принимает картинки.",
+    category: "smart",
+    contextTokens: 1_049_000,
+    // Живой /models W43. У Perplexity цена Argon «вводная до 30.11.2026» — следить за дрейфом.
+    pricing: { input: 2.0, output: 10.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "google/gemini-3.1-pro-preview",
     name: "Gemini 3.1 Pro",
     vendor: "google",
-    description: "Google — огромный контекст, хорош для длинных документов и анализа.",
+    description: "Прошлый Pro от Google: огромный контекст, хорош для длинных документов. Gemini 4 Argon новее и дешевле по выходу.",
     category: "smart",
     contextTokens: 1_049_000,
     pricing: { input: 2.0, output: 12.0 },
@@ -186,7 +199,7 @@ export const TEXT_MODELS: TextModel[] = [
     id: "google/gemini-3.5-flash",
     name: "Gemini 3.5 Flash",
     vendor: "google",
-    description: "Flash от Google (май 2026). 1M контекст. Gemini 3.8 Flash новее и вдвое дешевле.",
+    description: "Flash от Google (май 2026). ⚠️ Google объявил устаревшей 08.10.2026 (прямой API перенаправляет на новые Flash). Gemini 3.8 Flash новее и почти вдвое дешевле.",
     category: "fast",
     contextTokens: 1_049_000,
     pricing: { input: 1.5, output: 9.0 },
@@ -198,10 +211,11 @@ export const TEXT_MODELS: TextModel[] = [
     id: "google/gemini-3.8-flash",
     name: "Gemini 3.8 Flash",
     vendor: "google",
-    description: "Новейшая Flash от Google (сентябрь 2026): сильнее в коде и агентных задачах, 1M контекст. Вдвое дешевле Gemini 3.5 Flash.",
+    description: "Новейшая Flash от Google (сентябрь 2026): сильнее в коде и агентных задачах, 1M контекст. Почти вдвое дешевле Gemini 3.5 Flash.",
     category: "fast",
     contextTokens: 1_049_000,
-    pricing: { input: 0.75, output: 3.75 },
+    // W43: $0.75/$3.75 → $0.825/$4.125 (+10%, живой /models)
+    pricing: { input: 0.825, output: 4.125 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -374,7 +388,8 @@ export const TEXT_MODELS: TextModel[] = [
     category: "alt",
     contextTokens: 1_049_000,
     // W42: дефолт /models сместился с реселлера ($0.05/$1.2) на нативный DeepSeek $0.15/$0.60.
-    pricing: { input: 0.15, output: 0.6 },
+    // W43: снова реселлер — $0.04/$0.08 (нативный тариф DeepSeek теперь у снапшота -1017).
+    pricing: { input: 0.04, output: 0.08 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -389,8 +404,8 @@ export const TEXT_MODELS: TextModel[] = [
     // Дефолтный роут OpenRouter волатилен: W31 $0.098/$0.196 → W34 $0.14/$0.28 →
     // W35 $0.0574/$0.1148 → W36 $0.088606/$0.177212 → W40 $0.14/$0.28 → W41 $0.03/$1.28
     // (вход −79%, выход ×4.6 — реселлер с перекошенным тарифом, сверено с живым /models).
-    // Реселлеры волатильны — следующий аудит сверит снова.
-    pricing: { input: 0.03, output: 1.28 },
+    // W43 $0.091/$0.182. Реселлеры волатильны — следующий аудит сверит снова.
+    pricing: { input: 0.091, output: 0.182 },
     streaming: true,
   },
 ]
