@@ -19,6 +19,8 @@ export interface VoicePreset {
   gender: "female" | "male"
   /** Короткая характеристика тембра для подсказки в UI */
   hint?: string
+  /** Есть записанное превью в `public/voice-previews` (см. voicePreviewUrl) */
+  preview?: true
 }
 
 export interface VoiceChangeEngine {
@@ -49,8 +51,8 @@ export const VOICE_CHANGE_ENGINES: VoiceChangeEngine[] = [
     defaultFemale: "Jessica",
     defaultMale: "Brian",
     presets: [
-      { id: "Jessica", label: "Jessica", gender: "female", hint: "молодая, живая, игривая" },
-      { id: "Sarah", label: "Sarah", gender: "female", hint: "мягкая, деловая" },
+      { id: "Jessica", label: "Jessica", gender: "female", hint: "молодая, живая, игривая", preview: true },
+      { id: "Sarah", label: "Sarah", gender: "female", hint: "мягкая, деловая", preview: true },
       { id: "Rachel", label: "Rachel", gender: "female", hint: "спокойная, ровная" },
       { id: "Aria", label: "Aria", gender: "female", hint: "выразительная, с хрипотцой" },
       { id: "Laura", label: "Laura", gender: "female", hint: "бодрая, задорная" },
@@ -59,8 +61,8 @@ export const VOICE_CHANGE_ENGINES: VoiceChangeEngine[] = [
       { id: "Matilda", label: "Matilda", gender: "female", hint: "тёплая, дружелюбная" },
       { id: "Lily", label: "Lily", gender: "female", hint: "бархатная, британская" },
       { id: "River", label: "River", gender: "female", hint: "андрогинная, расслабленная" },
-      { id: "Brian", label: "Brian", gender: "male", hint: "глубокий, дикторский" },
-      { id: "George", label: "George", gender: "male", hint: "тёплый рассказчик" },
+      { id: "Brian", label: "Brian", gender: "male", hint: "глубокий, дикторский", preview: true },
+      { id: "George", label: "George", gender: "male", hint: "тёплый рассказчик", preview: true },
       { id: "Daniel", label: "Daniel", gender: "male", hint: "строгий, новостной" },
       { id: "Eric", label: "Eric", gender: "male", hint: "мягкий, обаятельный" },
       { id: "Chris", label: "Chris", gender: "male", hint: "простой, разговорный" },
@@ -82,10 +84,10 @@ export const VOICE_CHANGE_ENGINES: VoiceChangeEngine[] = [
     defaultFemale: "Aurora",
     defaultMale: "Richard",
     presets: [
-      { id: "Aurora", label: "Aurora", gender: "female" },
-      { id: "Vicky", label: "Vicky", gender: "female" },
-      { id: "Richard", label: "Richard", gender: "male" },
-      { id: "Carl", label: "Carl", gender: "male" },
+      { id: "Aurora", label: "Aurora", gender: "female", preview: true },
+      { id: "Vicky", label: "Vicky", gender: "female", preview: true },
+      { id: "Richard", label: "Richard", gender: "male", preview: true },
+      { id: "Carl", label: "Carl", gender: "male", preview: true },
     ],
   },
 ]
@@ -110,17 +112,16 @@ export function voicePresetTitle(preset: VoicePreset): string {
   return `${preset.label} (${preset.gender === "female" ? "женский" : "мужской"})`
 }
 
-/** Варианты превью голоса: одна и та же русская фраза ровно и с эмоцией */
-export type VoicePreviewKind = "calm" | "emo"
-
 /**
- * Готовое превью пресета (лежит в `public/voice-previews`), чтобы послушать тембр
- * до запуска. ElevenLabs: та же фраза озвучена тем же голосом через ElevenLabs v3
- * TTS (эмоция тегом `[excited]`). Chatterbox: речь Jessica / Brian, прогнанная
- * через его speech-to-speech.
+ * Превью пресета (лежит в `public/voice-previews`) или null, если его не
+ * записывали. Сделано тем же движком fal, что и сама замена голоса: мужские
+ * голоса из живой речи (селфи), женские из речи ElevenLabs TTS (Bella).
+ * Превью есть только у пресетов с `preview: true`: каждый вызов ElevenLabs
+ * стоит $0.30, поэтому записаны только топовые голоса.
  */
-export function voicePreviewUrl(engineId: VoiceChangeEngineId, presetId: string, kind: VoicePreviewKind): string {
-  return `/voice-previews/${engineId}-${presetId.toLowerCase()}-${kind}.mp3`
+export function voicePreviewUrl(engine: VoiceChangeEngine, presetId: string): string | null {
+  const preset = engine.presets.find((p) => p.id === presetId)
+  return preset?.preview ? `/voice-previews/${engine.id}-${preset.id.toLowerCase()}.mp3` : null
 }
 
 /** Движок автоматической переозвучки после видео → видео */

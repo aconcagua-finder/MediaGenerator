@@ -15,13 +15,7 @@ import {
   voicePresetTitle,
   voicePreviewUrl,
   type VoiceChangeEngine,
-  type VoicePreviewKind,
 } from "@/lib/providers/voice-change-models"
-
-const PREVIEWS: { kind: VoicePreviewKind; label: string }[] = [
-  { kind: "calm", label: "Спокойно" },
-  { kind: "emo", label: "С эмоцией" },
-]
 
 interface VoicePresetPickerProps {
   engine: VoiceChangeEngine
@@ -33,33 +27,34 @@ interface VoicePresetPickerProps {
 /**
  * Выбор голоса движка: две кнопки «женский / мужской по умолчанию» и полный
  * список голосов, сгруппированный по полу, с короткой характеристикой тембра.
- * Под списком превью выбранного голоса: русская фраза ровно и с эмоцией.
+ * Под списком превью выбранного голоса (если оно записано).
  */
 export function VoicePresetPicker({ engine, value, onChange, disabled }: VoicePresetPickerProps) {
   const current = engine.presets.find((p) => p.id === value) ?? engine.presets[0]
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const [playing, setPlaying] = useState<string | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const previewUrl = voicePreviewUrl(engine, current.id)
 
   // Сменили голос — глушим превью (при размонтировании <audio> браузер глушит сам)
   function select(voice: string) {
     audioRef.current?.pause()
-    setPlaying(null)
+    setPlaying(false)
     onChange(voice)
   }
 
-  function togglePreview(kind: VoicePreviewKind) {
+  function togglePreview() {
     const audio = audioRef.current
-    if (!audio) return
-    const url = voicePreviewUrl(engine.id, current.id, kind)
-    if (playing === url) {
+    if (!audio || !previewUrl) return
+    if (playing) {
       audio.pause()
-      setPlaying(null)
+      setPlaying(false)
       return
     }
-    audio.src = url
-    audio.play().catch(() => setPlaying(null))
-    setPlaying(url)
+    audio.src = previewUrl
+    audio.play().catch(() => setPlaying(false))
+    setPlaying(true)
   }
+
   const groups = [
     { gender: "female" as const, title: "Женские" },
     { gender: "male" as const, title: "Мужские" },
@@ -109,27 +104,23 @@ export function VoicePresetPicker({ engine, value, onChange, disabled }: VoicePr
         </SelectContent>
       </Select>
       <div className="flex items-center gap-1.5">
-        <audio ref={audioRef} preload="none" onEnded={() => setPlaying(null)} onError={() => setPlaying(null)} />
-        <span className="text-[11px] text-neutral-500">Послушать:</span>
-        {PREVIEWS.map((p) => {
-          const active = playing === voicePreviewUrl(engine.id, current.id, p.kind)
-          const Icon = active ? Pause : Play
-          return (
-            <button
-              key={p.kind}
-              type="button"
-              onClick={() => togglePreview(p.kind)}
-              className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] transition-colors ${
-                active
-                  ? "border-x-blue/50 bg-x-blue/[0.12] text-x-blue"
-                  : "border-white/[0.12] bg-white/[0.02] text-neutral-300 hover:text-white"
-              }`}
-            >
-              <Icon className="h-3 w-3" />
-              {p.label}
-            </button>
-          )
-        })}
+        <audio ref={audioRef} preload="none" onEnded={() => setPlaying(false)} onError={() => setPlaying(false)} />
+        {previewUrl ? (
+          <button
+            type="button"
+            onClick={togglePreview}
+            className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] transition-colors ${
+              playing
+                ? "border-x-blue/50 bg-x-blue/[0.12] text-x-blue"
+                : "border-white/[0.12] bg-white/[0.02] text-neutral-300 hover:text-white"
+            }`}
+          >
+            {playing ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            Послушать пример
+          </button>
+        ) : (
+          <span className="text-[11px] text-neutral-500">Пример для этого голоса не записан</span>
+        )}
       </div>
     </div>
   )
