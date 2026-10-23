@@ -3,9 +3,8 @@
  * звук вынимается ffmpeg'ом, отправляется на конвертацию голоса, затем
  * подкладывается обратно в видео (`-c:v copy`) — видеодорожка не перекодируется.
  *
- * Цены и входы — по fal.ai/models/<id>/llms.txt. ❗ Живыми вызовами НЕ проверено
- * (нет ключа fal): особенно качество на русской речи и пол пресетов Chatterbox
- * (определён по имени голоса).
+ * Цены и входы — по fal.ai/models/<id>/llms.txt. Живые вызовы проверены 2026-10-23
+ * при записи превью (все пресеты, русская речь разборчива). Chatterbox отдаёт WAV.
  */
 
 export type VoiceChangeEngineId = "elevenlabs" | "chatterbox"
@@ -107,6 +106,17 @@ export function resolveVoicePreset(engine: VoiceChangeEngine, presetId: string |
 /** Подпись пресета с полом: «Jessica (женский)» */
 export function voicePresetTitle(preset: VoicePreset): string {
   return `${preset.label} (${preset.gender === "female" ? "женский" : "мужской"})`
+}
+
+/** Варианты превью голоса: одна и та же русская фраза ровно и с эмоцией */
+export type VoicePreviewKind = "calm" | "emo"
+
+/**
+ * Готовое превью пресета (лежит в `public/voice-previews`). Сделано один раз
+ * прогоном русской фразы через fal, чтобы послушать тембр до запуска.
+ */
+export function voicePreviewUrl(engineId: VoiceChangeEngineId, presetId: string, kind: VoicePreviewKind): string {
+  return `/voice-previews/${engineId}-${presetId.toLowerCase()}-${kind}.mp3`
 }
 
 /** Движок автоматической переозвучки после видео → видео */

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 import { describe, it, expect } from "vitest"
 import {
   VOICE_CHANGE_ENGINES,
@@ -6,6 +8,7 @@ import {
   parseVoiceOver,
   voicePresetTitle,
   buildVoiceChangeInput,
+  voicePreviewUrl,
 } from "@/lib/providers/voice-change-models"
 import { readVoiceOver, voiceOverDto } from "@/lib/video/voice-over"
 
@@ -79,5 +82,18 @@ describe("voice_over в params — запись/чтение", () => {
   it("без voice_over — undefined", () => {
     expect(voiceOverDto(readVoiceOver({ duration: 5 }))).toBeUndefined()
     expect(voiceOverDto(readVoiceOver(null))).toBeUndefined()
+  })
+})
+
+describe("voicePreviewUrl", () => {
+  it("у каждого пресета есть оба файла превью в public", () => {
+    for (const engine of VOICE_CHANGE_ENGINES) {
+      for (const preset of engine.presets) {
+        for (const kind of ["calm", "emo"] as const) {
+          const url = voicePreviewUrl(engine.id, preset.id, kind)
+          expect(existsSync(join("public", url)), url).toBe(true)
+        }
+      }
+    }
   })
 })

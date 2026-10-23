@@ -1,5 +1,7 @@
 "use client"
 
+import { useRef, useState } from "react"
+import { Pause, Play } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -9,7 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { voicePresetTitle, type VoiceChangeEngine } from "@/lib/providers/voice-change-models"
+import {
+  voicePresetTitle,
+  voicePreviewUrl,
+  type VoiceChangeEngine,
+  type VoicePreviewKind,
+} from "@/lib/providers/voice-change-models"
+
+const PREVIEWS: { kind: VoicePreviewKind; label: string }[] = [
+  { kind: "calm", label: "Спокойно" },
+  { kind: "emo", label: "С эмоцией" },
+]
 
 interface VoicePresetPickerProps {
   engine: VoiceChangeEngine
@@ -21,9 +33,33 @@ interface VoicePresetPickerProps {
 /**
  * Выбор голоса движка: две кнопки «женский / мужской по умолчанию» и полный
  * список голосов, сгруппированный по полу, с короткой характеристикой тембра.
+ * Под списком превью выбранного голоса: русская фраза ровно и с эмоцией.
  */
 export function VoicePresetPicker({ engine, value, onChange, disabled }: VoicePresetPickerProps) {
   const current = engine.presets.find((p) => p.id === value) ?? engine.presets[0]
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [playing, setPlaying] = useState<string | null>(null)
+
+  // Сменили голос — глушим превью (при размонтировании <audio> браузер глушит сам)
+  function select(voice: string) {
+    audioRef.current?.pause()
+    setPlaying(null)
+    onChange(voice)
+  }
+
+  function togglePreview(kind: VoicePreviewKind) {
+    const audio = audioRef.current
+    if (!audio) return
+    const url = voicePreviewUrl(engine.id, current.id, kind)
+    if (playing === url) {
+      audio.pause()
+      setPlaying(null)
+      return
+    }
+    audio.src = url
+    audio.play().catch(() => setPlaying(null))
+    setPlaying(url)
+  }
   const groups = [
     { gender: "female" as const, title: "Женские" },
     { gender: "male" as const, title: "Мужские" },
@@ -40,7 +76,7 @@ export function VoicePresetPicker({ engine, value, onChange, disabled }: VoicePr
             key={d.id}
             type="button"
             disabled={disabled}
-            onClick={() => onChange(d.id)}
+            onClick={() => select(d.id)}
             className={`flex h-8 items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors disabled:opacity-50 ${
               current.id === d.id
                 ? "border-x-blue/50 bg-x-blue/[0.12] text-x-blue"
@@ -52,7 +88,7 @@ export function VoicePresetPicker({ engine, value, onChange, disabled }: VoicePr
           </button>
         ))}
       </div>
-      <Select value={current.id} onValueChange={(v) => v && onChange(v)} disabled={disabled}>
+      <Select value={current.id} onValueChange={(v) => v && select(v)} disabled={disabled}>
         <SelectTrigger className="w-full border-white/[0.12] bg-white/[0.02]">
           <SelectValue>{voicePresetTitle(current)}</SelectValue>
         </SelectTrigger>
@@ -72,6 +108,29 @@ export function VoicePresetPicker({ engine, value, onChange, disabled }: VoicePr
           ))}
         </SelectContent>
       </Select>
+      <div className="flex items-center gap-1.5">
+        <audio ref={audioRef} preload="none" onEnded={() => setPlaying(null)} onError={() => setPlaying(null)} />
+        <span className="text-[11px] text-neutral-500">Послушать:</span>
+        {PREVIEWS.map((p) => {
+          const active = playing === voicePreviewUrl(engine.id, current.id, p.kind)
+          const Icon = active ? Pause : Play
+          return (
+            <button
+              key={p.kind}
+              type="button"
+              onClick={() => togglePreview(p.kind)}
+              className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] transition-colors ${
+                active
+                  ? "border-x-blue/50 bg-x-blue/[0.12] text-x-blue"
+                  : "border-white/[0.12] bg-white/[0.02] text-neutral-300 hover:text-white"
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              {p.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
