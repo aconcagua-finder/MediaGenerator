@@ -4,7 +4,9 @@
  * подкладывается обратно в видео (`-c:v copy`) — видеодорожка не перекодируется.
  *
  * Цены и входы — по fal.ai/models/<id>/llms.txt. Живые вызовы проверены 2026-10-23
- * при записи превью (все пресеты, русская речь разборчива). Chatterbox отдаёт WAV.
+ * (все пресеты). Chatterbox отдаёт WAV. ❗ fal списывает за каждую НАЧАТУЮ минуту
+ * (7-секундный клип ElevenLabs = $0.30), см. estimateVoiceChangeCost.
+ * Акцент результата берётся из исходной речи: голос меняется, произношение нет.
  */
 
 export type VoiceChangeEngineId = "elevenlabs" | "chatterbox"
@@ -112,8 +114,10 @@ export function voicePresetTitle(preset: VoicePreset): string {
 export type VoicePreviewKind = "calm" | "emo"
 
 /**
- * Готовое превью пресета (лежит в `public/voice-previews`). Сделано один раз
- * прогоном русской фразы через fal, чтобы послушать тембр до запуска.
+ * Готовое превью пресета (лежит в `public/voice-previews`), чтобы послушать тембр
+ * до запуска. ElevenLabs: та же фраза озвучена тем же голосом через ElevenLabs v3
+ * TTS (эмоция тегом `[excited]`). Chatterbox: речь Jessica / Brian, прогнанная
+ * через его speech-to-speech.
  */
 export function voicePreviewUrl(engineId: VoiceChangeEngineId, presetId: string, kind: VoicePreviewKind): string {
   return `/voice-previews/${engineId}-${presetId.toLowerCase()}-${kind}.mp3`
@@ -141,10 +145,14 @@ export function parseVoiceOver(raw: unknown): VoiceOverSetting | null {
   return { engine: engine.id, voice: valid ? voice : engine.defaultFemale }
 }
 
-/** Оценка: цена за минуту × длительность звука (fal не отдаёт фактическую стоимость) */
+/**
+ * Оценка: цена за минуту × число начатых минут звука. fal округляет каждый
+ * запрос вверх до целой минуты (биллинг: 7 сек = 1 minute), фактическую
+ * стоимость в ответе не отдаёт.
+ */
 export function estimateVoiceChangeCost(engine: VoiceChangeEngine, audioSeconds: number): number {
   if (!(audioSeconds > 0)) return 0
-  return (audioSeconds / 60) * engine.pricePerMinute
+  return Math.ceil(audioSeconds / 60) * engine.pricePerMinute
 }
 
 /** Тело запроса к fal. Для Chatterbox образец голоса (URL) перекрывает пресет. */

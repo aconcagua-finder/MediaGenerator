@@ -244,10 +244,11 @@ describe("замена голоса: движки и тела запросов",
     expect(chatter.supportsSample).toBe(true)
   })
 
-  it("оценка: цена за минуту × длительность", () => {
+  it("оценка: цена за минуту × начатые минуты (fal округляет вверх)", () => {
     expect(estimateVoiceChangeCost(eleven, 60)).toBeCloseTo(0.3, 4)
-    expect(estimateVoiceChangeCost(eleven, 30)).toBeCloseTo(0.15, 4)
-    expect(estimateVoiceChangeCost(chatter, 30)).toBeCloseTo(0.01, 4)
+    expect(estimateVoiceChangeCost(eleven, 7)).toBeCloseTo(0.3, 4)
+    expect(estimateVoiceChangeCost(eleven, 61)).toBeCloseTo(0.6, 4)
+    expect(estimateVoiceChangeCost(chatter, 30)).toBeCloseTo(0.02, 4)
     expect(estimateVoiceChangeCost(eleven, 0)).toBe(0)
   })
 
