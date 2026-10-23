@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs"
+import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { describe, it, expect } from "vitest"
 import {
@@ -86,14 +86,33 @@ describe("voice_over в params — запись/чтение", () => {
 })
 
 describe("voicePreviewUrl", () => {
-  it("у каждого пресета есть оба файла превью в public", () => {
+  it("у пресета с preview есть файл, у остальных null", () => {
     for (const engine of VOICE_CHANGE_ENGINES) {
       for (const preset of engine.presets) {
-        for (const kind of ["calm", "emo"] as const) {
-          const url = voicePreviewUrl(engine.id, preset.id, kind)
-          expect(existsSync(join("public", url)), url).toBe(true)
+        const url = voicePreviewUrl(engine, preset.id)
+        if (preset.preview) {
+          expect(url, preset.id).not.toBeNull()
+          expect(existsSync(join("public", url!)), url!).toBe(true)
+        } else {
+          expect(url, preset.id).toBeNull()
         }
       }
+    }
+  })
+
+  it("у голосов по умолчанию превью есть", () => {
+    for (const engine of VOICE_CHANGE_ENGINES) {
+      expect(voicePreviewUrl(engine, engine.defaultFemale)).not.toBeNull()
+      expect(voicePreviewUrl(engine, engine.defaultMale)).not.toBeNull()
+    }
+  })
+
+  it("в public нет файлов превью без пресета", () => {
+    const expected = new Set(
+      VOICE_CHANGE_ENGINES.flatMap((e) => e.presets.map((p) => voicePreviewUrl(e, p.id))).filter(Boolean),
+    )
+    for (const f of readdirSync(join("public", "voice-previews"))) {
+      expect(expected.has(`/voice-previews/${f}`), f).toBe(true)
     }
   })
 })

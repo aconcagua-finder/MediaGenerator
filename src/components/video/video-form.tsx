@@ -815,7 +815,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
                     />
                     <p className="text-[11px] leading-snug text-neutral-600">
                       После готовности речь из ролика заменится голосом ElevenLabs с той же интонацией
-                      (${voiceEngine.pricePerMinute.toFixed(2)}/мин). В библиотеке останутся обе версии.
+                      (${voiceEngine.pricePerMinute.toFixed(2)} за каждую начатую минуту). В библиотеке останутся обе версии.
                     </p>
                   </>
                 ) : null}

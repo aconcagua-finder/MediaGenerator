@@ -190,7 +190,7 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
                   >
                     <span className="flex items-center justify-between text-sm font-medium text-white">
                       {e.name}
-                      <span className="text-[11px] font-normal text-neutral-500">${e.pricePerMinute.toFixed(2)}/мин</span>
+                      <span className="text-[11px] font-normal text-neutral-500">${e.pricePerMinute.toFixed(2)} за начатую мин</span>
                     </span>
                     <span className="mt-0.5 block text-[11px] leading-snug text-neutral-500">{e.description}</span>
                   </button>
