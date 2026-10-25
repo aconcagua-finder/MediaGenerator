@@ -3,9 +3,11 @@ import {
   isElevenLabsVoiceId,
   type VoiceSettings,
 } from "./voice-change-models"
+import type { TtsVoiceSettings } from "./voice-models"
 import {
   catalogCacheKey,
   filterPremadeVoices,
+  isRuVerifiedFor,
   mapPremadeVoice,
   mapSharedVoice,
   POPULAR_VOICES_PER_GENDER,
@@ -15,11 +17,13 @@ import {
 } from "./elevenlabs-voices"
 
 /**
- * Прямой API ElevenLabs (замена голоса и каталог голосов). Проверено живыми
- * вызовами 2026-10-25.
+ * Прямой API ElevenLabs (замена голоса, озвучка и каталог голосов). Проверено
+ * живыми вызовами 2026-10-25.
  *
  *   POST /v1/voice-changer/{voice_id}?output_format=mp3_44100_128   multipart: audio, model_id,
  *        voice_settings (JSON-строка), remove_background_noise, seed? → тело ответа = mp3 (синхронно)
+ *   POST /v1/text-to-speech/{voice_id}?output_format=mp3_44100_128  JSON: text, model_id,
+ *        voice_settings, language_code?, seed? → тело ответа = mp3 (синхронно)
  *   GET  /v1/shared-voices?language=ru&sort=usage_character_count_1y… → { voices, has_more }
  *   GET  /v1/voices                                                  → { voices } (premade + свои)
  *   GET  /v1/user                                                    → 200 для рабочего ключа
@@ -31,6 +35,7 @@ import {
  */
 
 export const ELEVENLABS_API_BASE = "https://api.elevenlabs.io"
+/** Синхронные вызовы (замена голоса, озвучка) */
 const VOICE_CHANGE_TIMEOUT = 120_000
 const CATALOG_TIMEOUT = 20_000
 
@@ -148,6 +153,70 @@ export async function elevenLabsVoiceChange(
   )
 }
 
+export interface TextToSpeechRequestOptions {
+  voiceId: string
+  text: string
+  /** model_id ElevenLabs (eleven_v4, eleven_multilingual_v2, …) */
+  modelId: string
+  /** Уже санитизированные под модель настройки (см. sanitizeTtsSettings) */
+  settings: TtsVoiceSettings
+  /** ISO 639-1; без него язык определяется по тексту */
+  languageCode?: string
+  seed?: number
+}
+
+/** Адрес и JSON-тело запроса озвучки (без сети — покрыто тестами) */
+export function buildTextToSpeechRequest(opts: TextToSpeechRequestOptions): {
+  url: string
+  body: Record<string, unknown>
+} {
+  if (!isElevenLabsVoiceId(opts.voiceId)) {
+    throw new Error("Некорректный id голоса ElevenLabs")
+  }
+  const url = `${ELEVENLABS_API_BASE}/v1/text-to-speech/${opts.voiceId}?output_format=mp3_44100_128`
+  const voiceSettings: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(opts.settings)) {
+    if (v !== undefined) voiceSettings[k] = v
+  }
+  const body: Record<string, unknown> = {
+    text: opts.text,
+    model_id: opts.modelId,
+    voice_settings: voiceSettings,
+  }
+  if (opts.languageCode && /^[a-z]{2}$/.test(opts.languageCode)) body.language_code = opts.languageCode
+  if (typeof opts.seed === "number" && Number.isInteger(opts.seed) && opts.seed >= 0) body.seed = opts.seed
+  return { url, body }
+}
+
+/** Озвучка текста: синхронный вызов, ответ — готовый mp3 */
+export async function elevenLabsTextToSpeech(
+  apiKey: string,
+  opts: TextToSpeechRequestOptions,
+  timeoutMs = VOICE_CHANGE_TIMEOUT,
+): Promise<{ buffer: Buffer; contentType: string; requestId: string | null }> {
+  const { url, body } = buildTextToSpeechRequest(opts)
+  return withTimeout(
+    timeoutMs,
+    async (signal) => {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "xi-api-key": apiKey, "Content-Type": "application/json", Accept: "audio/mpeg" },
+        body: JSON.stringify(body),
+        signal,
+      })
+      if (!res.ok) throw await readError(res)
+      const buffer = Buffer.from(await res.arrayBuffer())
+      if (buffer.length === 0) throw new ElevenLabsError(502, "empty_response", "empty audio in response")
+      return {
+        buffer,
+        contentType: res.headers.get("content-type") || "audio/mpeg",
+        requestId: res.headers.get("request-id") || res.headers.get("x-request-id"),
+      }
+    },
+    "text to speech",
+  )
+}
+
 /**
  * Проверка ключа без расхода кредитов: `GET /v1/user`. Ключ с ограниченными
  * правами без «User: read» отвечает `missing_permissions` — он настоящий,
@@ -239,14 +308,22 @@ export async function fetchVoiceCatalog(apiKey: string, q: VoiceCatalogQuery): P
   })
 }
 
-/** «Популярные»: самые используемые русские голоса, проверенные на STS, по полу */
-export async function fetchPopularVoices(apiKey: string): Promise<{ female: CatalogVoice[]; male: CatalogVoice[] }> {
+/**
+ * «Популярные»: самые используемые русские голоса, проверенные на русском для
+ * модели (по умолчанию STS — замена голоса; для озвучки — её TTS-модель), по полу
+ */
+export async function fetchPopularVoices(
+  apiKey: string,
+  modelId: string = ELEVENLABS_STS_MODEL,
+): Promise<{ female: CatalogVoice[]; male: CatalogVoice[] }> {
   const top = async (gender: "female" | "male") => {
     const page = await fetchVoiceCatalog(apiKey, { scope: "ru", gender, page: 0, pageSize: 30 })
     // Одноимённые голоса (у автора бывает несколько «Prince Nur») в полосе путают — берём самый популярный
     const seen = new Set<string>()
     return page.voices
-      .filter((v) => v.ruVerified && !seen.has(v.title.toLowerCase()) && seen.add(v.title.toLowerCase()))
+      .filter(
+        (v) => isRuVerifiedFor(v, modelId) && !seen.has(v.title.toLowerCase()) && seen.add(v.title.toLowerCase()),
+      )
       .slice(0, POPULAR_VOICES_PER_GENDER)
   }
   const [female, male] = await Promise.all([top("female"), top("male")])

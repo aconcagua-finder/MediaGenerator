@@ -111,7 +111,7 @@ export async function runVoiceGeneration(genId: string, apiKey: string): Promise
   }
 
   try {
-    const speed = ((gen.params || {}) as { speed?: number }).speed
+    const { speed, settings } = (gen.params || {}) as { speed?: number; settings?: unknown }
     const provider = getVoiceProvider(gen.provider)
     const result = await provider.synth(
       {
@@ -120,6 +120,7 @@ export async function runVoiceGeneration(genId: string, apiKey: string): Promise
         voice: gen.voice,
         requestFormat: model.requestFormat,
         speed,
+        settings,
       },
       apiKey,
     )

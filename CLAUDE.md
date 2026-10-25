@@ -138,7 +138,7 @@ Chatterbox HD через fal (ключ fal). В v2v можно сразу зак
 - `src/app/api/video/voice-change/route.ts` — ручная замена голоса (тонкая обёртка над `startVoiceChange` в `src/lib/video/voice-change.ts`);
   `src/lib/video/{ffmpeg-audio,result-video,probe,limits,source-limits,voice-over}.ts`
 - `src/components/video/{source-upload,voice-change-button,voice-preset-picker}.tsx`; выбор голоса ElevenLabs —
-  `elevenlabs-voice-picker.tsx` + `voice-catalog-dialog.tsx` + `voice-prefs.ts` (localStorage, плеер превью);
+  `elevenlabs-voice-picker.tsx` поверх общих `src/components/elevenlabs/{voice-chooser,voice-catalog-dialog,voice-settings-panel,voice-prefs}` (общие с «Озвучкой»);
   миграция `0017_video_sources_media_links`
 
 **Архитектурные принципы:**
@@ -223,12 +223,15 @@ Chatterbox HD через fal (ключ fal). В v2v можно сразу зак
 
 ### Озвучка (`/voice`)
 
-Синтез речи из текста (TTS) через OpenRouter `POST /api/v1/audio/speech` (OpenAI-совместимый),
-тем же ключом, что картинки/видео/чат. Реестр — `src/lib/providers/voice-models.ts` (9 моделей).
+Синтез речи из текста (TTS): ElevenLabs напрямую (`POST /v1/text-to-speech/{voice_id}`, ключ `elevenlabs`, 4 модели,
+лучший русский, идут первыми) и OpenRouter `POST /api/v1/audio/speech` (OpenAI-совместимый, тем же ключом, что
+картинки/видео/чат, 9 моделей). Реестр — `src/lib/providers/voice-models.ts`. Подключение ElevenLabs — `docs/ELEVENLABS_SETUP.md`.
 
 **Ключевые файлы:**
 - `src/lib/providers/voice-models.ts` — реестр моделей/голосов + `estimateVoiceCost`, `resolveVoice`, `clampSpeed`
 - `src/lib/providers/voice/openrouter-voice.ts` — адаптер (`synth` + `fetchCost`) + `pcmToWav`
+- `src/lib/providers/voice/elevenlabs-voice.ts` — адаптер ElevenLabs (запрос строит `elevenlabs.ts`: `buildTextToSpeechRequest`)
+- `src/components/elevenlabs/*` — выбор голоса ElevenLabs, общий с заменой голоса (каталог, «Популярные», настройки, prefs)
 - `src/lib/voice/generate.ts` — `runVoiceGeneration` (синтез→S3→запись→списание), claim `processing→saving`
 - `src/app/api/voice/generate/route.ts` — submit (валидация/лимиты + СИНХРОННЫЙ синтез в том же запросе)
 - `src/app/api/audios/[id]/route.ts` — отдача аудио из S3 (Range)
@@ -245,5 +248,13 @@ Chatterbox HD через fal (ключ fal). В v2v можно сразу зак
 6. **Голоса валидируются по реестру** (`resolveVoice` → дефолт при невалидном; `clampSpeed` зажимает скорость, 1 для моделей без скорости). Списки голосов подтверждены живым вызовом (см. `tests/voice-models.test.ts`), т.к. OpenRouter их не перечисляет.
 7. **`mistralai/voxtral-mini-tts-2603` у провайдера сейчас отдаёт 404** → `available:false`, в селекторе отключена, submit-роут возвращает 400. Если провайдер починят — снять флаг.
 8. **Данные.** `voice_generations` (job) + `audios` (файл), миграция `0016`. Источник ОДИН (озвучка), поэтому `audios.voice_generation_id` NOT NULL, без XOR — владелец берётся простым join'ом на `voice_generations.userId` (в отличие от видео). S3-ключ: `audios/{voiceGenerationId}/0.{mp3|wav}`.
+9. **ElevenLabs.** `VoiceModel.provider` (`openrouter` | `elevenlabs`) выбирает ключ (`getDecryptedApiKey(userId, provider)`)
+   и адаптер; id модели в реестре — `elevenlabs/<model_id>`. Голос — любой voice_id библиотеки (`dynamicVoices`),
+   в `voice_generations.voice` — voice_id, подпись — `params.voice_name` (её показывает библиотека). Настройки в
+   `params.settings`, зажимаются под модель `sanitizeTtsSettings`: style и speaker boost только у Multilingual v2
+   (`can_use_style`/`can_use_speaker_boost` в `/v1/models`), скорость 0.7–1.2 у всех. Стоимость в ответе нет —
+   оценка из символов (v4/v3/v2 $0.08, v4 Turbo $0.04 за 1к). Ошибки — общий разбор `elevenlabs-errors.ts`
+   (подсказки для TTS свои). «Русский проверен» — по `verified_languages` для модели (у v3 записей нет → `verifiedAs: eleven_v4`),
+   «Популярные» — `?popular=1&model=…`. Без ключа ElevenLabs модели серые («нужен ключ ElevenLabs»).
 
 **Картинки — Nano Banana 2 / 2 Lite:** `google/gemini-3.1-flash-image` (GA, Nano Banana 2) и `google/gemini-3.1-flash-lite-image` (Lite) добавлены в `seed-models.ts` (секция OpenRouter). Старый preview-слаг `google/gemini-3.1-flash-image-preview` мигрирован на GA везде (edit-диалог, cover-модели, capabilities) и деактивируется в `seedModels()` через `RETIRED_OPENROUTER_MODELS`. Цена в `cost-calculator.ts` — по размеру (flash 1K≈$0.067, lite 1K≈$0.034); ❗ ветка `flash-lite-image` идёт ПЕРЕД `flash-image`. Дефолтная модель картинок — Lite (`PREFERRED_DEFAULT` в `generate-form.tsx`; сохранённый выбор в localStorage имеет приоритет). ❗ **Готча:** крон `model-check` авто-обнаруживает новые image-модели OpenRouter и вставляет их в `model_registry` как `is_active=false` с пустыми `params_schema`/`pricing`. Если это случилось ДО `seedModels()`, наш insert-only сид их пропустит — модель останется скрытой с пустыми параметрами. `gemini-3.1-flash-image` так и «спрятался»; чинится UPDATE'ом строки (активация + правильные `params_schema`/`pricing`/`display_name`).

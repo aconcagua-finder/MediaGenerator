@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import {
   VOICE_CATALOG_PAGE_SIZE,
+  isRuVerifiedFor,
   voiceChips,
   type CatalogVoice,
   type VoiceCatalogAge,
@@ -21,6 +22,8 @@ interface VoiceCatalogDialogProps {
   selectedId: string
   onSelect: (voice: CatalogVoice) => void
   player: PreviewPlayer
+  /** Модель, для которой показываем «русский проверен» (по умолчанию — замены голоса) */
+  modelId?: string
 }
 
 const SCOPES: { value: VoiceCatalogScope; label: string }[] = [
@@ -46,7 +49,14 @@ type LoadState = { kind: "idle" | "loading" | "more" } | { kind: "error"; messag
  * Каталог голосов ElevenLabs: язык (русские / вся библиотека / стандартные),
  * пол, возраст, поиск; строки с превью, сортировка по популярности, «Показать ещё».
  */
-export function VoiceCatalogDialog({ open, onOpenChange, selectedId, onSelect, player }: VoiceCatalogDialogProps) {
+export function VoiceCatalogDialog({
+  open,
+  onOpenChange,
+  selectedId,
+  onSelect,
+  player,
+  modelId,
+}: VoiceCatalogDialogProps) {
   const [scope, setScope] = useState<VoiceCatalogScope>("ru")
   const [gender, setGender] = useState<VoiceCatalogGender | "">("")
   const [age, setAge] = useState<VoiceCatalogAge | "">("")
@@ -162,6 +172,7 @@ export function VoiceCatalogDialog({ open, onOpenChange, selectedId, onSelect, p
                 <CatalogRow
                   key={v.id}
                   voice={v}
+                  ruVerified={isRuVerifiedFor(v, modelId)}
                   selected={v.id === selectedId}
                   playing={Boolean(v.previewUrl) && player.playingUrl === v.previewUrl}
                   onPlay={() => player.toggle(v.previewUrl)}
@@ -194,12 +205,14 @@ export function VoiceCatalogDialog({ open, onOpenChange, selectedId, onSelect, p
 
 function CatalogRow({
   voice,
+  ruVerified,
   selected,
   playing,
   onPlay,
   onSelect,
 }: {
   voice: CatalogVoice
+  ruVerified: boolean
   selected: boolean
   playing: boolean
   onPlay: () => void
@@ -212,7 +225,7 @@ function CatalogRow({
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-white">
           <span className="truncate">{voice.title}</span>
-          {voice.ruVerified && (
+          {ruVerified && (
             <span className="rounded-full bg-emerald-500/[0.12] px-1.5 py-px text-[10px] font-normal text-emerald-300">
               русский проверен
             </span>

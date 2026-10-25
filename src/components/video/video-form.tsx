@@ -23,7 +23,7 @@ import {
   saveVoicePick,
   saveVoiceSettings,
   type PickedVoice,
-} from "./voice-prefs"
+} from "@/components/elevenlabs/voice-prefs"
 import { useImageAttachments } from "@/hooks/use-image-attachments"
 import { AttachmentTray } from "@/components/shared/attachment-tray"
 import {

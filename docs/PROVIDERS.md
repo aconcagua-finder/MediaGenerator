@@ -879,6 +879,11 @@ Kling MC: `image_url` (персонаж) + `video_url` (движение) + `cha
 (`GET /v1/shared-voices`) или стандартные (`GET /v1/voices`), добавлять в аккаунт не нужно. Цена ≈ $0.12 за минуту звука
 пропорционально длине (22 сек = 216 кредитов при тарифе 40 000 кредитов). Проверено живыми вызовами 2026-10-25.
 
+Озвучка (`/voice`): `POST /v1/text-to-speech/{voice_id}?output_format=mp3_44100_128`, JSON `{text, model_id,
+voice_settings, language_code?, seed?}` → mp3. Модели `eleven_v4` ($0.08/1к симв., до 10 000), `eleven_v4_turbo`
+($0.04, до 10 000), `eleven_v3` ($0.08, до 5 000), `eleven_multilingual_v2` ($0.08, до 10 000; единственная из них с
+`style` и `use_speaker_boost`). `speed` 0.7–1.2 принимают все четыре (проверено живыми вызовами).
+
 ### Поток
 `POST /api/video/generate` (submit) → `GET /api/video/[id]/status` (polling, скачивание mp4 в S3 при `completed`)
 → `GET /api/videos/[id]` (раздача mp4 с Range). Подробнее — в `ARCHITECTURE.md`.

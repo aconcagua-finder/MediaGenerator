@@ -1,9 +1,10 @@
 import { ELEVENLABS_STS_MODEL } from "./voice-change-models"
 
 /**
- * Каталог голосов ElevenLabs для замены голоса: компактный DTO и разбор ответов
- * `GET /v1/shared-voices` (библиотека) и `GET /v1/voices` (стандартные голоса).
- * Чистые функции без сети — используются и сервером (маршрут каталога), и UI.
+ * Каталог голосов ElevenLabs (замена голоса и озвучка): компактный DTO и разбор
+ * ответов `GET /v1/shared-voices` (библиотека) и `GET /v1/voices` (стандартные
+ * голоса). Чистые функции без сети — используются и сервером (маршрут
+ * каталога), и UI.
  */
 
 /**
@@ -36,6 +37,8 @@ export interface CatalogVoice {
   previewUrl: string | null
   /** Голос проверен на русском именно для speech-to-speech модели */
   ruVerified: boolean
+  /** Модели, для которых автор подтвердил русский (`verified_languages`) */
+  ruModels: string[]
 }
 
 export interface VoiceCatalogQuery {
@@ -99,17 +102,32 @@ function str(v: unknown): string | null {
 
 /**
  * Превью: русская запись для STS-модели, иначе любая русская, иначе общее
- * превью голоса. Плюс признак «проверен на русском для STS».
+ * превью голоса. Плюс признак «проверен на русском для STS» и список моделей,
+ * для которых русский подтверждён (озвучка проверяет по своей модели).
  */
 export function pickPreview(raw: { preview_url?: unknown; verified_languages?: unknown }): {
   previewUrl: string | null
   ruVerified: boolean
+  ruModels: string[]
 } {
   const langs = Array.isArray(raw.verified_languages) ? (raw.verified_languages as RawVerifiedLanguage[]) : []
   const ru = langs.filter((l) => l && l.language === "ru")
   const sts = ru.find((l) => l.model_id === ELEVENLABS_STS_MODEL)
   const previewUrl = str(sts?.preview_url) ?? ru.map((l) => str(l.preview_url)).find(Boolean) ?? str(raw.preview_url)
-  return { previewUrl, ruVerified: Boolean(sts) }
+  const ruModels = [...new Set(ru.map((l) => str(l.model_id)).filter((m): m is string => m !== null))]
+  return { previewUrl, ruVerified: Boolean(sts), ruModels }
+}
+
+/**
+ * Проверен ли русский у голоса для данной модели. Без модели (или для STS) —
+ * признак STS; у старых сохранённых голосов без `ruModels` — тоже он.
+ */
+export function isRuVerifiedFor(
+  v: { ruVerified?: boolean; ruModels?: string[] },
+  modelId: string = ELEVENLABS_STS_MODEL,
+): boolean {
+  if (modelId === ELEVENLABS_STS_MODEL || !v.ruModels) return Boolean(v.ruVerified)
+  return v.ruModels.includes(modelId)
 }
 
 /** Голос библиотеки (`/v1/shared-voices`) → DTO; null для мусора без id/имени */

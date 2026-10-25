@@ -66,6 +66,24 @@ export interface VoiceChangeEngine {
 /** Модель ElevenLabs speech-to-speech с официальной поддержкой русского */
 export const ELEVENLABS_STS_MODEL = "eleven_multilingual_sts_v2"
 
+/**
+ * Подборка русских голосов библиотеки ElevenLabs (проверены на русском, самые
+ * используемые): голоса по умолчанию и имена для них. Общая для замены голоса
+ * и озвучки; первые женский и мужской — по умолчанию (Marina, Nikolay).
+ */
+export const ELEVENLABS_CURATED_VOICES: VoicePreset[] = [
+  { id: "ymDCYd8puC7gYjxIamPt", label: "Marina", gender: "female", hint: "мягкий, ясный, тёплый" },
+  { id: "EDpEYNf6XIeKYRzYcx4I", label: "Mariia", gender: "female", hint: "размеренный, спокойный" },
+  { id: "AB9XsbSA4eLG12t2myjN", label: "Larisa Actrisa", gender: "female", hint: "уверенный, чёткий" },
+  { id: "7G0NvIkWRnU0Dqjgz13p", label: "Kate", gender: "female", hint: "спокойный, естественный" },
+  { id: "Jbte7ht1CqapnZvc4KpK", label: "Kari", gender: "female", hint: "дружелюбный, тёплый" },
+  { id: "3EuKHIEZbSzrHGNmdYsx", label: "Nikolay", gender: "male", hint: "уверенный, чёткий" },
+  { id: "gJEfHTTiifXEDmO687lC", label: "Prince Nur", gender: "male", hint: "глубокий, насыщенный" },
+  { id: "txnCCHHGKmYIwrn7HfHQ", label: "Alexandr Vlasov", gender: "male", hint: "живой, энергичный" },
+  { id: "kwajW3Xh5svCeKU5ky2S", label: "Dmitry", gender: "male", hint: "чёткий, энергичный" },
+  { id: "ogi2DyUAKJb7CEdqqvlU", label: "Stanislav", gender: "male", hint: "глубокий, тёплый" },
+]
+
 export const VOICE_CHANGE_ENGINES: VoiceChangeEngine[] = [
   {
     id: "elevenlabs",
@@ -83,18 +101,7 @@ export const VOICE_CHANGE_ENGINES: VoiceChangeEngine[] = [
     // Русские голоса библиотеки, проверенные на eleven_multilingual_sts_v2, самые используемые
     defaultFemale: "ymDCYd8puC7gYjxIamPt",
     defaultMale: "3EuKHIEZbSzrHGNmdYsx",
-    presets: [
-      { id: "ymDCYd8puC7gYjxIamPt", label: "Marina", gender: "female", hint: "мягкий, ясный, тёплый" },
-      { id: "EDpEYNf6XIeKYRzYcx4I", label: "Mariia", gender: "female", hint: "размеренный, спокойный" },
-      { id: "AB9XsbSA4eLG12t2myjN", label: "Larisa Actrisa", gender: "female", hint: "уверенный, чёткий" },
-      { id: "7G0NvIkWRnU0Dqjgz13p", label: "Kate", gender: "female", hint: "спокойный, естественный" },
-      { id: "Jbte7ht1CqapnZvc4KpK", label: "Kari", gender: "female", hint: "дружелюбный, тёплый" },
-      { id: "3EuKHIEZbSzrHGNmdYsx", label: "Nikolay", gender: "male", hint: "уверенный, чёткий" },
-      { id: "gJEfHTTiifXEDmO687lC", label: "Prince Nur", gender: "male", hint: "глубокий, насыщенный" },
-      { id: "txnCCHHGKmYIwrn7HfHQ", label: "Alexandr Vlasov", gender: "male", hint: "живой, энергичный" },
-      { id: "kwajW3Xh5svCeKU5ky2S", label: "Dmitry", gender: "male", hint: "чёткий, энергичный" },
-      { id: "ogi2DyUAKJb7CEdqqvlU", label: "Stanislav", gender: "male", hint: "глубокий, тёплый" },
-    ],
+    presets: ELEVENLABS_CURATED_VOICES,
   },
   {
     id: "chatterbox",

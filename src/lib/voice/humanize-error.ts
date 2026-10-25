@@ -1,8 +1,14 @@
+import { humanizeElevenLabsMessage } from "@/lib/providers/elevenlabs-errors"
+
 /**
  * Перевод сырых ошибок TTS-провайдера в человекочитаемые русские сообщения.
- * Зеркалит подход video/humanize-error.ts.
+ * Зеркалит подход video/humanize-error.ts. Ошибки ElevenLabs разбираются по
+ * коду (общий с заменой голоса разбор), остальное — OpenRouter.
  */
 export function humanizeVoiceError(raw: string): string {
+  const eleven = humanizeElevenLabsMessage(raw || "", "tts")
+  if (eleven) return eleven
+
   const s = (raw || "").toLowerCase()
 
   if (s.includes("404") || s.includes("provider returned 404")) {

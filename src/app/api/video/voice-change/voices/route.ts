@@ -4,15 +4,17 @@ import { auth } from "@/lib/auth"
 import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { fetchPopularVoices, fetchVoiceCatalog } from "@/lib/providers/elevenlabs"
 import { parseCatalogQuery } from "@/lib/providers/elevenlabs-voices"
-import { getVoiceEngine, voiceEngineNoKeyMessage } from "@/lib/providers/voice-change-models"
+import { ELEVENLABS_STS_MODEL, getVoiceEngine, voiceEngineNoKeyMessage } from "@/lib/providers/voice-change-models"
+import { VOICE_MODELS, elevenLabsVerificationModel } from "@/lib/providers/voice-models"
 import { humanizeVideoError } from "@/lib/video/humanize-error"
 
 export const runtime = "nodejs"
 
 /**
- * Каталог голосов ElevenLabs для замены голоса (прокси, ключ наружу не уходит).
+ * Каталог голосов ElevenLabs для замены голоса и озвучки (прокси, ключ наружу не уходит).
  *
- *   ?popular=1                         → { female, male } — топ русских голосов, проверенных на STS
+ *   ?popular=1[&model=eleven_v4]       → { female, male } — топ русских голосов, проверенных
+ *                                        на русском для модели (по умолчанию STS — замена голоса)
  *   ?scope=ru|library|standard&gender=&age=&search=&page=&pageSize= → { voices, hasMore, page }
  *
  * Без ключа ElevenLabs — 400 с `code: "no_key"` (UI показывает подсказку).
@@ -31,7 +33,10 @@ export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams
   try {
     if (sp.get("popular") === "1") {
-      return NextResponse.json(await fetchPopularVoices(apiKey))
+      // Модель озвучки → модель, по которой ElevenLabs публикует проверку русского
+      const tts = VOICE_MODELS.find((m) => m.elevenlabs?.modelId === sp.get("model"))
+      const verifyModel = (tts && elevenLabsVerificationModel(tts)) || ELEVENLABS_STS_MODEL
+      return NextResponse.json(await fetchPopularVoices(apiKey, verifyModel))
     }
     return NextResponse.json(await fetchVoiceCatalog(apiKey, parseCatalogQuery(sp)))
   } catch (err) {
