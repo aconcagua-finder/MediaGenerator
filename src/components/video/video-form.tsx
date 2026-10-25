@@ -15,7 +15,15 @@ import { PromptInput } from "@/components/generate/prompt-input"
 import { VideoModelSelector } from "./video-model-selector"
 import { SourceUpload, type ReadySource } from "./source-upload"
 import { VoiceChangeButton } from "./voice-change-button"
-import { VoicePresetPicker } from "./voice-preset-picker"
+import { ElevenLabsVoicePicker } from "./elevenlabs-voice-picker"
+import {
+  loadVoicePick,
+  loadVoiceSettings,
+  presetVoice,
+  saveVoicePick,
+  saveVoiceSettings,
+  type PickedVoice,
+} from "./voice-prefs"
 import { useImageAttachments } from "@/hooks/use-image-attachments"
 import { AttachmentTray } from "@/components/shared/attachment-tray"
 import {
@@ -32,9 +40,12 @@ import {
 import { closestAspectRatio, MAX_SOURCE_SECONDS } from "@/lib/video/source-limits"
 import {
   AUTO_VOICE_ENGINE,
+  DEFAULT_VOICE_SETTINGS,
   estimateVoiceChangeCost,
   getVoiceEngine,
-  voicePresetTitle,
+  voiceEngineNoKeyMessage,
+  voicePriceLabel,
+  type VoiceSettings,
 } from "@/lib/providers/voice-change-models"
 import { toast } from "sonner"
 
@@ -50,8 +61,10 @@ interface VideoResult {
 }
 
 interface VoiceOverJob {
-  /** Голос ElevenLabs (имя пресета) */
+  /** Голос ElevenLabs (voice_id) */
   voice: string
+  /** Подпись голоса */
+  voiceName: string
   status: "waiting" | "processing" | "done" | "error"
   generationId?: string
   video?: VideoResult
@@ -73,6 +86,7 @@ interface VideoJob {
 
 interface VoiceOverStatus {
   voice: string
+  voiceName?: string
   generationId?: string
   error?: string
 }
@@ -83,6 +97,8 @@ interface VideoFormProps {
   hasOpenRouterKey: boolean
   /** Есть ли активный ключ fal.ai: без него fal-модели скрыты */
   hasFalKey?: boolean
+  /** Есть ли активный ключ ElevenLabs: без него автопереозвучка недоступна */
+  hasElevenLabsKey?: boolean
 }
 
 type FormMode = "generate" | "v2v"
@@ -108,7 +124,7 @@ interface VideoParams {
   character_orientation: "video" | "image"
 }
 
-export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProps) {
+export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKey = false }: VideoFormProps) {
   // Начальное состояние одинаково на сервере и клиенте (иначе гидратация ломается);
   // сохранённые в localStorage режим и модель подставляются после монтирования.
   const [formMode, setFormMode] = useState<FormMode>("generate")
@@ -133,11 +149,12 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
     character_orientation: "video",
   }))
   const [source, setSource] = useState<ReadySource | null>(null)
-  // Переозвучка результата v2v через ElevenLabs (fal.ai): выключено = исходный звук
+  // Переозвучка результата v2v через ElevenLabs: выключено = исходный звук
   const [voiceOverOn, setVoiceOverOn] = useState(false)
-  const [voiceOverVoice, setVoiceOverVoice] = useState(voiceEngine.defaultFemale)
-  const voiceOverBlocked = !hasFalKey
-    ? "Переозвучка работает через fal.ai: нужен ключ fal в настройках."
+  const [voiceOverVoice, setVoiceOverVoice] = useState<PickedVoice>(() => presetVoice(voiceEngine.defaultFemale))
+  const [voiceOverSettings, setVoiceOverSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS)
+  const voiceOverBlocked = !hasElevenLabsKey
+    ? voiceEngineNoKeyMessage(voiceEngine)
     : source && !source.hasAudio
       ? "В исходном видео нет звука, переозвучивать нечего."
       : null
@@ -145,8 +162,9 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
 
   useEffect(() => {
     setVoiceOverOn(loadSaved("video_voice_over", "") === "1")
-    const savedVoice = loadSaved("video_voice_over_voice", "")
-    if (voiceEngine.presets.some((p) => p.id === savedVoice)) setVoiceOverVoice(savedVoice)
+    // Старое значение (имя пресета fal) loadVoicePick заменит голосом по умолчанию
+    setVoiceOverVoice(loadVoicePick())
+    setVoiceOverSettings(loadVoiceSettings())
   }, [])
 
   useEffect(() => {
@@ -267,7 +285,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
     []
   )
 
-  async function pollJob(genId: string, expectVoiceOver?: string) {
+  async function pollJob(genId: string, expectVoiceOver?: { voice: string; voiceName: string }) {
     if (pollingRef.current.has(genId)) return
     pollingRef.current.add(genId)
     const maxAttempts = 240 // ~12 минут при шаге 3с
@@ -299,7 +317,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
       if (data.status === "done") {
         // Заказанная переозвучка, о которой сервер ещё не отчитался (гонка опросов) — ждём
         const vo: VoiceOverStatus | undefined =
-          data.voiceOver ?? (expectVoiceOver ? { voice: expectVoiceOver } : undefined)
+          data.voiceOver ?? (expectVoiceOver ? { ...expectVoiceOver } : undefined)
         let voPending = Boolean(vo && !vo.generationId && !vo.error)
         if (voPending && ++voWaitAttempts > VO_WAIT_MAX) {
           voPending = false
@@ -316,6 +334,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
                 ? {
                     voiceOver: {
                       voice: vo.voice,
+                      voiceName: vo.voiceName || vo.voice,
                       status: vo.error ? "error" : vo.generationId ? "processing" : "waiting",
                       generationId: vo.generationId,
                       error: vo.error,
@@ -330,7 +349,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
           toast.success("Видео готово!", {
             description: [
               typeof data.cost === "number" ? `Стоимость: $${data.cost.toFixed(3)}` : null,
-              vo && !vo.error ? `Переозвучиваем голосом ${vo.voice}` : null,
+              vo && !vo.error ? `Переозвучиваем голосом ${vo.voiceName || vo.voice}` : null,
             ]
               .filter(Boolean)
               .join(" · ") || undefined,
@@ -451,7 +470,15 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
             ? {
                 sourceId: source!.id,
                 ...(model.requiresCharacterImage ? { characterUploadId: uploadId } : {}),
-                ...(voiceOverActive ? { voiceOver: { voice: voiceOverVoice } } : {}),
+                ...(voiceOverActive
+                  ? {
+                      voiceOver: {
+                        voice: voiceOverVoice.id,
+                        voiceName: voiceOverVoice.name,
+                        settings: voiceOverSettings,
+                      },
+                    }
+                  : {}),
               }
             : uploadId
               ? { uploadId }
@@ -480,7 +507,9 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
         modelName: model.name,
         aspect: isV2V && source?.width && source?.height ? `${source.width}:${source.height}` : params.aspect_ratio || "16:9",
         startedAt: Date.now(),
-        ...(voiceOverActive ? { voiceOver: { voice: voiceOverVoice, status: "waiting" as const } } : {}),
+        ...(voiceOverActive
+          ? { voiceOver: { voice: voiceOverVoice.id, voiceName: voiceOverVoice.name, status: "waiting" as const } }
+          : {}),
       }
       setJobs((prev) => [job, ...prev])
       att.clear()
@@ -489,7 +518,10 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
           ? "Обработка видео обычно занимает 1–3 минуты"
           : "Генерация видео обычно занимает 30 сек – 2 минуты",
       })
-      void pollJob(data.videoGenerationId, voiceOverActive ? voiceOverVoice : undefined)
+      void pollJob(
+        data.videoGenerationId,
+        voiceOverActive ? { voice: voiceOverVoice.id, voiceName: voiceOverVoice.name } : undefined,
+      )
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Не удалось подключиться к серверу"
       toast.error("Сетевая ошибка", { description: msg })
@@ -693,7 +725,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
           {isV2V ? (
             <p className="mt-3 text-[11px] leading-snug text-neutral-500">
               {voiceOverActive
-                ? `Звук результата переозвучится голосом ${voiceOverVoice} (ElevenLabs). Длина результата равна длине исходного видео.`
+                ? `Звук результата переозвучится голосом ${voiceOverVoice.name} (ElevenLabs). Длина результата равна длине исходного видео.`
                 : "Звук исходного видео сохраняется в результате. Длина результата равна длине исходного видео."}
             </p>
           ) : (
@@ -804,18 +836,22 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false }: VideoFormProp
                   <p className="text-[11px] leading-snug text-neutral-500">{voiceOverBlocked}</p>
                 ) : voiceOverActive ? (
                   <>
-                    <VoicePresetPicker
-                      engine={voiceEngine}
-                      value={voiceOverVoice}
-                      onChange={(v) => {
+                    <ElevenLabsVoicePicker
+                      voice={voiceOverVoice}
+                      onVoiceChange={(v) => {
                         setVoiceOverVoice(v)
-                        savePref("video_voice_over_voice", v)
+                        saveVoicePick(v)
+                      }}
+                      settings={voiceOverSettings}
+                      onSettingsChange={(s) => {
+                        setVoiceOverSettings(s)
+                        saveVoiceSettings(s)
                       }}
                       disabled={isSubmitting}
                     />
                     <p className="text-[11px] leading-snug text-neutral-600">
-                      После готовности речь из ролика заменится голосом ElevenLabs с той же интонацией
-                      (${voiceEngine.pricePerMinute.toFixed(2)} за каждую начатую минуту). В библиотеке останутся обе версии.
+                      После готовности видео речь в нём заменится выбранным голосом ElevenLabs
+                      ({voicePriceLabel(voiceEngine)}). В библиотеке останутся обе версии.
                     </p>
                   </>
                 ) : null}
@@ -953,7 +989,7 @@ function VideoCard({ job }: { job: VideoJob }) {
               <>
                 <Mic2 className="size-3.5 shrink-0 text-x-blue" />
                 <span className="min-w-0 flex-1 truncate text-neutral-400">
-                  Переозвучено: {voicePresetTitle(voiceEngine.presets.find((p) => p.id === vo.voice) ?? voiceEngine.presets[0])}
+                  Переозвучено: {vo.voiceName}
                 </span>
                 <a
                   href={job.video.url}
@@ -968,7 +1004,7 @@ function VideoCard({ job }: { job: VideoJob }) {
             ) : (
               <>
                 <Loader2 className="size-3.5 shrink-0 animate-spin text-x-blue" />
-                <span className="text-neutral-400">Переозвучиваем голосом {vo.voice}…</span>
+                <span className="text-neutral-400">Переозвучиваем голосом {vo.voiceName}…</span>
               </>
             )}
           </div>

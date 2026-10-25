@@ -222,16 +222,17 @@ describe("fal: submit / poll по очереди (mock fetch)", () => {
   })
 })
 
-describe("замена голоса: движки и тела запросов", () => {
+describe("замена голоса через fal: Chatterbox HD", () => {
   const eleven = getVoiceEngine("elevenlabs")!
   const chatter = getVoiceEngine("chatterbox")!
 
-  it("движки и цены по fal.ai: ElevenLabs $0.30/мин, Chatterbox HD $0.02/мин", () => {
-    expect(eleven.endpoint).toBe("fal-ai/elevenlabs/voice-changer")
+  it("Chatterbox HD на fal, $0.02 за начатую минуту; ElevenLabs ушёл с fal", () => {
     expect(chatter.endpoint).toBe("resemble-ai/chatterboxhd/speech-to-speech")
-    expect(eleven.pricePerMinute).toBeCloseTo(0.3, 4)
+    expect(chatter.provider).toBe("fal")
     expect(chatter.pricePerMinute).toBeCloseTo(0.02, 4)
-    expect(getVoiceEngineByEndpoint("fal-ai/elevenlabs/voice-changer")?.id).toBe("elevenlabs")
+    expect(estimateVoiceChangeCost(chatter, 30)).toBeCloseTo(0.02, 4)
+    expect(eleven.provider).toBe("elevenlabs")
+    expect(getVoiceEngineByEndpoint("resemble-ai/chatterboxhd/speech-to-speech")?.id).toBe("chatterbox")
     expect(getVoiceEngine("nope")).toBeNull()
   })
 
@@ -244,31 +245,20 @@ describe("замена голоса: движки и тела запросов",
     expect(chatter.supportsSample).toBe(true)
   })
 
-  it("оценка: цена за минуту × начатые минуты (fal округляет вверх)", () => {
-    expect(estimateVoiceChangeCost(eleven, 60)).toBeCloseTo(0.3, 4)
-    expect(estimateVoiceChangeCost(eleven, 7)).toBeCloseTo(0.3, 4)
-    expect(estimateVoiceChangeCost(eleven, 61)).toBeCloseTo(0.6, 4)
-    expect(estimateVoiceChangeCost(chatter, 30)).toBeCloseTo(0.02, 4)
-    expect(estimateVoiceChangeCost(eleven, 0)).toBe(0)
+  it("тело fal собирается только для движков fal", () => {
+    expect(() => buildVoiceChangeInput({ engine: eleven, audioUrl: AUD })).toThrow()
   })
 
-  it("ElevenLabs: audio_url + voice (невалидный пресет → первый)", () => {
-    expect(buildVoiceChangeInput({ engine: eleven, audioUrl: AUD, presetId: "Brian" })).toEqual({
-      audio_url: AUD,
-      voice: "Brian",
-      remove_background_noise: false,
-      output_format: "mp3_44100_128",
-    })
-    expect(buildVoiceChangeInput({ engine: eleven, audioUrl: AUD, presetId: "Hacker" }).voice).toBe(eleven.presets[0].id)
-    expect(resolveVoicePreset(eleven, undefined).id).toBe(eleven.presets[0].id)
-  })
-
-  it("Chatterbox: пресет → target_voice, образец → target_voice_audio_url (перекрывает пресет)", () => {
+  it("Chatterbox: пресет → target_voice (невалидный → первый), образец → target_voice_audio_url", () => {
     expect(buildVoiceChangeInput({ engine: chatter, audioUrl: AUD, presetId: "Vicky" })).toEqual({
       source_audio_url: AUD,
       high_quality_audio: false,
       target_voice: "Vicky",
     })
+    expect(buildVoiceChangeInput({ engine: chatter, audioUrl: AUD, presetId: "Hacker" }).target_voice).toBe(
+      chatter.presets[0].id,
+    )
+    expect(resolveVoicePreset(chatter, undefined).id).toBe(chatter.presets[0].id)
     const withSample = buildVoiceChangeInput({
       engine: chatter,
       audioUrl: AUD,
@@ -280,7 +270,7 @@ describe("замена голоса: движки и тела запросов",
   })
 
   it("аудио-ссылка только HTTPS", () => {
-    expect(() => buildVoiceChangeInput({ engine: eleven, audioUrl: "http://x/a.mp3" })).toThrow()
+    expect(() => buildVoiceChangeInput({ engine: chatter, audioUrl: "http://x/a.mp3" })).toThrow()
     expect(() => buildVoiceChangeInput({ engine: chatter, audioUrl: AUD, sampleUrl: "data:audio/wav;base64,AA" })).toThrow()
   })
 })

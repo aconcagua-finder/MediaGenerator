@@ -3,35 +3,46 @@ import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { hasActiveProviderKey } from "@/lib/provider-keys"
 import { startVoiceChange } from "@/lib/video/voice-change"
+import { VOICE_CHANGE_ENGINES } from "@/lib/providers/voice-change-models"
 
 export const runtime = "nodejs"
-export const maxDuration = 120
+export const maxDuration = 180
 
 interface VoiceChangeBody {
   /** id видео из библиотеки (`videos.id`) */
   videoId: string
   engine: string
-  /** Имя пресета голоса (см. voice-change-models.ts) */
+  /** Пресет голоса (Chatterbox) или voice_id ElevenLabs (см. voice-change-models.ts) */
   voice?: string
+  /** ElevenLabs: имя выбранного голоса (подпись задачи) */
+  voiceName?: string
+  /** ElevenLabs: тонкие настройки (санитизируются на сервере) */
+  settings?: unknown
   /** Chatterbox: id загруженного образца голоса (`POST /api/video/source?kind=audio`) */
   sampleSourceId?: string
 }
 
 /**
- * Доступна ли замена голоса (есть ли активный ключ fal.ai) — UI скрывает кнопку,
- * пока ключа нет.
+ * Доступна ли замена голоса: по движкам (ElevenLabs — ключ ElevenLabs,
+ * Chatterbox HD — ключ fal.ai). UI скрывает кнопку, пока нет ни одного ключа,
+ * и делает серым движок без ключа.
  */
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {
     return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
   }
-  const available = await hasActiveProviderKey(session.user.id, "fal")
-  return NextResponse.json({ available })
+  const userId = session.user.id
+  const providers = [...new Set(VOICE_CHANGE_ENGINES.map((e) => e.provider))]
+  const keys = new Map(
+    await Promise.all(providers.map(async (p) => [p, await hasActiveProviderKey(userId, p)] as const)),
+  )
+  const engines = Object.fromEntries(VOICE_CHANGE_ENGINES.map((e) => [e.id, keys.get(e.provider) ?? false]))
+  return NextResponse.json({ available: Object.values(engines).some(Boolean), engines })
 }
 
 /**
- * Пост-шаг «Заменить голос» на готовом видео библиотеки (через fal.ai).
+ * Пост-шаг «Заменить голос» на готовом видео библиотеки (ElevenLabs или fal.ai).
  * Вся логика — в `startVoiceChange` (её же зовёт автопереозвучка после v2v).
  */
 export async function POST(request: NextRequest) {
@@ -47,6 +58,8 @@ export async function POST(request: NextRequest) {
       videoId: body.videoId,
       engine: body.engine,
       voice: body.voice,
+      voiceName: body.voiceName,
+      settings: body.settings,
       sampleSourceId: body.sampleSourceId,
     })
     if (!result.ok) {

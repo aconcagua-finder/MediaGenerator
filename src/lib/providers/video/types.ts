@@ -68,6 +68,11 @@ export interface VideoPollResult {
 export interface VideoProvider {
   /** Идентификатор провайдера */
   id: string
+  /**
+   * Результат уже лежит у нас (ElevenLabs отвечает синхронно): опрос и
+   * скачивание не ходят к провайдеру, поэтому ключ для них не обязателен.
+   */
+  pollsWithoutKey?: boolean
   /** Отправить задачу на генерацию, получить job id */
   submit(request: VideoSubmitRequest): Promise<VideoSubmitResult>
   /** Опросить статус задачи */

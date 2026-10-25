@@ -1,7 +1,10 @@
+import type { VoiceSettings } from "@/lib/providers/voice-change-models"
+
 /**
  * Состояние автопереозвучки v2v-генерации в `params.voice_over` (jsonb):
- * `{ engine, voice }` при запуске генерации, затем дописываются
- * `generation_id` (задача замены голоса) или `error`.
+ * `{ engine, voice, voice_name, settings }` при запуске генерации, затем
+ * дописываются `generation_id` (задача замены голоса) или `error`.
+ * У задач до перехода на прямой ElevenLabs `voice_name`/`settings` нет.
  */
 
 /**
@@ -10,6 +13,8 @@
  */
 export interface VoiceOverFollowUp {
   voice: string
+  /** Подпись голоса для UI (у старых задач — сам voice) */
+  voiceName: string
   generationId?: string
   error?: string
 }
@@ -17,6 +22,8 @@ export interface VoiceOverFollowUp {
 export interface VoiceOverParams {
   engine: string
   voice: string
+  voice_name?: string
+  settings?: VoiceSettings
   generation_id?: string
   error?: string
 }
@@ -28,10 +35,11 @@ export function readVoiceOver(params: unknown): VoiceOverParams | null {
 
 export function voiceOverDto(vo: VoiceOverParams | null): VoiceOverFollowUp | undefined {
   if (!vo) return undefined
+  const voiceName = vo.voice_name || vo.voice
   if (!vo.generation_id && !vo.error) {
     // Запуск ещё не записан (идёт прямо сейчас в другом опросе)
-    return { voice: vo.voice }
+    return { voice: vo.voice, voiceName }
   }
-  return { voice: vo.voice, generationId: vo.generation_id, error: vo.error }
+  return { voice: vo.voice, voiceName, generationId: vo.generation_id, error: vo.error }
 }
 

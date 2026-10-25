@@ -1,18 +1,32 @@
 /**
- * Движки пост-шага «Заменить голос» на готовом видео (через fal.ai):
+ * Движки пост-шага «Заменить голос» на готовом видео:
  * звук вынимается ffmpeg'ом, отправляется на конвертацию голоса, затем
  * подкладывается обратно в видео (`-c:v copy`) — видеодорожка не перекодируется.
  *
- * Цены и входы — по fal.ai/models/<id>/llms.txt. Живые вызовы проверены 2026-10-23
- * (все пресеты). Chatterbox отдаёт WAV. ❗ fal списывает за каждую НАЧАТУЮ минуту
- * (7-секундный клип ElevenLabs = $0.30), см. estimateVoiceChangeCost.
- * Акцент результата берётся из исходной речи: голос меняется, произношение нет.
+ * - ElevenLabs — напрямую через API ElevenLabs (`eleven_multilingual_sts_v2`,
+ *   официально поддерживает русский). Голос — любой voice_id из библиотеки
+ *   ElevenLabs (каталог: `GET /api/video/voice-change/voices`), `presets` здесь
+ *   лишь подборка с именами для голосов по умолчанию. Биллинг пропорционален
+ *   длине звука (22 сек = 216 кредитов, проверено 2026-10-25).
+ * - Chatterbox HD — через fal.ai, готовые пресеты или образец голоса.
+ *   ❗ fal списывает за каждую НАЧАТУЮ минуту (проверено 2026-10-23).
+ *
+ * Акцент результата берётся из исходной речи: меняется тембр, произношение нет.
  */
 
 export type VoiceChangeEngineId = "elevenlabs" | "chatterbox"
 
+/** Чей ключ нужен движку (провайдер в `api_keys` и `video_generations.provider`) */
+export type VoiceEngineProvider = "fal" | "elevenlabs"
+
+/**
+ * Как провайдер считает минуты: `per_started_minute` — каждый запрос
+ * округляется вверх до целой минуты (fal), `prorated` — по фактической длине.
+ */
+export type VoiceBillingMode = "per_started_minute" | "prorated"
+
 export interface VoicePreset {
-  /** Значение, которое уходит в fal (имя голоса) */
+  /** Значение, которое уходит провайдеру (имя голоса fal или voice_id ElevenLabs) */
   id: string
   /** Подпись для UI */
   label: string
@@ -25,61 +39,73 @@ export interface VoicePreset {
 
 export interface VoiceChangeEngine {
   id: VoiceChangeEngineId
-  /** Endpoint fal (model id) */
+  provider: VoiceEngineProvider
+  /** Модель провайдера (endpoint fal или model_id ElevenLabs), пишется в `video_generations.model` */
   endpoint: string
+  /** Прежние значения `model` у старых задач этого движка (ElevenLabs раньше шёл через fal) */
+  legacyEndpoints?: string[]
   name: string
   description: string
   /** USD за минуту входного звука */
   pricePerMinute: number
+  billing: VoiceBillingMode
   presets: VoicePreset[]
+  /** Голос — любой voice_id каталога провайдера, а не только `presets` */
+  dynamicVoices: boolean
+  /** Есть тонкие настройки голоса (VoiceSettings) */
+  supportsSettings: boolean
   /** Умеет ли брать голос по образцу пользователя (`target_voice_audio_url`) */
   supportsSample: boolean
+  /** Максимальная длина звука за один запрос, сек */
+  maxAudioSeconds?: number
   /** Голоса по умолчанию для быстрого выбора «женский / мужской» */
   defaultFemale: string
   defaultMale: string
 }
 
+/** Модель ElevenLabs speech-to-speech с официальной поддержкой русского */
+export const ELEVENLABS_STS_MODEL = "eleven_multilingual_sts_v2"
+
 export const VOICE_CHANGE_ENGINES: VoiceChangeEngine[] = [
   {
     id: "elevenlabs",
-    endpoint: "fal-ai/elevenlabs/voice-changer",
+    provider: "elevenlabs",
+    endpoint: ELEVENLABS_STS_MODEL,
+    legacyEndpoints: ["fal-ai/elevenlabs/voice-changer"],
     name: "ElevenLabs",
-    description: "Лучшая естественность и сохранение интонации. Голоса из готового набора. Цена выше.",
-    pricePerMinute: 0.3,
+    description: "Лучшая естественность, родные русские голоса из библиотеки ElevenLabs, тонкие настройки.",
+    pricePerMinute: 0.12,
+    billing: "prorated",
+    dynamicVoices: true,
+    supportsSettings: true,
     supportsSample: false,
-    // Полный набор голосов, который принимает fal (поле `voice`, см. llms.txt модели)
-    defaultFemale: "Jessica",
-    defaultMale: "Brian",
+    maxAudioSeconds: 300,
+    // Русские голоса библиотеки, проверенные на eleven_multilingual_sts_v2, самые используемые
+    defaultFemale: "ymDCYd8puC7gYjxIamPt",
+    defaultMale: "3EuKHIEZbSzrHGNmdYsx",
     presets: [
-      { id: "Jessica", label: "Jessica", gender: "female", hint: "молодая, живая, игривая", preview: true },
-      { id: "Sarah", label: "Sarah", gender: "female", hint: "мягкая, деловая", preview: true },
-      { id: "Rachel", label: "Rachel", gender: "female", hint: "спокойная, ровная" },
-      { id: "Aria", label: "Aria", gender: "female", hint: "выразительная, с хрипотцой" },
-      { id: "Laura", label: "Laura", gender: "female", hint: "бодрая, задорная" },
-      { id: "Charlotte", label: "Charlotte", gender: "female", hint: "низкая, обволакивающая" },
-      { id: "Alice", label: "Alice", gender: "female", hint: "уверенная, британская" },
-      { id: "Matilda", label: "Matilda", gender: "female", hint: "тёплая, дружелюбная" },
-      { id: "Lily", label: "Lily", gender: "female", hint: "бархатная, британская" },
-      { id: "River", label: "River", gender: "female", hint: "андрогинная, расслабленная" },
-      { id: "Brian", label: "Brian", gender: "male", hint: "глубокий, дикторский", preview: true },
-      { id: "George", label: "George", gender: "male", hint: "тёплый рассказчик", preview: true },
-      { id: "Daniel", label: "Daniel", gender: "male", hint: "строгий, новостной" },
-      { id: "Eric", label: "Eric", gender: "male", hint: "мягкий, обаятельный" },
-      { id: "Chris", label: "Chris", gender: "male", hint: "простой, разговорный" },
-      { id: "Liam", label: "Liam", gender: "male", hint: "молодой, чёткий" },
-      { id: "Will", label: "Will", gender: "male", hint: "молодой, дружелюбный" },
-      { id: "Roger", label: "Roger", gender: "male", hint: "уверенный, лёгкий" },
-      { id: "Charlie", label: "Charlie", gender: "male", hint: "непринуждённый" },
-      { id: "Callum", label: "Callum", gender: "male", hint: "с хрипотцой, напряжённый" },
-      { id: "Bill", label: "Bill", gender: "male", hint: "возрастной, надёжный" },
+      { id: "ymDCYd8puC7gYjxIamPt", label: "Marina", gender: "female", hint: "мягкий, ясный, тёплый" },
+      { id: "EDpEYNf6XIeKYRzYcx4I", label: "Mariia", gender: "female", hint: "размеренный, спокойный" },
+      { id: "AB9XsbSA4eLG12t2myjN", label: "Larisa Actrisa", gender: "female", hint: "уверенный, чёткий" },
+      { id: "7G0NvIkWRnU0Dqjgz13p", label: "Kate", gender: "female", hint: "спокойный, естественный" },
+      { id: "Jbte7ht1CqapnZvc4KpK", label: "Kari", gender: "female", hint: "дружелюбный, тёплый" },
+      { id: "3EuKHIEZbSzrHGNmdYsx", label: "Nikolay", gender: "male", hint: "уверенный, чёткий" },
+      { id: "gJEfHTTiifXEDmO687lC", label: "Prince Nur", gender: "male", hint: "глубокий, насыщенный" },
+      { id: "txnCCHHGKmYIwrn7HfHQ", label: "Alexandr Vlasov", gender: "male", hint: "живой, энергичный" },
+      { id: "kwajW3Xh5svCeKU5ky2S", label: "Dmitry", gender: "male", hint: "чёткий, энергичный" },
+      { id: "ogi2DyUAKJb7CEdqqvlU", label: "Stanislav", gender: "male", hint: "глубокий, тёплый" },
     ],
   },
   {
     id: "chatterbox",
+    provider: "fal",
     endpoint: "resemble-ai/chatterboxhd/speech-to-speech",
     name: "Chatterbox HD",
     description: "Очень дёшево. Можно взять голос из своего образца (файл с голосом 10-30 сек).",
     pricePerMinute: 0.02,
+    billing: "per_started_minute",
+    dynamicVoices: false,
+    supportsSettings: false,
     supportsSample: true,
     defaultFemale: "Aurora",
     defaultMale: "Richard",
@@ -99,7 +125,9 @@ export function getVoiceEngine(id: string): VoiceChangeEngine | null {
 }
 
 export function getVoiceEngineByEndpoint(endpoint: string): VoiceChangeEngine | null {
-  return VOICE_CHANGE_ENGINES.find((e) => e.endpoint === endpoint) ?? null
+  return (
+    VOICE_CHANGE_ENGINES.find((e) => e.endpoint === endpoint || e.legacyEndpoints?.includes(endpoint)) ?? null
+  )
 }
 
 /** Пресет по id; при невалидном — первый пресет движка */
@@ -107,17 +135,107 @@ export function resolveVoicePreset(engine: VoiceChangeEngine, presetId: string |
   return engine.presets.find((p) => p.id === presetId) ?? engine.presets[0]
 }
 
-/** Подпись пресета с полом: «Jessica (женский)» */
+/** Подпись пресета с полом: «Aurora (женский)» */
 export function voicePresetTitle(preset: VoicePreset): string {
   return `${preset.label} (${preset.gender === "female" ? "женский" : "мужской"})`
 }
 
+/** voice_id ElevenLabs: 20 латинских букв и цифр */
+const ELEVENLABS_VOICE_ID = /^[A-Za-z0-9]{20}$/
+
+export function isElevenLabsVoiceId(value: unknown): value is string {
+  return typeof value === "string" && ELEVENLABS_VOICE_ID.test(value)
+}
+
+const VOICE_NAME_MAX = 80
+
+/**
+ * Имя голоса, присланное клиентом (оно же подпись задачи в библиотеке):
+ * без управляющих символов, пробелы схлопнуты, не длиннее 80 символов.
+ */
+export function sanitizeVoiceName(raw: unknown): string {
+  if (typeof raw !== "string") return ""
+  const clean = raw.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e]/g, " ").replace(/\s+/g, " ").trim()
+  return clean.length > VOICE_NAME_MAX ? clean.slice(0, VOICE_NAME_MAX).trimEnd() : clean
+}
+
+export interface ResolvedVoice {
+  /** Значение для провайдера: voice_id ElevenLabs или имя пресета fal */
+  id: string
+  /** Подпись для задачи и UI */
+  name: string
+}
+
+/**
+ * Голос из запроса. ElevenLabs: любой корректный voice_id + имя от клиента
+ * (если имени нет — из подборки, иначе общая подпись); Chatterbox: пресет.
+ * Невалидный голос (в т.ч. имя старого пресета fal вроде «Jessica») —
+ * женский голос по умолчанию.
+ */
+export function resolveVoice(engine: VoiceChangeEngine, rawId: unknown, rawName?: unknown): ResolvedVoice {
+  if (engine.dynamicVoices) {
+    if (isElevenLabsVoiceId(rawId)) {
+      const known = engine.presets.find((p) => p.id === rawId)
+      return { id: rawId, name: sanitizeVoiceName(rawName) || known?.label || `голос ${engine.name}` }
+    }
+    const def = resolveVoicePreset(engine, engine.defaultFemale)
+    return { id: def.id, name: def.label }
+  }
+  const preset = resolveVoicePreset(engine, typeof rawId === "string" ? rawId : undefined)
+  return { id: preset.id, name: preset.label }
+}
+
+/**
+ * Тонкие настройки голоса ElevenLabs (имена полей как в API). Хранятся в
+ * `params.voice_settings` задачи и в `params.voice_over.settings` v2v.
+ */
+export interface VoiceSettings {
+  /** 0..1: выше — ровнее и предсказуемее, ниже — эмоциональнее */
+  stability: number
+  /** 0..1: насколько близко держаться тембра выбранного голоса */
+  similarity_boost: number
+  /** 0..1: усиление характерной манеры голоса (выразительность) */
+  style: number
+  use_speaker_boost: boolean
+  /** Чистка фона исходной записи перед конвертацией */
+  remove_background_noise: boolean
+}
+
+export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
+  stability: 0.5,
+  similarity_boost: 0.75,
+  style: 0,
+  use_speaker_boost: true,
+  // Лучший ручной результат на русской речи был с чисткой фона
+  remove_background_noise: true,
+}
+
+function unit(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback
+  return Math.round(Math.min(1, Math.max(0, value)) * 100) / 100
+}
+
+function bool(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback
+}
+
+/** Настройки из запроса: числа зажаты в [0, 1], всё некорректное — по умолчанию */
+export function sanitizeVoiceSettings(raw: unknown): VoiceSettings {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
+  const d = DEFAULT_VOICE_SETTINGS
+  return {
+    stability: unit(r.stability, d.stability),
+    similarity_boost: unit(r.similarity_boost, d.similarity_boost),
+    style: unit(r.style, d.style),
+    use_speaker_boost: bool(r.use_speaker_boost, d.use_speaker_boost),
+    remove_background_noise: bool(r.remove_background_noise, d.remove_background_noise),
+  }
+}
+
 /**
  * Превью пресета (лежит в `public/voice-previews`) или null, если его не
- * записывали. Сделано тем же движком fal, что и сама замена голоса: мужские
- * голоса из живой речи (селфи), женские из речи ElevenLabs TTS (Bella).
- * Превью есть только у пресетов с `preview: true`: каждый вызов ElevenLabs
- * стоит $0.30, поэтому записаны только топовые голоса.
+ * записывали. Только Chatterbox: у голосов ElevenLabs превью отдаёт каталог
+ * (`previewUrl`, публичный mp3 ElevenLabs).
  */
 export function voicePreviewUrl(engine: VoiceChangeEngine, presetId: string): string | null {
   const preset = engine.presets.find((p) => p.id === presetId)
@@ -131,32 +249,48 @@ export const AUTO_VOICE_ENGINE: VoiceChangeEngineId = "elevenlabs"
 export interface VoiceOverSetting {
   engine: VoiceChangeEngineId
   voice: string
+  voice_name: string
+  settings: VoiceSettings
 }
 
 /**
- * Санитизация запроса автопереозвучки из тела `/api/video/generate`.
- * null — переозвучка не нужна (оставляем исходный звук); неизвестный голос
- * заменяется женским голосом по умолчанию.
+ * Санитизация запроса автопереозвучки из тела `/api/video/generate`
+ * (`{ voice, voiceName?, settings? }`). null — переозвучка не нужна (оставляем
+ * исходный звук); неизвестный голос заменяется женским голосом по умолчанию.
  */
 export function parseVoiceOver(raw: unknown): VoiceOverSetting | null {
   if (!raw || typeof raw !== "object") return null
-  const voice = (raw as { voice?: unknown }).voice
+  const r = raw as { voice?: unknown; voiceName?: unknown; settings?: unknown }
   const engine = getVoiceEngine(AUTO_VOICE_ENGINE)!
-  const valid = typeof voice === "string" && engine.presets.some((p) => p.id === voice)
-  return { engine: engine.id, voice: valid ? voice : engine.defaultFemale }
+  const voice = resolveVoice(engine, r.voice, r.voiceName)
+  return { engine: engine.id, voice: voice.id, voice_name: voice.name, settings: sanitizeVoiceSettings(r.settings) }
 }
 
 /**
- * Оценка: цена за минуту × число начатых минут звука. fal округляет каждый
- * запрос вверх до целой минуты (биллинг: 7 сек = 1 minute), фактическую
- * стоимость в ответе не отдаёт.
+ * Оценка: цена за минуту × минуты звука. fal округляет каждый запрос вверх до
+ * целой минуты (7 сек = 1 минута), ElevenLabs считает по фактической длине.
+ * Фактическую стоимость в ответе ни тот, ни другой не отдаёт.
  */
 export function estimateVoiceChangeCost(engine: VoiceChangeEngine, audioSeconds: number): number {
   if (!(audioSeconds > 0)) return 0
-  return Math.ceil(audioSeconds / 60) * engine.pricePerMinute
+  const minutes = engine.billing === "per_started_minute" ? Math.ceil(audioSeconds / 60) : audioSeconds / 60
+  return minutes * engine.pricePerMinute
 }
 
-/** Тело запроса к fal. Для Chatterbox образец голоса (URL) перекрывает пресет. */
+/** Текст ошибки, когда у движка нет ключа провайдера */
+export function voiceEngineNoKeyMessage(engine: VoiceChangeEngine): string {
+  return engine.provider === "elevenlabs"
+    ? "Нужен ключ ElevenLabs. Администратор добавляет его в Настройках."
+    : "Нужен ключ fal.ai. Администратор добавляет его в Настройках."
+}
+
+/** Подпись цены движка для UI */
+export function voicePriceLabel(engine: VoiceChangeEngine): string {
+  const unitLabel = engine.billing === "per_started_minute" ? "за начатую минуту" : "за минуту"
+  return `$${engine.pricePerMinute.toFixed(2)} ${unitLabel}`
+}
+
+/** Тело запроса к fal (Chatterbox HD). Образец голоса (URL) перекрывает пресет. */
 export function buildVoiceChangeInput(opts: {
   engine: VoiceChangeEngine
   audioUrl: string
@@ -164,16 +298,10 @@ export function buildVoiceChangeInput(opts: {
   sampleUrl?: string
 }): Record<string, unknown> {
   const { engine, audioUrl } = opts
-  assertHttps(audioUrl)
-  if (engine.id === "elevenlabs") {
-    return {
-      audio_url: audioUrl,
-      voice: resolveVoicePreset(engine, opts.presetId).id,
-      remove_background_noise: false,
-      output_format: "mp3_44100_128",
-    }
+  if (engine.provider !== "fal") {
+    throw new Error(`${engine.name} работает не через fal.ai`)
   }
-  // chatterbox
+  assertHttps(audioUrl)
   const input: Record<string, unknown> = {
     source_audio_url: audioUrl,
     high_quality_audio: false,
