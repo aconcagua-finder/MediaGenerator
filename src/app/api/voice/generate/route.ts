@@ -10,17 +10,20 @@ import {
   resolveVoice,
   clampSpeed,
   estimateVoiceCost,
+  sanitizeTtsSettings,
+  voiceLabel,
 } from "@/lib/providers/voice-models"
 import { runVoiceGeneration } from "@/lib/voice/generate"
-
-// Все TTS-модели идут через OpenRouter (тот же ключ, что у картинок/видео/чата)
-const VOICE_PROVIDER = "openrouter"
 
 interface GenerateVoiceBody {
   model: string
   text: string
   voice?: string
   speed?: number
+  /** ElevenLabs: имя голоса из каталога (подпись в библиотеке) */
+  voiceName?: string
+  /** ElevenLabs: тонкие настройки (санитизируются по модели) */
+  settings?: unknown
 }
 
 export async function POST(request: NextRequest) {
@@ -57,9 +60,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Санитизация параметров по возможностям модели
+    // Санитизация параметров по возможностям модели. ElevenLabs: скорость и
+    // прочее — внутри settings (voice_settings), имя голоса — для подписи.
     const voice = resolveVoice(voiceModel, body.voice)
-    const speed = clampSpeed(voiceModel, body.speed)
+    const isElevenLabs = voiceModel.provider === "elevenlabs"
+    const params: Record<string, unknown> = isElevenLabs
+      ? {
+          voice_name: voiceLabel(voiceModel, voice, body.voiceName),
+          settings: sanitizeTtsSettings(voiceModel, body.settings),
+        }
+      : { speed: clampSpeed(voiceModel, body.speed) }
 
     const isAdmin = session.user.role === "admin"
     const estimate = estimateVoiceCost(voiceModel, text.length)
@@ -129,11 +139,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Ключ OpenRouter (тот же, что у картинок/видео)
-    const apiKey = await getDecryptedApiKey(session.user.id, VOICE_PROVIDER)
+    // 4. Ключ провайдера модели (OpenRouter — тот же, что у картинок/видео; ElevenLabs — свой)
+    const apiKey = await getDecryptedApiKey(session.user.id, voiceModel.provider)
     if (!apiKey) {
       return NextResponse.json(
-        { error: "API ключ OpenRouter не настроен. Добавьте его в Настройках." },
+        {
+          error: isElevenLabs
+            ? "Нужен ключ ElevenLabs. Администратор добавляет его в Настройках."
+            : "API ключ OpenRouter не настроен. Добавьте его в Настройках.",
+        },
         { status: 400 },
       )
     }
@@ -143,12 +157,12 @@ export async function POST(request: NextRequest) {
       .insert(voiceGenerations)
       .values({
         userId: session.user.id,
-        provider: VOICE_PROVIDER,
+        provider: voiceModel.provider,
         model,
         text,
         voice,
         format: voiceModel.outputFormat,
-        params: { speed },
+        params,
         status: "processing",
       })
       .returning({ id: voiceGenerations.id })

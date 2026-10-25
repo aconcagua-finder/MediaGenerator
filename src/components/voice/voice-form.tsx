@@ -1,18 +1,33 @@
 "use client"
 
-import { useState, useCallback, useMemo, useRef } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { AudioLines, Loader2, DollarSign, Download } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { VoiceModelSelector } from "./voice-model-selector"
 import { VoiceSelector } from "./voice-selector"
+import { AudioTagChips, ElevenLabsTtsOptions } from "./elevenlabs-tts-options"
+import {
+  loadRawVoiceSettings,
+  loadVoicePick,
+  presetVoice,
+  saveRawVoiceSettings,
+  saveVoicePick,
+  type PickedVoice,
+} from "@/components/elevenlabs/voice-prefs"
 import {
   VOICE_MODELS,
   getVoiceModel,
   resolveVoice,
   estimateVoiceCost,
+  normalizeTtsSettings,
   DEFAULT_VOICE_MODEL,
+  DEFAULT_ELEVENLABS_VOICE_MODEL,
+  DEFAULT_TTS_SETTINGS,
   RUSSIAN_SPEECH_INFO,
+  type TtsVoiceSettings,
+  type VoiceModel,
 } from "@/lib/providers/voice-models"
+import { getVoiceEngine } from "@/lib/providers/voice-change-models"
 import { toast } from "sonner"
 
 interface AudioResult {
@@ -36,6 +51,8 @@ interface VoiceJob {
 
 interface VoiceFormProps {
   hasOpenRouterKey: boolean
+  /** Есть ли активный ключ ElevenLabs (свой или админа): без него модели ElevenLabs серые */
+  hasElevenLabsKey?: boolean
 }
 
 function loadSaved(key: string, fallback: string): string {
@@ -48,18 +65,42 @@ function savePref(key: string, value: string) {
 
 let tmpCounter = 0
 
-export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
-  const [modelId, setModelId] = useState(() => {
+export function VoiceForm({ hasOpenRouterKey, hasElevenLabsKey = false }: VoiceFormProps) {
+  const hasKeyFor = useCallback(
+    (m: VoiceModel) => (m.provider === "elevenlabs" ? hasElevenLabsKey : hasOpenRouterKey),
+    [hasElevenLabsKey, hasOpenRouterKey],
+  )
+  // Начальное состояние одинаково на сервере и клиенте (иначе гидратация ломается);
+  // сохранённые в localStorage модель и голос подставляются после монтирования.
+  // С ключом ElevenLabs по умолчанию — лучший русский.
+  const [modelId, setModelId] = useState(hasElevenLabsKey ? DEFAULT_ELEVENLABS_VOICE_MODEL : DEFAULT_VOICE_MODEL)
+  const model = getVoiceModel(modelId) || VOICE_MODELS[0]
+  const keyMissing = !hasKeyFor(model)
+  const lockedModelIds = useMemo(
+    () => new Set(VOICE_MODELS.filter((m) => !hasKeyFor(m)).map((m) => m.id)),
+    [hasKeyFor],
+  )
+
+  // ElevenLabs: голос из каталога и тонкие настройки (запоминаются отдельно от замены голоса)
+  const [elVoice, setElVoice] = useState<PickedVoice>(() => presetVoice(getVoiceEngine("elevenlabs")!.defaultFemale))
+  const [elSettings, setElSettings] = useState<Required<TtsVoiceSettings>>(DEFAULT_TTS_SETTINGS)
+  useEffect(() => {
     const saved = loadSaved("voice_model", "")
     const m = saved ? getVoiceModel(saved) : undefined
-    return m && m.available ? saved : DEFAULT_VOICE_MODEL
-  })
-  const model = getVoiceModel(modelId) || VOICE_MODELS[0]
+    if (m && m.available && (m.provider !== "elevenlabs" || hasElevenLabsKey)) {
+      setModelId(m.id)
+      setVoice(resolveVoice(m, loadSaved(`voice_${m.id}`, "")))
+    } else {
+      setVoice(resolveVoice(model, loadSaved(`voice_${model.id}`, "")))
+    }
+    setElVoice(loadVoicePick("voice_tts"))
+    setElSettings(normalizeTtsSettings(loadRawVoiceSettings("voice_tts")))
+    // только при монтировании
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const textRef = useRef<HTMLTextAreaElement | null>(null)
 
-  const [voice, setVoice] = useState(() => {
-    const saved = loadSaved(`voice_${modelId}`, "")
-    return resolveVoice(model, saved)
-  })
+  const [voice, setVoice] = useState(() => model.defaultVoice)
   const [speed, setSpeed] = useState(1)
   const [text, setText] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -88,6 +129,23 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
     [modelId],
   )
 
+  /** Вставка аудиотега в позицию курсора (или в конец) */
+  function insertTag(tag: string) {
+    const el = textRef.current
+    const start = el?.selectionStart ?? text.length
+    const end = el?.selectionEnd ?? text.length
+    const before = text.slice(0, start)
+    const insert = `${before && !/\s$/.test(before) ? " " : ""}${tag} `
+    const next = before + insert + text.slice(end)
+    setText(next)
+    requestAnimationFrame(() => {
+      if (!el) return
+      el.focus()
+      const pos = before.length + insert.length
+      el.setSelectionRange(pos, pos)
+    })
+  }
+
   async function handleGenerate() {
     if (submittingRef.current) return
     const trimmed = text.trim()
@@ -99,9 +157,12 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
       toast.error(`Слишком длинный текст: ${text.length}/${model.maxChars} символов`)
       return
     }
-    if (!hasOpenRouterKey) {
-      toast.error("Не настроен ключ OpenRouter", {
-        description: "Добавьте API ключ OpenRouter в Настройках.",
+    if (keyMissing) {
+      toast.error(model.provider === "elevenlabs" ? "Нужен ключ ElevenLabs" : "Не настроен ключ OpenRouter", {
+        description:
+          model.provider === "elevenlabs"
+            ? "Администратор добавляет ключ ElevenLabs в Настройках."
+            : "Добавьте API ключ OpenRouter в Настройках.",
       })
       return
     }
@@ -110,7 +171,7 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
       return
     }
 
-    const voiceLabel = model.voices.find((v) => v.id === voice)?.label || voice
+    const voiceLabel = model.dynamicVoices ? elVoice.name : model.voices.find((v) => v.id === voice)?.label || voice
     const tmpId = `tmp-${++tmpCounter}`
     const pending: VoiceJob = {
       id: tmpId,
@@ -130,8 +191,9 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
         body: JSON.stringify({
           model: modelId,
           text: trimmed,
-          voice,
-          ...(model.supportsSpeed ? { speed } : {}),
+          ...(model.dynamicVoices
+            ? { voice: elVoice.id, voiceName: elVoice.name, settings: elSettings }
+            : { voice, ...(model.supportsSpeed ? { speed } : {}) }),
         }),
       })
 
@@ -174,6 +236,7 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
       <div className="space-y-6">
         <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <textarea
+            ref={textRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Введите текст, который нужно озвучить…"
@@ -186,15 +249,20 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
             </span>
             <button
               onClick={handleGenerate}
-              disabled={isSubmitting || !text.trim() || overLimit || !hasOpenRouterKey || !model.available}
+              disabled={isSubmitting || !text.trim() || overLimit || keyMissing || !model.available}
               className="flex h-10 items-center gap-2 rounded-full bg-x-blue px-5 text-sm font-bold text-white transition-colors hover:bg-x-blue-hover active:scale-[0.98] disabled:opacity-40"
             >
               {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <AudioLines className="size-4" />}
               {isSubmitting ? "Озвучиваю…" : "Озвучить"}
             </button>
           </div>
-          {!hasOpenRouterKey && (
-            <p className="mt-3 text-sm text-red-400">Не настроен ключ OpenRouter. Перейдите в Настройки.</p>
+          {model.elevenlabs?.supportsAudioTags && <AudioTagChips onInsert={insertTag} disabled={isSubmitting} />}
+          {keyMissing && (
+            <p className="mt-3 text-sm text-red-400">
+              {model.provider === "elevenlabs"
+                ? "Нужен ключ ElevenLabs. Администратор добавляет его в Настройках."
+                : "Не настроен ключ OpenRouter. Перейдите в Настройки."}
+            </p>
           )}
         </div>
 
@@ -215,7 +283,11 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
       <div className="space-y-6">
         <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <h3 className="mb-4 text-sm font-bold text-white">Модель</h3>
-          <VoiceModelSelector selectedModel={modelId} onModelChange={handleModelChange} />
+          <VoiceModelSelector
+            selectedModel={modelId}
+            onModelChange={handleModelChange}
+            lockedIds={lockedModelIds}
+          />
           <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-snug">
             <span className={`mt-1 size-1.5 shrink-0 rounded-full ${ru.dot}`} />
             <span className={ru.text}>{ru.label}</span>
@@ -225,9 +297,26 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
 
         <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <h3 className="mb-4 text-sm font-bold text-white">Голос</h3>
-          <VoiceSelector model={model} value={voice} onChange={handleVoiceChange} />
+          {model.dynamicVoices ? (
+            <ElevenLabsTtsOptions
+              model={model}
+              voice={elVoice}
+              onVoiceChange={(v) => {
+                setElVoice(v)
+                saveVoicePick(v, "voice_tts")
+              }}
+              settings={elSettings}
+              onSettingsChange={(s) => {
+                setElSettings(s)
+                saveRawVoiceSettings("voice_tts", s)
+              }}
+              disabled={isSubmitting}
+            />
+          ) : (
+            <VoiceSelector model={model} value={voice} onChange={handleVoiceChange} />
+          )}
 
-          {model.supportsSpeed && (
+          {model.supportsSpeed && !model.dynamicVoices && (
             <div className="mt-4 space-y-1.5">
               <Label className="flex items-center justify-between text-sm font-medium text-neutral-400">
                 <span>Скорость</span>
@@ -254,7 +343,10 @@ export function VoiceForm({ hasOpenRouterKey }: VoiceFormProps) {
           <span className="text-sm font-bold text-white">~${costEstimate.toFixed(4)}</span>
         </div>
         <p className="-mt-3 px-1 text-[11px] leading-snug text-neutral-600">
-          Оценка по числу символов (≈${model.pricePer1kChars.toFixed(3)}/1к). Точная сумма — по факту от OpenRouter.
+          Оценка по числу символов (≈${model.pricePer1kChars.toFixed(3)}/1к).{" "}
+          {model.provider === "elevenlabs"
+            ? `Списывается с кредитов ElevenLabs за каждый символ${model.elevenlabs?.supportsAudioTags ? ", аудиотеги тоже считаются" : ""}.`
+            : "Точная сумма — по факту от OpenRouter."}
         </p>
       </div>
     </div>

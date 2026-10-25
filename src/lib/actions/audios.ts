@@ -76,6 +76,7 @@ export async function getAudios(opts: {
         provider: voiceGenerations.provider,
         model: voiceGenerations.model,
         voice: voiceGenerations.voice,
+        params: voiceGenerations.params,
         text: voiceGenerations.text,
         cost: voiceGenerations.cost,
       })
@@ -105,7 +106,8 @@ export async function getAudios(opts: {
         id: row.generationId,
         provider: row.provider,
         model: row.model,
-        voice: row.voice,
+        // ElevenLabs: в voice — voice_id, подпись голоса лежит в params.voice_name
+        voice: ((row.params as { voice_name?: unknown } | null)?.voice_name as string | undefined) || row.voice,
         text: row.text,
         cost: row.cost != null ? parseFloat(row.cost) : null,
       },

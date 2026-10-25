@@ -4,7 +4,7 @@
  */
 
 export interface VoiceSynthRequest {
-  /** ID модели в OpenRouter */
+  /** ID модели в реестре (`voice-models.ts`) */
   model: string
   /** Текст для озвучки */
   text: string
@@ -14,6 +14,8 @@ export interface VoiceSynthRequest {
   requestFormat: "mp3" | "pcm"
   /** Скорость (если модель поддерживает) */
   speed?: number
+  /** ElevenLabs: тонкие настройки (санитизируются по модели в адаптере) */
+  settings?: unknown
 }
 
 export interface VoiceSynthResult {
@@ -25,7 +27,7 @@ export interface VoiceSynthResult {
   outputFormat: "mp3" | "wav"
   /** Параметры исходного PCM (для расчёта длительности у wav) */
   pcm?: { sampleRate: number; channels: number; bitsPerSample: number }
-  /** ID генерации у провайдера (заголовок X-Generation-Id) — для сверки стоимости */
+  /** ID генерации у провайдера (заголовок X-Generation-Id) — для сверки стоимости; у ElevenLabs null */
   generationId: string | null
 }
 

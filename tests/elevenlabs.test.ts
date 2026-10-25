@@ -205,6 +205,7 @@ describe("каталог голосов: разбор ответов", () => {
       language: "ru",
       previewUrl: STS_PREVIEW,
       ruVerified: true,
+      ruModels: ["eleven_turbo_v2_5", "eleven_multilingual_sts_v2"],
     })
   })
 
@@ -214,12 +215,13 @@ describe("каталог голосов: разбор ответов", () => {
         preview_url: "https://x/base.mp3",
         verified_languages: [{ language: "ru", model_id: "eleven_turbo_v2_5", preview_url: "https://x/ru.mp3" }],
       }),
-    ).toEqual({ previewUrl: "https://x/ru.mp3", ruVerified: false })
+    ).toEqual({ previewUrl: "https://x/ru.mp3", ruVerified: false, ruModels: ["eleven_turbo_v2_5"] })
     expect(pickPreview({ preview_url: "https://x/base.mp3", verified_languages: [] })).toEqual({
       previewUrl: "https://x/base.mp3",
       ruVerified: false,
+      ruModels: [],
     })
-    expect(pickPreview({})).toEqual({ previewUrl: null, ruVerified: false })
+    expect(pickPreview({})).toEqual({ previewUrl: null, ruVerified: false, ruModels: [] })
   })
 
   it("мусор без id/имени отбрасывается", () => {
@@ -314,6 +316,7 @@ describe("каталог голосов: запрос", () => {
       language: "en",
       previewUrl: null,
       ruVerified: false,
+      ruModels: [],
     })
     const voices = Array.from({ length: 5 }, (_, i) => mk(i, i % 2 ? "male" : "female"))
     const page0 = filterPremadeVoices(voices, { scope: "standard", gender: "female", page: 0, pageSize: 2 })

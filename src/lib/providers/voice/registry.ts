@@ -1,12 +1,14 @@
 import type { VoiceProvider } from "./types"
 import { openrouterVoiceProvider } from "./openrouter-voice"
+import { elevenlabsVoiceProvider } from "./elevenlabs-voice"
 
 /**
- * Реестр провайдеров озвучки. Сейчас все TTS-модели идут через OpenRouter,
- * но структура оставлена расширяемой (можно добавить ElevenLabs и т.п.).
+ * Реестр провайдеров озвучки: OpenRouter (большинство моделей, общий ключ) и
+ * ElevenLabs напрямую (ключ `elevenlabs`). Провайдер модели — `VoiceModel.provider`.
  */
 const providers: Record<string, VoiceProvider> = {
   openrouter: openrouterVoiceProvider,
+  elevenlabs: elevenlabsVoiceProvider,
 }
 
 export function getVoiceProvider(id: string): VoiceProvider {

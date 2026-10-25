@@ -15,7 +15,7 @@ import {
   saveVoicePick,
   saveVoiceSettings,
   type PickedVoice,
-} from "./voice-prefs"
+} from "@/components/elevenlabs/voice-prefs"
 import {
   DEFAULT_VOICE_ENGINE,
   DEFAULT_VOICE_SETTINGS,

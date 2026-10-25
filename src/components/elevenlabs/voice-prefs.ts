@@ -25,6 +25,7 @@ export interface PickedVoice {
   useCase?: string | null
   previewUrl?: string | null
   ruVerified?: boolean
+  ruModels?: string[]
 }
 
 export function pickedFromCatalog(v: CatalogVoice): PickedVoice {
@@ -37,6 +38,7 @@ export function pickedFromCatalog(v: CatalogVoice): PickedVoice {
     useCase: v.useCase,
     previewUrl: v.previewUrl,
     ruVerified: v.ruVerified,
+    ruModels: v.ruModels,
   }
 }
 
@@ -47,12 +49,18 @@ export function presetVoice(id: string): PickedVoice {
   return { id: p.id, name: p.label, description: p.hint, gender: p.gender, ruVerified: true }
 }
 
-// Общие с остальной формой видео ключи localStorage (`mg_` + имя, см. savePref
-// в video-form.tsx): последний голос и настройки — одни и те же для автопереозвучки
-// и ручной кнопки «Заменить голос».
-const KEY_VOICE = "mg_video_voice_over_voice"
-const KEY_META = "mg_video_voice_over_voice_meta"
-const KEY_SETTINGS = "mg_video_voice_over_settings"
+/**
+ * Где запоминается выбор: `video_voice_over` — замена голоса (общий для
+ * автопереозвучки v2v и кнопки «Заменить голос»), `voice_tts` — «Озвучка».
+ * Ключи localStorage — `mg_` + имя, как у savePref форм.
+ */
+export type VoicePrefsScope = "video_voice_over" | "voice_tts"
+
+const keys = (scope: VoicePrefsScope) => ({
+  voice: `mg_${scope}_voice`,
+  meta: `mg_${scope}_voice_meta`,
+  settings: `mg_${scope}_settings`,
+})
 
 function read(key: string): string | null {
   try {
@@ -74,13 +82,14 @@ function write(key: string, value: string) {
  * Последний выбранный голос. Раньше здесь лежало имя пресета fal («Jessica»):
  * такое значение не voice_id — откатываемся на голос по умолчанию.
  */
-export function loadVoicePick(): PickedVoice {
+export function loadVoicePick(scope: VoicePrefsScope = "video_voice_over"): PickedVoice {
   const engine = getVoiceEngine("elevenlabs")!
-  const id = read(KEY_VOICE)
+  const k = keys(scope)
+  const id = read(k.voice)
   if (!isElevenLabsVoiceId(id)) return presetVoice(engine.defaultFemale)
   let meta: Partial<PickedVoice> = {}
   try {
-    const parsed = JSON.parse(read(KEY_META) || "{}")
+    const parsed = JSON.parse(read(k.meta) || "{}")
     if (parsed && typeof parsed === "object" && parsed.id === id) meta = parsed
   } catch {
     // битый JSON — берём только id
@@ -90,22 +99,34 @@ export function loadVoicePick(): PickedVoice {
   return { ...known, ...meta, id, name }
 }
 
-export function saveVoicePick(voice: PickedVoice) {
-  write(KEY_VOICE, voice.id)
-  write(KEY_META, JSON.stringify(voice))
+export function saveVoicePick(voice: PickedVoice, scope: VoicePrefsScope = "video_voice_over") {
+  const k = keys(scope)
+  write(k.voice, voice.id)
+  write(k.meta, JSON.stringify(voice))
 }
 
-export function loadVoiceSettings(): VoiceSettings {
+/** Сырые сохранённые настройки (санитизирует вызывающий — под свой движок/модель) */
+export function loadRawVoiceSettings(scope: VoicePrefsScope): unknown {
   try {
-    const raw = read(KEY_SETTINGS)
-    return raw ? sanitizeVoiceSettings(JSON.parse(raw)) : { ...DEFAULT_VOICE_SETTINGS }
+    const raw = read(keys(scope).settings)
+    return raw ? JSON.parse(raw) : null
   } catch {
-    return { ...DEFAULT_VOICE_SETTINGS }
+    return null
   }
 }
 
+export function saveRawVoiceSettings(scope: VoicePrefsScope, settings: object) {
+  write(keys(scope).settings, JSON.stringify(settings))
+}
+
+/** Настройки замены голоса */
+export function loadVoiceSettings(): VoiceSettings {
+  const raw = loadRawVoiceSettings("video_voice_over")
+  return raw ? sanitizeVoiceSettings(raw) : { ...DEFAULT_VOICE_SETTINGS }
+}
+
 export function saveVoiceSettings(settings: VoiceSettings) {
-  write(KEY_SETTINGS, JSON.stringify(settings))
+  saveRawVoiceSettings("video_voice_over", settings)
 }
 
 /**
