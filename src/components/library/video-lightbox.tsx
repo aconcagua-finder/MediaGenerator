@@ -161,7 +161,7 @@ export function VideoLightbox({ video, onClose, onDelete, onMove }: VideoLightbo
               <Download className="mr-2 size-4" />
               Скачать
             </Button>
-            {/* Видна только при активном ключе fal.ai и наличии звука */}
+            {/* Видна только при ключе ElevenLabs или fal.ai и наличии звука */}
             <VoiceChangeButton
               videoId={video.id}
               durationSeconds={video.durationSeconds}

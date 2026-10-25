@@ -106,6 +106,8 @@ async function startAutoVoiceOver(opts: {
         videoId: opts.videoId,
         engine: opts.voiceOver.engine,
         voice: opts.voiceOver.voice,
+        voiceName: opts.voiceOver.voice_name,
+        settings: opts.voiceOver.settings,
         skipLimits: true,
         parentGenerationId: opts.genId,
       })
@@ -184,8 +186,9 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
     return { status: "processing", state: "pending" }
   }
 
-  const apiKey = await getDecryptedApiKey(gen.userId, gen.provider)
-  if (!apiKey) {
+  const provider = getVideoProvider(gen.provider)
+  const apiKey = (await getDecryptedApiKey(gen.userId, gen.provider)) ?? ""
+  if (!apiKey && !provider.pollsWithoutKey) {
     return { status: "processing", state: "pending" }
   }
 
@@ -193,7 +196,7 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
 
   let poll
   try {
-    poll = await getVideoProvider(gen.provider).poll(gen.providerJobId, apiKey, jobCtx)
+    poll = await provider.poll(gen.providerJobId, apiKey, jobCtx)
   } catch (pollErr) {
     // Транзиентная ошибка опроса — не валим задачу, повторим позже
     const msg = pollErr instanceof Error ? pollErr.message : "Ошибка опроса"
@@ -238,7 +241,7 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
 
   try {
     // Скачиваем результат авторизованно (unsigned_urls без ключа отдают 401) и кладём в S3
-    const { buffer: fetched } = await getVideoProvider(gen.provider).fetchVideo(
+    const { buffer: fetched } = await provider.fetchVideo(
       gen.providerJobId,
       apiKey,
       0,
@@ -372,14 +375,16 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
 
 /**
  * Завершение задачи (успех или ошибка): отзываем публичные ссылки на входные
- * файлы и удаляем временный звук замены голоса. Исходное видео v2v остаётся
- * до TTL (24 ч), чтобы можно было повторить задачу с другим промптом (например,
- * после отказа модерации) без повторной загрузки.
+ * файлы и удаляем временный звук замены голоса (исходный и готовый звук
+ * ElevenLabs — к этому моменту он уже подложен под видео). Исходное видео v2v
+ * остаётся до TTL (24 ч), чтобы можно было повторить задачу с другим промптом
+ * (например, после отказа модерации) без повторной загрузки.
  */
 export async function releaseGenerationResources(genId: string): Promise<void> {
   try {
     await revokeLinksForGeneration(genId)
     await s3Remove(`video-sources/${genId}/audio.mp3`).catch(() => {})
+    await s3Remove(`video-sources/${genId}/converted.mp3`).catch(() => {})
   } catch (err) {
     console.error(`[video/finalize] release ${genId}:`, err instanceof Error ? err.message : err)
   }

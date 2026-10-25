@@ -121,19 +121,25 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
 своё видео (mp4/mov/webm, ≤ 30 сек, ≤ 100 МБ), описывает, что изменить; результат — обычное видео в библиотеке.
 Модели: `runway/aleph-2` (OpenRouter, заменяет персонажа/одежду/обстановку, сохраняя движения и мимику) и,
 только при активном ключе fal, `fal-ai/kling-video/v3/{standard,pro}/motion-control` (движения из видео →
-персонаж с картинки). Пост-шаг «Заменить голос» на готовом видео (fal, нужен ключ fal). В v2v можно сразу заказать
-автопереозвучку (блок «Звук»: «Исходный» / «Переозвучить» + голос ElevenLabs). Подключение fal — `docs/FAL_SETUP.md`.
+персонаж с картинки). Пост-шаг «Заменить голос» на готовом видео: ElevenLabs напрямую (ключ ElevenLabs) или
+Chatterbox HD через fal (ключ fal). В v2v можно сразу заказать автопереозвучку (блок «Звук»: «Исходный» /
+«Переозвучить» + голос ElevenLabs). Подключение: fal — `docs/FAL_SETUP.md`, ElevenLabs — `docs/ELEVENLABS_SETUP.md`.
 
 **Ключевые файлы:**
 - `src/lib/providers/video-models.ts` — режим `v2v`, модель `provider: "fal"`, `estimateV2VCost`, `modelsForMode`
 - `src/lib/providers/video/openrouter-video.ts` — `buildOpenRouterVideoBody` (v2v: `input_references`)
 - `src/lib/providers/video/fal-video.ts` — адаптер fal queue REST (submit/poll/fetch), `validateFalKey`
-- `src/lib/providers/voice-change-models.ts` — движки замены голоса (ElevenLabs, Chatterbox HD), пресеты, цены
+- `src/lib/providers/voice-change-models.ts` — движки замены голоса (ElevenLabs, Chatterbox HD), голоса, настройки, цены
+- `src/lib/providers/elevenlabs.ts` — прямой API ElevenLabs (voice changer, каталог с кэшем 1 ч, проверка ключа);
+  `elevenlabs-voices.ts` — DTO каталога (чистые функции, общие с UI); `video/elevenlabs-video.ts` — провайдер для `finalize.ts`
+- `src/app/api/video/voice-change/voices/route.ts` — каталог голосов (прокси, ключ наружу не уходит)
 - `src/lib/media-link/{token,serve,links}.ts` + `src/app/api/media-link/[...slug]/route.ts` — публичные ссылки
 - `src/app/api/video/source/route.ts` — загрузка исходника (сырое тело → диск → ffprobe → S3)
 - `src/app/api/video/voice-change/route.ts` — ручная замена голоса (тонкая обёртка над `startVoiceChange` в `src/lib/video/voice-change.ts`);
   `src/lib/video/{ffmpeg-audio,result-video,probe,limits,source-limits,voice-over}.ts`
-- `src/components/video/{source-upload,voice-change-button,voice-preset-picker}.tsx`; миграция `0017_video_sources_media_links`
+- `src/components/video/{source-upload,voice-change-button,voice-preset-picker}.tsx`; выбор голоса ElevenLabs —
+  `elevenlabs-voice-picker.tsx` + `voice-catalog-dialog.tsx` + `voice-prefs.ts` (localStorage, плеер превью);
+  миграция `0017_video_sources_media_links`
 
 **Архитектурные принципы:**
 1. **Провайдеру нужен ПУБЛИЧНЫЙ HTTPS-URL** (`data:` и http отвергаются: «Only HTTPS URLs are allowed»). MinIO снаружи
@@ -155,24 +161,41 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
 5. **Модерация Runway** (`SAFETY.INPUT.MULTIMODAL…` — «busty», «curvy», «low-cut») → `failed`, не тарифицируется;
    `humanizeVideoError` показывает русскую подсказку «уберите откровенные формулировки про фигуру/одежду».
 6. **fal.ai спит без ключа:** провайдер `fal` в `api_keys` (шифрование как у остальных), модели `provider:"fal"` скрыты
-   (`modelsForMode`), кнопка «Заменить голос» не рисуется (`GET /api/video/voice-change` → `available`), submit без ключа = 400.
+   (`modelsForMode`), в «Заменить голос» Chatterbox серый (`GET /api/video/voice-change` → `engines`; кнопка не рисуется,
+   только когда нет ни ключа fal, ни ключа ElevenLabs), submit без ключа = 400.
    Реестр аудита OpenRouter сверяет только модели OpenRouter (fal-модели не «пропали»). ❗ **Адаптер fal НЕ проверен живым
    вызовом** (ключа нет): контракт из документации. Адрес статуса fal строится по первым двум сегментам model id
    (`fal-ai/kling-video`), но берём `status_url`/`response_url` из ответа submit (`params.providerState`).
-7. **Замена голоса — обычная строка `video_generations`** (`mode:"voice"`, `provider:"fal"`, `model` = endpoint движка):
-   ffmpeg вынимает звук → `video-sources/{genId}/audio.mp3` + публичная ссылка → fal → в `finalize.ts` результат (аудио)
-   подкладывается под исходное видео (`-c:v copy`, `result-video.ts`) и сохраняется как НОВОЕ видео (`videos.video_generation_id`),
-   поэтому владелец-join'ы, статус, cron и биллинг общие. Стоимость — оценка (fal не отдаёт `usage.cost`).
+7. **Замена голоса — обычная строка `video_generations`** (`mode:"voice"`, `provider` = провайдер движка, `model` = endpoint движка):
+   - Chatterbox (`provider:"fal"`): ffmpeg вынимает звук → `video-sources/{genId}/audio.mp3` + публичная ссылка → очередь fal.
+   - ElevenLabs (`provider:"elevenlabs"`, `model:"eleven_multilingual_sts_v2"`): API синхронный, поэтому `startVoiceChange`
+     сам шлёт звук (multipart, таймаут 120 с, звук > 300 с отклоняется), кладёт mp3 в `video-sources/{genId}/converted.mp3`
+     и пишет ключ в `params.providerState.convertedKey` + `providerJobId`. Провайдер `elevenlabs` в реестре лишь отвечает
+     «готово» и отдаёт этот файл из S3 (`pollsWithoutKey`), так что `finalize`/cron/биллинг/автопереозвучка не различают движки.
+   Дальше в `finalize.ts` результат (аудио) подкладывается под исходное видео (`-c:v copy`, `result-video.ts`) и сохраняется
+   как НОВОЕ видео (`videos.video_generation_id`), поэтому владелец-join'ы, статус, cron и биллинг общие.
+   `releaseGenerationResources` удаляет `audio.mp3` и `converted.mp3` — только после сохранения видео или при ошибке.
+   Стоимость — оценка (ни fal, ни ElevenLabs не отдают стоимость): режим биллинга движка — `per_started_minute`
+   (fal, округление вверх) или `prorated` (ElevenLabs, $0.12/мин по факту длины). Ошибки ElevenLabs (`ElevenLabs <http> <код>: …`)
+   переводит `humanize-error.ts` по коду (`invalid_api_key`, `quota_exceeded`, `voice_not_found`, …).
 8. `finalize.ts` для v2v/voice берёт реальные размеры/длительность/наличие звука из ffprobe результата, а не из
    параметров; `VideoProvider.poll/fetchVideo` получают `ctx` (`model`, `params`) — нужен fal.
-9. **Автопереозвучка v2v (ElevenLabs через fal).** OpenRouter speech-to-speech не умеет (проверено 2026-10-08), поэтому только fal.
-   `POST /api/video/generate` принимает `voiceOver: {voice}` → `params.voice_over = {engine, voice}`, оценка включает
-   переозвучку, нужен звук в исходнике и ключ fal (иначе 400). `finalize.ts`, сохранив v2v-видео (`status=done`), сам
+9. **Автопереозвучка v2v (ElevenLabs напрямую).** OpenRouter speech-to-speech не умеет (проверено 2026-10-08).
+   `POST /api/video/generate` принимает `voiceOver: {voice, voiceName, settings}` → `params.voice_over = {engine, voice,
+   voice_name, settings}` (санитизирует `parseVoiceOver`), оценка включает переозвучку, нужен звук в исходнике и ключ
+   ElevenLabs (иначе 400). `finalize.ts`, сохранив v2v-видео (`status=done`), сам
    вызывает `startVoiceChange` (`skipLimits`, лимиты проверены при запуске) и точечно дописывает в `params.voice_over`
    `generation_id` или `error` (❗ ключи snake_case, читает `voice-over.ts`). Ошибка переозвучки не валит генерацию.
    Статус отдаёт `voiceOver`, клиент поллит дочернюю задачу и подменяет видео в карточке (оригинал остаётся в библиотеке).
    Если процесс упал между done и запуском, реконсилятор через 10 мин пишет `voice_over.error`.
-   Голоса — полный набор fal (21), по умолчанию Jessica (жен.) и Brian (муж.).
+10. **Голоса ElevenLabs — динамические.** Любой voice_id библиотеки (`/^[A-Za-z0-9]{20}$/`) + имя от клиента (≤ 80 символов,
+   только для подписи). По умолчанию Marina (жен.) и Nikolay (муж.) — самые используемые русские голоса, проверенные на STS.
+   Каталог (`GET /api/video/voice-change/voices`): `scope=ru` (по умолчанию, по популярности, 30 на страницу), `library`
+   (все языки), `standard` (premade), фильтры `gender`/`age`/`search`/`page`; `?popular=1` — по 8 жен./муж. для полосы
+   «Популярные». Превью — публичные mp3 ElevenLabs (русская запись для STS, если есть). Голоса в аккаунт добавлять
+   не нужно. Тонкие настройки (`stability`, `similarity_boost`, `style`, `use_speaker_boost`, `remove_background_noise`,
+   по умолчанию 0.5 / 0.75 / 0 / вкл / вкл) зажимаются на сервере и пишутся в `params.voice_settings` / `voice_over.settings`.
+   Последний голос и настройки — в localStorage (`mg_video_voice_over_*`); старое имя пресета fal («Jessica») → Marina.
 
 #### Редактор склейки (`/video/editor`)
 

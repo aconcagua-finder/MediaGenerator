@@ -11,6 +11,8 @@ export default async function VideoPage() {
   const session = await getSession()
   // fal.ai-функции (Kling Motion Control, замена голоса) видны только при активном ключе
   const hasFalKey = session?.user ? await hasActiveProviderKey(session.user.id, "fal") : false
+  // Автопереозвучка v2v — напрямую через ElevenLabs
+  const hasElevenLabsKey = session?.user ? await hasActiveProviderKey(session.user.id, "elevenlabs") : false
 
   return (
     <div className="space-y-6 py-6">
@@ -32,7 +34,7 @@ export default async function VideoPage() {
         </Link>
       </div>
 
-      <VideoForm hasOpenRouterKey={hasOpenRouterKey} hasFalKey={hasFalKey} />
+      <VideoForm hasOpenRouterKey={hasOpenRouterKey} hasFalKey={hasFalKey} hasElevenLabsKey={hasElevenLabsKey} />
     </div>
   )
 }

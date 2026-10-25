@@ -7,12 +7,17 @@ import { db } from "@/lib/db"
 import { videos, videoGenerations, videoCompositions, videoSources } from "@/lib/db/schema"
 import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { falSubmit } from "@/lib/providers/video/fal-video"
+import { elevenLabsVoiceChange } from "@/lib/providers/elevenlabs"
 import {
   buildVoiceChangeInput,
   estimateVoiceChangeCost,
   getVoiceEngine,
+  resolveVoice,
   resolveVoicePreset,
+  sanitizeVoiceSettings,
+  voiceEngineNoKeyMessage,
   voicePresetTitle,
+  type VoiceChangeEngine,
 } from "@/lib/providers/voice-change-models"
 import { downloadToFile, ensureBucket, upload } from "@/lib/storage/s3"
 import { createMediaLink } from "@/lib/media-link/links"
@@ -30,8 +35,12 @@ export interface StartVoiceChangeOptions {
   /** id видео из библиотеки (`videos.id`) */
   videoId: string
   engine: string
-  /** Имя пресета голоса (см. voice-change-models.ts) */
+  /** Пресет голоса (Chatterbox) или voice_id ElevenLabs (см. voice-change-models.ts) */
   voice?: string
+  /** ElevenLabs: имя голоса для подписи задачи (от клиента, санитизируется) */
+  voiceName?: string
+  /** ElevenLabs: тонкие настройки голоса (сырые, санитизируются) */
+  settings?: unknown
   /** Chatterbox: id загруженного образца голоса */
   sampleSourceId?: string
   /**
@@ -48,9 +57,12 @@ export type StartVoiceChangeResult =
   | { ok: false; error: string; status: number }
 
 /**
- * Запуск замены голоса на готовом видео библиотеки (через fal.ai).
- * Звук вынимается ffmpeg'ом → уходит в fal (по временной публичной ссылке) →
- * по готовности `finalize.ts` подкладывает новый звук под исходное видео
+ * Запуск замены голоса на готовом видео библиотеки.
+ * Звук вынимается ffmpeg'ом и уходит провайдеру:
+ *  - ElevenLabs — прямо в API, синхронно: готовый mp3 сразу кладётся в S3
+ *    (`video-sources/{genId}/converted.mp3`, `params.providerState.convertedKey`);
+ *  - fal.ai (Chatterbox HD) — в очередь, по временной публичной ссылке.
+ * По готовности `finalize.ts` подкладывает новый звук под исходное видео
  * (`-c:v copy`) и сохраняет как НОВОЕ видео. Задача — обычная строка
  * `video_generations` (mode `voice`), поэтому статус/cron/биллинг общие.
  *
@@ -109,9 +121,9 @@ export async function startVoiceChange(opts: StartVoiceChangeOptions): Promise<S
     sample = { id: row.id, s3Key: row.s3Key, contentType: row.contentType, sizeBytes: row.sizeBytes }
   }
 
-  const apiKey = await getDecryptedApiKey(opts.userId, "fal")
+  const apiKey = await getDecryptedApiKey(opts.userId, engine.provider)
   if (!apiKey) {
-    return { ok: false, error: "Нужен ключ fal.ai. Администратор добавляет его в Настройках.", status: 400 }
+    return { ok: false, error: voiceEngineNoKeyMessage(engine), status: 400 }
   }
 
   const genId = randomUUID()
@@ -126,6 +138,13 @@ export async function startVoiceChange(opts: StartVoiceChangeOptions): Promise<S
       return { ok: false, error: "Не удалось найти звук в видео", status: 400 }
     }
     const audioSeconds = probe.durationSeconds
+    if (engine.maxAudioSeconds && audioSeconds > engine.maxAudioSeconds + 0.5) {
+      return {
+        ok: false,
+        error: `Звук длиннее ${Math.round(engine.maxAudioSeconds / 60)} минут: ${engine.name} меняет голос в роликах до ${Math.round(engine.maxAudioSeconds / 60)} минут. Обрежьте видео в редакторе склейки.`,
+        status: 400,
+      }
+    }
     const estimate = estimateVoiceChangeCost(engine, audioSeconds)
 
     if (!opts.skipLimits) {
@@ -137,8 +156,13 @@ export async function startVoiceChange(opts: StartVoiceChangeOptions): Promise<S
 
     await extractAudio(videoPath, audioPath)
     const audioBuffer = await readFile(audioPath)
-    const audioKey = `video-sources/${genId}/audio.mp3`
     await ensureBucket()
+
+    if (engine.provider === "elevenlabs") {
+      return await runElevenLabs({ opts, engine, genId, apiKey, audioBuffer, audioSeconds, estimate })
+    }
+
+    const audioKey = `video-sources/${genId}/audio.mp3`
     await upload(audioKey, audioBuffer, "audio/mpeg")
 
     const preset = resolveVoicePreset(engine, opts.voice)
@@ -153,7 +177,7 @@ export async function startVoiceChange(opts: StartVoiceChangeOptions): Promise<S
     await db.insert(videoGenerations).values({
       id: genId,
       userId: opts.userId,
-      provider: "fal",
+      provider: engine.provider,
       model: engine.endpoint,
       prompt: sample
         ? `Замена голоса: свой образец (${engine.name})`
@@ -218,5 +242,73 @@ export async function startVoiceChange(opts: StartVoiceChangeOptions): Promise<S
     }
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+/**
+ * ElevenLabs: синхронный вызов API → готовый mp3 в S3 → задача «готова к
+ * финализации» (`providerJobId` + `providerState.convertedKey`). Первый же опрос
+ * статуса подложит звук под видео (см. `elevenlabs-video.ts`).
+ */
+async function runElevenLabs(ctx: {
+  opts: StartVoiceChangeOptions
+  engine: VoiceChangeEngine
+  genId: string
+  apiKey: string
+  audioBuffer: Buffer
+  audioSeconds: number
+  estimate: number
+}): Promise<StartVoiceChangeResult> {
+  const { opts, engine, genId } = ctx
+  const voice = resolveVoice(engine, opts.voice, opts.voiceName)
+  const settings = sanitizeVoiceSettings(opts.settings)
+  const baseParams = {
+    duration: ctx.audioSeconds,
+    source_video_id: opts.videoId,
+    engine: engine.id,
+    voice: voice.id,
+    voice_name: voice.name,
+    voice_settings: settings,
+    sample_source_id: null,
+    ...(opts.parentGenerationId ? { parent_generation_id: opts.parentGenerationId } : {}),
+  }
+  await db.insert(videoGenerations).values({
+    id: genId,
+    userId: opts.userId,
+    provider: engine.provider,
+    model: engine.endpoint,
+    prompt: `Замена голоса: ${voice.name} (${engine.name})`,
+    mode: "voice",
+    params: baseParams,
+    status: "processing",
+  })
+
+  try {
+    const converted = await elevenLabsVoiceChange(ctx.apiKey, {
+      voiceId: voice.id,
+      audio: ctx.audioBuffer,
+      settings,
+      modelId: engine.endpoint,
+    })
+    const convertedKey = `video-sources/${genId}/converted.mp3`
+    await upload(convertedKey, converted.buffer, "audio/mpeg")
+    await db
+      .update(videoGenerations)
+      .set({
+        providerJobId: converted.requestId || genId,
+        params: { ...baseParams, providerState: { convertedKey } },
+      })
+      .where(eq(videoGenerations.id, genId))
+    return { ok: true, generationId: genId, estimate: ctx.estimate }
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : "Не удалось заменить голос"
+    console.error(`[video/voice-change] ElevenLabs ${voice.id}:`, raw)
+    const message = humanizeVideoError(raw)
+    await db
+      .update(videoGenerations)
+      .set({ status: "error", errorMessage: message, completedAt: new Date() })
+      .where(eq(videoGenerations.id, genId))
+    await releaseGenerationResources(genId)
+    return { ok: false, error: message, status: 502 }
   }
 }

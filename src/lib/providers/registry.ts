@@ -86,10 +86,17 @@ export const PROVIDER_INFO: Record<string, { name: string; description: string; 
   },
   fal: {
     name: "fal.ai",
-    description: "Kling Motion Control (перенос движений на персонажа) и замена голоса в видео. Предоплаченный баланс. Без ключа эти функции скрыты",
+    description: "Kling Motion Control (перенос движений на персонажа) и замена голоса Chatterbox HD. Предоплаченный баланс. Без ключа эти функции скрыты",
     dot: "bg-indigo-400",
     text: "text-indigo-300",
     label: "fal.ai",
+  },
+  elevenlabs: {
+    name: "ElevenLabs",
+    description: "Замена голоса в видео: родные русские голоса из библиотеки ElevenLabs. Нужны права Voice Changer и Voices (чтение). Без ключа ElevenLabs недоступен",
+    dot: "bg-orange-400",
+    text: "text-orange-300",
+    label: "ElevenLabs",
   },
   recraft: {
     name: "Recraft",

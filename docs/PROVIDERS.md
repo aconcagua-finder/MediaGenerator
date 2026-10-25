@@ -851,7 +851,7 @@ Reddit-обсуждений: запускается web-search-tool, модел�
   (`humanize-error.ts`).
 - **Выход:** ~612×1088 для исходника 9:16, со звуком исходника.
 
-### fal.ai (Kling Motion Control, замена голоса) — подготовлено, без ключа спит
+### fal.ai (Kling Motion Control, замена голоса Chatterbox HD) — подготовлено, без ключа спит
 
 Подробная инструкция по подключению — `docs/FAL_SETUP.md`. Адаптер `src/lib/providers/video/fal-video.ts` работает
 через queue REST API (`POST https://queue.fal.run/<model-id>` → `status_url` → `response_url`, заголовок
@@ -862,11 +862,22 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 |---|---|---|
 | Kling Motion Control, standard | `fal-ai/kling-video/v3/standard/motion-control` | $0.126 / сек выходного видео |
 | Kling Motion Control, pro | `fal-ai/kling-video/v3/pro/motion-control` | $0.168 / сек |
-| Замена голоса, ElevenLabs | `fal-ai/elevenlabs/voice-changer` | $0.30 / мин |
-| Замена голоса, Chatterbox HD | `resemble-ai/chatterboxhd/speech-to-speech` | $0.02 / мин |
+| Замена голоса, Chatterbox HD | `resemble-ai/chatterboxhd/speech-to-speech` | $0.02 за начатую мин |
+
+ElevenLabs через fal (`fal-ai/elevenlabs/voice-changer`, $0.30 за начатую минуту) больше не используется: fal не
+даёт выбрать модель, русская речь выходила с английским акцентом. Замена голоса ElevenLabs теперь напрямую — ниже.
 
 Kling MC: `image_url` (персонаж) + `video_url` (движение) + `character_orientation` (`video` — видео до 30 сек,
 `image` — до 10 сек) + опц. `prompt`. fal не отдаёт стоимость в ответе — биллинг по оценке (секунды × цена).
+
+### ElevenLabs (замена голоса) — напрямую
+
+Подключение — `docs/ELEVENLABS_SETUP.md`. Модуль `src/lib/providers/elevenlabs.ts`, заголовок `xi-api-key`.
+`POST https://api.elevenlabs.io/v1/voice-changer/{voice_id}?output_format=mp3_44100_128` (multipart: `audio`,
+`model_id=eleven_multilingual_sts_v2`, `voice_settings` JSON-строкой, `remove_background_noise`, опц. `seed`) — синхронно,
+тело ответа = mp3 (7 сек звука ≈ 2-5 сек ответа). Отрезок до 5 минут. Голоса — любой voice_id библиотеки
+(`GET /v1/shared-voices`) или стандартные (`GET /v1/voices`), добавлять в аккаунт не нужно. Цена ≈ $0.12 за минуту звука
+пропорционально длине (22 сек = 216 кредитов при тарифе 40 000 кредитов). Проверено живыми вызовами 2026-10-25.
 
 ### Поток
 `POST /api/video/generate` (submit) → `GET /api/video/[id]/status` (polling, скачивание mp4 в S3 при `completed`)

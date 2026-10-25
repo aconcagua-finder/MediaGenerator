@@ -23,6 +23,7 @@ import {
   estimateVoiceChangeCost,
   getVoiceEngine,
   parseVoiceOver,
+  voiceEngineNoKeyMessage,
   type VoiceOverSetting,
 } from "@/lib/providers/voice-change-models"
 import { headers } from "next/headers"
@@ -45,10 +46,11 @@ interface GenerateVideoBody {
   /** Motion Control: id картинки-персонажа из таблицы uploads */
   characterUploadId?: string
   /**
-   * video-to-video: переозвучить результат через ElevenLabs (fal.ai) сразу после
-   * готовности. Не передан — остаётся исходный звук.
+   * video-to-video: переозвучить результат через ElevenLabs сразу после
+   * готовности (voice — voice_id, voiceName — подпись, settings — тонкие
+   * настройки). Не передан — остаётся исходный звук.
    */
-  voiceOver?: { voice?: string }
+  voiceOver?: { voice?: string; voiceName?: string; settings?: unknown }
 }
 
 /** Kling Motion Control с ориентацией «как на картинке» принимает видео не длиннее 10 сек */
@@ -203,22 +205,20 @@ export async function POST(request: NextRequest) {
 
       estimate = estimateV2VCost(videoModel, sourceSeconds)
 
-      // Автопереозвучка: нужен звук в исходнике и ключ fal.ai (ElevenLabs идёт через fal)
+      // Автопереозвучка: нужен звук в исходнике и ключ провайдера движка (ElevenLabs)
       voiceOver = parseVoiceOver(body.voiceOver)
       if (voiceOver) {
+        const voiceEngine = getVoiceEngine(voiceOver.engine)!
         if (!row.hasAudio) {
           return NextResponse.json(
             { error: "В исходном видео нет звука — переозвучивать нечего. Выключите переозвучку." },
             { status: 400 }
           )
         }
-        if (!(await hasActiveProviderKey(session.user.id, "fal"))) {
-          return NextResponse.json(
-            { error: "Переозвучка через ElevenLabs работает через fal.ai: нужен ключ fal в Настройках." },
-            { status: 400 }
-          )
+        if (!(await hasActiveProviderKey(session.user.id, voiceEngine.provider))) {
+          return NextResponse.json({ error: voiceEngineNoKeyMessage(voiceEngine) }, { status: 400 })
         }
-        estimate += estimateVoiceChangeCost(getVoiceEngine(voiceOver.engine)!, sourceSeconds)
+        estimate += estimateVoiceChangeCost(voiceEngine, sourceSeconds)
       }
     } else {
       // image-to-video только для поддерживающих моделей

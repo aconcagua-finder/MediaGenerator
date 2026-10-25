@@ -7,12 +7,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { SourceUpload, type ReadySource } from "./source-upload"
 import { VoicePresetPicker } from "./voice-preset-picker"
+import { ElevenLabsVoicePicker } from "./elevenlabs-voice-picker"
+import {
+  loadVoicePick,
+  loadVoiceSettings,
+  presetVoice,
+  saveVoicePick,
+  saveVoiceSettings,
+  type PickedVoice,
+} from "./voice-prefs"
 import {
   DEFAULT_VOICE_ENGINE,
+  DEFAULT_VOICE_SETTINGS,
   VOICE_CHANGE_ENGINES,
   estimateVoiceChangeCost,
   getVoiceEngine,
+  voiceEngineNoKeyMessage,
+  voicePriceLabel,
   type VoiceChangeEngineId,
+  type VoiceSettings,
 } from "@/lib/providers/voice-change-models"
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -35,15 +48,22 @@ interface ResultVideo {
 }
 
 /**
- * Кнопка «Заменить голос» + диалог. Показывается ТОЛЬКО если у пользователя есть
- * активный ключ fal.ai (проверка `GET /api/video/voice-change`); без ключа — скрыта.
+ * Кнопка «Заменить голос» + диалог. Показывается ТОЛЬКО если есть ключ хотя бы
+ * одного движка (ElevenLabs или fal.ai для Chatterbox, проверка
+ * `GET /api/video/voice-change`); движок без ключа в диалоге серый.
  * Результат — новое видео в библиотеке (звук подменён, картинка прежняя).
  */
 export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, className, variant = "inline", children }: VoiceChangeButtonProps) {
   const [available, setAvailable] = useState(false)
+  const [engineKeys, setEngineKeys] = useState<Partial<Record<VoiceChangeEngineId, boolean>>>({})
   const [open, setOpen] = useState(false)
   const [engineId, setEngineId] = useState<VoiceChangeEngineId>(DEFAULT_VOICE_ENGINE)
   const [voice, setVoice] = useState<string>("")
+  // ElevenLabs: голос из каталога и тонкие настройки (общие с автопереозвучкой v2v)
+  const [elevenVoice, setElevenVoice] = useState<PickedVoice>(() =>
+    presetVoice(getVoiceEngine("elevenlabs")!.defaultFemale),
+  )
+  const [settings, setSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS)
   const [useSample, setUseSample] = useState(false)
   const [sample, setSample] = useState<ReadySource | null>(null)
   const [busy, setBusy] = useState(false)
@@ -61,8 +81,16 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
     let cancelled = false
     fetch("/api/video/voice-change")
       .then((r) => (r.ok ? r.json() : { available: false }))
-      .then((d: { available?: boolean }) => {
-        if (!cancelled) setAvailable(Boolean(d.available))
+      .then((d: { available?: boolean; engines?: Partial<Record<VoiceChangeEngineId, boolean>> }) => {
+        if (cancelled) return
+        const keys = d.engines ?? {}
+        setAvailable(Boolean(d.available))
+        setEngineKeys(keys)
+        // Движок по умолчанию без ключа — сразу на первый доступный
+        if (!keys[DEFAULT_VOICE_ENGINE]) {
+          const first = VOICE_CHANGE_ENGINES.find((e) => keys[e.id])
+          if (first) setEngineId(first.id)
+        }
       })
       .catch(() => {})
     return () => {
@@ -70,7 +98,14 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
     }
   }, [])
 
+  // Последний голос и настройки ElevenLabs — из localStorage после монтирования
+  useEffect(() => {
+    setElevenVoice(loadVoicePick())
+    setSettings(loadVoiceSettings())
+  }, [])
+
   const engine = getVoiceEngine(engineId)!
+  const engineReady = Boolean(engineKeys[engine.id])
   const selectedVoice = engine.presets.some((p) => p.id === voice) ? voice : engine.presets[0].id
   const estimate = durationSeconds ? estimateVoiceChangeCost(engine, durationSeconds) : null
 
@@ -87,6 +122,10 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
   }
 
   async function run() {
+    if (!engineReady) {
+      toast.error(voiceEngineNoKeyMessage(engine))
+      return
+    }
     if (useSample && !sample) {
       toast.error("Загрузите образец голоса или выберите готовый голос")
       return
@@ -100,7 +139,9 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
         body: JSON.stringify({
           videoId,
           engine: engineId,
-          voice: selectedVoice,
+          ...(engine.dynamicVoices
+            ? { voice: elevenVoice.id, voiceName: elevenVoice.name, settings }
+            : { voice: selectedVoice }),
           ...(useSample && sample ? { sampleSourceId: sample.id } : {}),
         }),
       })
@@ -110,7 +151,9 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
         return
       }
       const genId = data.videoGenerationId as string
-      toast.success("Запущено", { description: "Замена голоса обычно занимает до минуты" })
+      toast.success(engine.provider === "elevenlabs" ? "Голос заменён, собираем видео" : "Запущено", {
+        description: "Замена голоса обычно занимает до минуты",
+      })
 
       for (let attempt = 0; attempt < 120; attempt++) {
         await sleep(attempt === 0 ? 2000 : 3000)
@@ -162,7 +205,7 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
       )}
 
       <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Заменить голос в видео</DialogTitle>
           </DialogHeader>
@@ -176,32 +219,53 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
             <div className="space-y-1.5">
               <p className="text-sm font-medium text-neutral-400">Движок</p>
               <div className="grid gap-2">
-                {VOICE_CHANGE_ENGINES.map((e) => (
-                  <button
-                    key={e.id}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => pickEngine(e.id)}
-                    className={`rounded-md border px-3 py-2 text-left transition-colors ${
-                      engineId === e.id
-                        ? "border-x-blue/50 bg-x-blue/[0.1]"
-                        : "border-white/[0.12] bg-white/[0.02] hover:border-white/[0.24]"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between text-sm font-medium text-white">
-                      {e.name}
-                      <span className="text-[11px] font-normal text-neutral-500">${e.pricePerMinute.toFixed(2)} за начатую мин</span>
-                    </span>
-                    <span className="mt-0.5 block text-[11px] leading-snug text-neutral-500">{e.description}</span>
-                  </button>
-                ))}
+                {VOICE_CHANGE_ENGINES.map((e) => {
+                  const hasKey = Boolean(engineKeys[e.id])
+                  return (
+                    <button
+                      key={e.id}
+                      type="button"
+                      disabled={busy || !hasKey}
+                      onClick={() => pickEngine(e.id)}
+                      className={`rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                        engineId === e.id && hasKey
+                          ? "border-x-blue/50 bg-x-blue/[0.1]"
+                          : "border-white/[0.12] bg-white/[0.02] hover:border-white/[0.24]"
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-2 text-sm font-medium text-white">
+                        {e.name}
+                        <span className="shrink-0 text-[11px] font-normal text-neutral-500">
+                          {hasKey ? voicePriceLabel(e) : `нужен ключ ${e.provider === "elevenlabs" ? "ElevenLabs" : "fal"}`}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block text-[11px] leading-snug text-neutral-500">{e.description}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
             <div className="space-y-1.5">
               <p className="text-sm font-medium text-neutral-400">Голос</p>
-              {!useSample && (
-                <VoicePresetPicker engine={engine} value={selectedVoice} onChange={setVoice} disabled={busy} />
+              {engine.dynamicVoices ? (
+                <ElevenLabsVoicePicker
+                  voice={elevenVoice}
+                  onVoiceChange={(v) => {
+                    setElevenVoice(v)
+                    saveVoicePick(v)
+                  }}
+                  settings={settings}
+                  onSettingsChange={(s) => {
+                    setSettings(s)
+                    saveVoiceSettings(s)
+                  }}
+                  disabled={busy}
+                />
+              ) : (
+                !useSample && (
+                  <VoicePresetPicker engine={engine} value={selectedVoice} onChange={setVoice} disabled={busy} />
+                )
               )}
               {engine.supportsSample && (
                 <button
@@ -247,7 +311,7 @@ export function VoiceChangeButton({ videoId, durationSeconds, hasAudio = true, c
             )}
 
             <div className="flex justify-end">
-              <Button onClick={run} disabled={busy}>
+              <Button onClick={run} disabled={busy || !engineReady}>
                 {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Mic2 className="mr-1.5 size-4" />}
                 {busy ? "Меняем голос…" : "Заменить голос"}
               </Button>
