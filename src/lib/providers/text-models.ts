@@ -389,7 +389,7 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 1_049_000,
     // W42: дефолт /models сместился с реселлера ($0.05/$1.2) на нативный DeepSeek $0.15/$0.60.
     // W43: снова реселлер — $0.04/$0.08 (нативный тариф DeepSeek теперь у снапшота -1017).
-    pricing: { input: 0.04, output: 0.08 },
+    pricing: { input: 0.02, output: 1.0 },
     isNew: true,
     streaming: true,
     supportsVision: true,

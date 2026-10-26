@@ -54,11 +54,20 @@ export const COVER_MODELS: CoverModelOption[] = [
     approxCost: "~$0.08",
   },
   {
+    id: "openrouter:google/gemini-nano-banana-2.1",
+    provider: "openrouter",
+    model: "google/gemini-nano-banana-2.1",
+    label: "Nano Banana 2.1",
+    hint: "Свежая Nano Banana (GA, окт 2026), вдвое дешевле Nano Banana 2. С кириллицей — средне.",
+    goodForCyrillic: false,
+    approxCost: "~$0.04",
+  },
+  {
     id: "openrouter:google/gemini-3.1-flash-image",
     provider: "openrouter",
     model: "google/gemini-3.1-flash-image",
     label: "Gemini 3.1 Flash Image (Nano Banana 2)",
-    hint: "Быстрая, Pro-качество. С кириллицей — средне.",
+    hint: "Быстрая, Pro-качество. С кириллицей — средне. Google объявил устаревшей — замена Nano Banana 2.1.",
     goodForCyrillic: false,
     approxCost: "~$0.07",
   },
@@ -76,7 +85,7 @@ export const COVER_MODELS: CoverModelOption[] = [
     provider: "openrouter",
     model: "google/gemini-2.5-flash-image",
     label: "Gemini 2.5 Flash Image",
-    hint: "Самая дешёвая. Только для стилей без текста. ⚠️ Отключается 02.10.2026.",
+    hint: "Старое поколение, только для стилей без текста. ⚠️ Дата отключения Google (02.10.2026) прошла, пока отвечает.",
     goodForCyrillic: false,
     approxCost: "~$0.04",
   },
@@ -97,10 +106,10 @@ export function getCoverModelById(id: string): CoverModelOption | null {
 
 /**
  * Дефолтная модель под стиль обложки. 3D с подписями — gpt-image-2
- * (лучше всех с кириллицей). Минимализм/фото — Gemini Flash/Pro (дешевле).
+ * (лучше всех с кириллицей). Минимализм — Nano Banana 2.1, фото — Gemini Pro (дешевле).
  */
 export const DEFAULT_COVER_MODEL_BY_STYLE: Record<string, string> = {
   "3d_with_text": "openai:gpt-image-2",
-  minimalist: "openrouter:google/gemini-3.1-flash-image",
+  minimalist: "openrouter:google/gemini-nano-banana-2.1",
   photo: "openrouter:google/gemini-3-pro-image",
 }

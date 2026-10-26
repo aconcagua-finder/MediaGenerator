@@ -102,50 +102,6 @@ export const SEED_MODELS: SeedModel[] = [
   },
   {
     provider: "openai",
-    modelId: "gpt-image-1",
-    displayName: "GPT Image 1",
-    description: "Предыдущее поколение. ⚠️ Отключается 23.10.2026 — переходите на GPT Image 2.",
-    paramsSchema: {
-      size: {
-        type: "select",
-        label: "Размер",
-        options: ["1024x1024", "1536x1024", "1024x1536"],
-        default: "1024x1024",
-      },
-      quality: {
-        type: "select",
-        label: "Качество",
-        options: ["low", "medium", "high"],
-        default: "medium",
-      },
-      output_format: {
-        type: "select",
-        label: "Формат",
-        options: ["png", "jpeg", "webp"],
-        default: "png",
-      },
-      background: {
-        type: "select",
-        label: "Фон",
-        options: ["opaque", "transparent"],
-        default: "opaque",
-      },
-      moderation: {
-        type: "select",
-        label: "Модерация",
-        options: ["low", "auto"],
-        default: "low",
-        optionLabels: { "low": "low — мягкая", "auto": "auto — стандартная" },
-      },
-    },
-    pricing: {
-      low:    { "1024x1024": 0.011, wide: 0.016 },
-      medium: { "1024x1024": 0.042, wide: 0.063 },
-      high:   { "1024x1024": 0.167, wide: 0.250 },
-    },
-  },
-  {
-    provider: "openai",
     modelId: "gpt-image-1-mini",
     displayName: "GPT Image 1 Mini",
     description: "Бюджетная модель, самая дешёвая от OpenAI. ⚠️ Отключается 01.12.2026 — переходите на GPT Image 2.",

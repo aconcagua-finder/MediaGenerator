@@ -57,7 +57,7 @@ const STYLE_CONFIGS: Record<CoverStyle, StyleConfig> = {
   minimalist: {
     systemHint: `Стиль — минималистичная редакторская иллюстрация: одна большая визуальная метафора, мягкие градиенты, тёплая палитра, плоская графика, без текста, без логотипов, без реальных людей.`,
     defaultProvider: "openrouter",
-    defaultModel: "google/gemini-3.1-flash-image",
+    defaultModel: "google/gemini-nano-banana-2.1",
   },
   photo: {
     systemHint: `Стиль — фотореалистичная редакторская фотография: один объект-метафора, естественное освещение, неглубокая глубина резкости, без людей в кадре крупным планом, без текста, без логотипов.`,

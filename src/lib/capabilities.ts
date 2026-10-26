@@ -58,7 +58,7 @@ export const VISION_TEXT_MODELS = new Set<string>([
  */
 export const IMAGE_INPUT_MODELS: Record<string, string[]> = {
   // Через OpenAI Images API (/v1/images/edits)
-  openai: ["gpt-image-2", "gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"],
+  openai: ["gpt-image-2", "gpt-image-1.5", "gpt-image-1-mini"],
   // Через OpenRouter chat completions с image input
   openrouter: [
     "google/gemini-3.1-flash-image",
