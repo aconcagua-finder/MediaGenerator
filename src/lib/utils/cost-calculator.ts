@@ -5,7 +5,7 @@ import { openRouterImagePrice } from "../providers/openrouter-image-models"
  * Цены актуальны на апрель 2026.
  */
 
-type OpenAIModel = "gpt-image-2" | "gpt-image-1.5" | "gpt-image-1" | "gpt-image-1-mini"
+type OpenAIModel = "gpt-image-2" | "gpt-image-1.5" | "gpt-image-1-mini"
 type OpenAIQuality = "low" | "medium" | "high"
 type OpenAISize = "1024x1024" | "1536x1024" | "1024x1536" | "1792x1024" | "1024x1792"
 
@@ -20,11 +20,6 @@ const OPENAI_PRICES: Record<OpenAIModel, Record<OpenAIQuality, { standard: numbe
     low:    { standard: 0.009, wide: 0.013 },
     medium: { standard: 0.034, wide: 0.050 },
     high:   { standard: 0.133, wide: 0.200 },
-  },
-  "gpt-image-1": {
-    low:    { standard: 0.011, wide: 0.016 },
-    medium: { standard: 0.042, wide: 0.063 },
-    high:   { standard: 0.167, wide: 0.250 },
   },
   "gpt-image-1-mini": {
     low:    { standard: 0.005, wide: 0.006 },

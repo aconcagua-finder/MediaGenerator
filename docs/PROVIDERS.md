@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: октябрь 2026 (аудит 2026-W43)
+> Актуально на: октябрь 2026 (аудит 2026-W44)
 
 ---
 
@@ -14,21 +14,24 @@
 |--------|----|--------------------------|
 | GPT Image 2 | `gpt-image-2` | $0.053 |
 | GPT Image 1.5 | `gpt-image-1.5` | $0.034 |
-| GPT Image 1 | `gpt-image-1` | $0.042 |
 | GPT Image 1 Mini | `gpt-image-1-mini` | $0.011 |
 
 > `gpt-image-2` (флагман, апр 2026) — лучшее качество и кириллица, но **не**
 > поддерживает прозрачный фон (только opaque/auto). Для прозрачного фона —
-> `gpt-image-1.5` / `gpt-image-1`.
+> `gpt-image-1.5`. ~~`gpt-image-1`~~ отключена 23.10.2026 и убрана из реестра (W44).
 >
 > ⚠️ **Все три старые image-модели OpenAI отключаются в этом году** (уточнено в
 > аудите 2026-W30 по developers.openai.com/api/docs/deprecations):
 >
 > | Модель | Отключение | Замена |
 > |--------|-----------|--------|
-> | `gpt-image-1` | **23.10.2026** | `gpt-image-2` |
-> | `gpt-image-1.5` | **01.12.2026** | `gpt-image-2` |
-> | `gpt-image-1-mini` | **01.12.2026** | `gpt-image-2` |
+> | `gpt-image-1` | **23.10.2026** ✅ отключена, убрана (W44) | `gpt-image-2.5-sunburst` / `-flare` |
+> | `gpt-image-1.5` | **01.12.2026** | `gpt-image-2.5-sunburst` / `-flare` |
+> | `gpt-image-1-mini` | **01.12.2026** | `gpt-image-2.5-sunburst` / `-flare` |
+>
+> (W44: OpenAI теперь рекомендует замену `gpt-image-2.5-*`, а не `gpt-image-2`. У нас 2.5 доступна
+> через OpenRouter (`openai/gpt-image-2.5-*`); прямой OpenAI-вариант не заведён — цена по токенам
+> ($30/1М выходных image-токенов), поддержка прозрачного фона в доках не указана.)
 >
 > `gpt-image-2` — единственная без даты отключения. ❗ Но она НЕ умеет прозрачный
 > фон, а `gpt-image-1.5`/`gpt-image-1` умеют — то есть после 01.12.2026 у нас
@@ -59,8 +62,6 @@
 | gpt-image-2 (wide) | $0.009 | $0.080 | $0.317 |
 | gpt-image-1.5 (1024) | $0.009 | $0.034 | $0.133 |
 | gpt-image-1.5 (wide) | $0.013 | $0.050 | $0.200 |
-| gpt-image-1 (1024) | $0.011 | $0.042 | $0.167 |
-| gpt-image-1 (wide) | $0.016 | $0.063 | $0.250 |
 | gpt-image-1-mini (1024) | $0.005 | $0.011 | $0.036 |
 | gpt-image-1-mini (wide) | $0.006 | $0.015 | $0.052 |
 
@@ -516,6 +517,36 @@ $0.048 (OpenRouter сейчас даёт скидку 50%). Цены Gemini-по
 >   прошла, но модель всё ещё Active. Sonnet 4.5 уходит 30.11.2026 — в реестре нет.
 > - **Perplexity:** даты отключения Sonar Chat Completions в changelog нет; 24.10 из Agent API уходят GPT-5.x — не касается.
 > - **Дубли цен:** `OPENAI_PRICING` (reddit-search), `PERPLEXITY_PRICING`, `cover-models.ts` совпадают с живыми ценами.
+
+> **Аудит 2026-W44 (26.10.2026).**
+> - **Механический дифф.** Видео: 30 id, новых нет; вне реестра — прежние осознанные пропуски
+>   `flux-video-edit` (v2v-кандидат, контракт не проверен), `flux-video-upscale` (апскейл — режима нет),
+>   `heygen/avatar-iv` (lip-sync по аудио — режима нет). `pricing_skus` всех моделей совпали со снимком.
+>   Картинки: 63 id на `/models?output_modalities=image` (61 на `/images/models`), новых с W43 нет; вне реестра —
+>   прежние пропуски (`qwen-image-2.1-pro` дороже Qwen 3 Pro, `krea/k3-edit` и Recraft V4 Styles требуют входной
+>   файл, `openai/gpt-image-1|1-mini|2`/`recraft-v3`/`grok-imagine-image-quality`/`flux.2-klein-4b` — дубли прямых
+>   провайдеров, Gemini `*-preview` — ретайрнуты, `openrouter/auto*` — роутеры). Цены Images API всех спеков
+>   совпали с `/images/models/{id}/endpoints`. Текст: новых id у вендоров реестра с W43 нет (свежайший —
+>   `deepseek-v4.1-flash-1017`, датированный снапшот, пропущен); `*:batch`/`-pro` — пропущены как раньше.
+> - **Чат:** дрейф `deepseek-v4.1-flash` $0.04/$0.08 → $0.02/$1.00 (листинг берёт самого дешёвого по входу
+>   реселлера, OpenInference). ❗ Anthropic в API-версии `2026-10-21` убрал `temperature`/`top_p`/`top_k`
+>   (400; для Claude 4.7+ — и на старых версиях при не-дефолтном значении). Через OpenRouter у нас всё
+>   работает: живые вызовы Haiku 5.5 / Sonnet 4.6 / Sonnet 5.5 с `temperature:0.3, top_p:0.9` — 200
+>   (OpenRouter сам снимает параметры). При переходе на прямой Anthropic API параметры надо убрать.
+> - **Картинки:** OpenAI `gpt-image-1` отключена 23.10 (живой вызов: 400 «The model 'gpt-image-1' does not exist»,
+>   хотя в `/v1/models` ещё числится) — убрана из `seed-models.ts`/`cost-calculator.ts`/`capabilities.ts`,
+>   строка `model_registry` деактивирована (и `RETIRED_OPENAI_MODELS` в `actions/models.ts` для идемпотентности).
+>   Генераций ею не было. Google: `gemini-3.1-flash-image` устарела (06.10, даты нет), `gemini-2.5-flash-image`
+>   всё ещё жива на OpenRouter (status 0). FLUX.2 pro/max/flex, Seedream 4.5, все Gemini-слаги — живы.
+>   BFL: новых моделей кроме FLUX.3 Image/Klein (уже в реестре) нет, депрекейшенов FLUX.2 нет.
+> - **Видео:** изменений нет; xAI новее `grok-imagine-video-1.5` не выпускал, депрекейшенов нет.
+> - **Классификатор:** `claude-sonnet-4.6` Active (не раньше 17.02.2027). Haiku 4.5 — «не раньше 15.10.2026»,
+>   по-прежнему Active. Sonnet 4.5 уходит 30.11.2026 — в реестре нет.
+> - **Публикации:** обложки — добавлена **Nano Banana 2.1** (`google/gemini-nano-banana-2.1`, Images API, живой
+>   вызов 1K 16:9 = $0.036) и стала дефолтом стиля «минимализм» вместо устаревшей Nano Banana 2 ($0.067).
+>   Perplexity: Sonar Chat Completions жив (`sonar-pro` / `sonar-deep-research` — 200), в changelog даты
+>   отключения нет; новое ограничение — `max_tokens` ≥ 16 (наш `validateKey` шлёт 1 → 400, но 400 и так
+>   считается «ключ ОК»). `OPENAI_PRICING` (reddit-search) и `PERPLEXITY_PRICING` совпадают с живыми ценами.
 
 ---
 

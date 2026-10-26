@@ -21,6 +21,15 @@ const RETIRED_OPENROUTER_MODELS = [
 ]
 
 /**
+ * Модели прямого OpenAI, отключённые провайдером (убраны из SEED_MODELS).
+ * Крон model-check видит их в `GET /v1/models` ещё какое-то время после отключения,
+ * поэтому строку в model_registry надо гасить явно.
+ */
+const RETIRED_OPENAI_MODELS = [
+  "gpt-image-1", // отключена OpenAI 23.10.2026 («does not exist», аудит W44)
+]
+
+/**
  * Получить все активные модели, сгруппированные по провайдерам
  */
 export async function getActiveModels() {
@@ -78,6 +87,15 @@ export async function seedModels() {
       and(
         eq(modelRegistry.provider, "openrouter"),
         inArray(modelRegistry.modelId, RETIRED_OPENROUTER_MODELS),
+      ),
+    )
+  await db
+    .update(modelRegistry)
+    .set({ isActive: false })
+    .where(
+      and(
+        eq(modelRegistry.provider, "openai"),
+        inArray(modelRegistry.modelId, RETIRED_OPENAI_MODELS),
       ),
     )
 
