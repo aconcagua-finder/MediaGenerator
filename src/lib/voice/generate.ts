@@ -5,6 +5,7 @@ import { getVoiceProvider } from "@/lib/providers/voice/registry"
 import { getVoiceModel, estimateVoiceCost } from "@/lib/providers/voice-models"
 import { upload, ensureBucket } from "@/lib/storage/s3"
 import { humanizeVoiceError } from "./humanize-error"
+import { probeAudioSeconds } from "./audio-duration"
 
 /**
  * Синтез одной озвучки: вызов провайдера → загрузка аудио в S3 → списание
@@ -125,14 +126,16 @@ export async function runVoiceGeneration(genId: string, apiKey: string): Promise
       apiKey,
     )
 
-    // Длительность считаем только для WAV (знаем параметры PCM); у mp3 — null,
-    // плеер всё равно покажет её из метаданных файла.
+    // Длительность: у WAV — из параметров PCM, у mp3 — ffprobe (карточкам и
+    // Библиотеке она нужна до того, как плеер скачает файл)
     let durationSeconds: number | null = null
     if (result.pcm) {
       const bytesPerSample = result.pcm.bitsPerSample / 8
       const pcmBytes = result.buffer.length - 44 // вычитаем WAV-заголовок
       const denom = result.pcm.sampleRate * result.pcm.channels * bytesPerSample
       if (denom > 0 && pcmBytes > 0) durationSeconds = Math.round(pcmBytes / denom)
+    } else {
+      durationSeconds = await probeAudioSeconds(result.buffer, result.outputFormat)
     }
 
     await ensureBucket()

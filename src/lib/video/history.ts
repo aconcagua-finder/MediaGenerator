@@ -2,6 +2,7 @@ import { getVideoModel } from "@/lib/providers/video-models"
 import { getVoiceEngineByEndpoint } from "@/lib/providers/voice-change-models"
 import { LINK_TTL_MS } from "@/lib/media-link/token"
 import { humanizeVideoError } from "./humanize-error"
+import { mapFeedStatus, type FeedStatus } from "@/lib/history/merge"
 import { posterKeyOf } from "./poster-key"
 
 
@@ -17,7 +18,7 @@ import { posterKeyOf } from "./poster-key"
  */
 
 export type HistoryMode = "t2v" | "i2v" | "v2v" | "voice"
-export type HistoryStatus = "processing" | "done" | "error"
+export type HistoryStatus = FeedStatus
 
 export interface HistoryVideo {
   id: string
@@ -125,12 +126,8 @@ function str(v: unknown): string | null {
   return typeof v === "string" && v ? v : null
 }
 
-/** processing / saving / pending → «в работе» */
-export function mapHistoryStatus(status: string): HistoryStatus {
-  if (status === "done") return "done"
-  if (status === "error") return "error"
-  return "processing"
-}
+/** processing / saving / pending → «в работе» (общий для всех лент) */
+export const mapHistoryStatus = mapFeedStatus
 
 /** id родительской v2v-генерации у строки переозвучки */
 export function parentGenerationId(params: unknown): string | null {

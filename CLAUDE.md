@@ -107,7 +107,8 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
 - `src/lib/video/finalize.ts` — `finalizeVideoGeneration` + `reconcileStaleVideoJobs` (общий код)
 - `src/app/api/video/[id]/status/route.ts` — клиентский поллинг (тонкий, зовёт finalize)
 - `src/app/api/cron/video-reconcile/route.ts` — cron-дочистка зависших задач
-- `src/app/api/video/history/route.ts` + `src/lib/video/{history,history-query,history-merge}.ts` — «Мои последние генерации» под формой
+- `src/app/api/video/history/route.ts` + `src/lib/video/{history,history-query}.ts` — «Мои генерации» под формой
+  (оболочка, хук страниц и кирпичики карточек — общие с /voice и /generate: `src/components/history-feed/*`, `src/lib/history/merge.ts`)
 
 **Архитектурные принципы:**
 1. **i2v: `frame_images` — массив ОБЪЕКТОВ**, не строк: `{ type:"image_url", image_url:{ url }, frame_type:"first_frame"|"last_frame" }`. `url` принимает data:-URI. Массив строк → 400 `expected object, received string`. Текст-промпт уходит всегда (`{model,prompt}`), картинка — поверх.
@@ -271,5 +272,16 @@ Chatterbox HD через fal (ключ fal). В v2v можно сразу зак
    оценка из символов (v4/v3/v2 $0.08, v4 Turbo $0.04 за 1к). Ошибки — общий разбор `elevenlabs-errors.ts`
    (подсказки для TTS свои). «Русский проверен» — по `verified_languages` для модели (у v3 записей нет → `verifiedAs: eleven_v4`),
    «Популярные» — `?popular=1&model=…`. Без ключа ElevenLabs модели серые («нужен ключ ElevenLabs»).
+10. **«Мои озвучки» под формой — из БД** (`GET /api/voice/history`, `lib/voice/{history,history-query}.ts`, карточки
+   `components/voice/voice-job-card.tsx`): свои озвучки страницами по 8, догрузка при прокрутке, плеер `<audio preload="none">`
+   монтируется только рядом с экраном. Синтез синхронный, реконсилятора нет: запись «в работе» после перезагрузки
+   досматривается точечными запросами `?ids=`, а старше 15 минут показывается ошибкой (`syncJobStatus`). Длительность mp3
+   теперь пишется при сохранении через ffprobe (`lib/voice/audio-duration.ts`; старые записи — null).
+
+**Изображения (`/generate`) — «Мои картинки» под формой из БД:** `GET /api/generate/history` поверх того же
+`getGenerations`, что у /history (только свои), сборка карточек — `lib/images/history.ts` (ошибки провайдеров переводит
+`humanizeImageError`), карточки — `components/generate/image-job-card.tsx`. Миниатюр нет — грузится оригинал, но `<img>`
+появляется только рядом с экраном. «Повторить» восстанавливает стиль из суффикса промпта (`splitStyleSuffix`), референс
+(правки) — заново.
 
 **Картинки — Nano Banana 2 / 2 Lite:** `google/gemini-3.1-flash-image` (GA, Nano Banana 2) и `google/gemini-3.1-flash-lite-image` (Lite) добавлены в `seed-models.ts` (секция OpenRouter). Старый preview-слаг `google/gemini-3.1-flash-image-preview` мигрирован на GA везде (edit-диалог, cover-модели, capabilities) и деактивируется в `seedModels()` через `RETIRED_OPENROUTER_MODELS`. Цена в `cost-calculator.ts` — по размеру (flash 1K≈$0.067, lite 1K≈$0.034); ❗ ветка `flash-lite-image` идёт ПЕРЕД `flash-image`. Дефолтная модель картинок — Lite (`PREFERRED_DEFAULT` в `generate-form.tsx`; сохранённый выбор в localStorage имеет приоритет). ❗ **Готча:** крон `model-check` авто-обнаруживает новые image-модели OpenRouter и вставляет их в `model_registry` как `is_active=false` с пустыми `params_schema`/`pricing`. Если это случилось ДО `seedModels()`, наш insert-only сид их пропустит — модель останется скрытой с пустыми параметрами. `gemini-3.1-flash-image` так и «спрятался»; чинится UPDATE'ом строки (активация + правильные `params_schema`/`pricing`/`display_name`).

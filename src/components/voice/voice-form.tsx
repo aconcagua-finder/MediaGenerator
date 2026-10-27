@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
-import { AudioLines, Loader2, DollarSign, Download } from "lucide-react"
+import { AudioLines, Loader2, DollarSign } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { VoiceModelSelector } from "./voice-model-selector"
 import { VoiceSelector } from "./voice-selector"
@@ -27,27 +27,16 @@ import {
   type TtsVoiceSettings,
   type VoiceModel,
 } from "@/lib/providers/voice-models"
-import { getVoiceEngine } from "@/lib/providers/voice-change-models"
+import { getVoiceEngine, isElevenLabsVoiceId, sanitizeVoiceName } from "@/lib/providers/voice-change-models"
+import { mergeJobsById } from "@/lib/history/merge"
+import type { VoiceHistoryItem } from "@/lib/voice/history"
+import { HistoryFeedSection, feedCount } from "@/components/history-feed/history-feed-section"
+import { useHistoryFeed } from "@/components/history-feed/use-history-feed"
+import { VoiceJobCard, VoiceJobCardSkeleton } from "./voice-job-card"
+import { voiceJobFromHistory, type VoiceJob } from "./voice-job"
 import { toast } from "sonner"
 
-interface AudioResult {
-  id: string
-  url: string
-  format: string
-  durationSeconds: number | null
-  sizeBytes: number | null
-}
-
-interface VoiceJob {
-  id: string
-  status: "processing" | "done" | "error"
-  text: string
-  modelName: string
-  voiceLabel: string
-  audio?: AudioResult
-  error?: string
-  cost?: number
-}
+const HISTORY_PAGE = 8
 
 interface VoiceFormProps {
   hasOpenRouterKey: boolean
@@ -107,6 +96,39 @@ export function VoiceForm({ hasOpenRouterKey, hasElevenLabsKey = false }: VoiceF
   const [jobs, setJobs] = useState<VoiceJob[]>([])
   const submittingRef = useRef(false)
 
+  // «Мои озвучки»: история из БД страницами, сливается со свежими результатами вкладки
+  const historyFeed = useHistoryFeed<VoiceHistoryItem>({
+    url: "/api/voice/history",
+    pageSize: HISTORY_PAGE,
+    onPage: (items) => {
+      const incoming = items.map(voiceJobFromHistory)
+      setJobs((prev) => mergeJobsById(prev, incoming))
+      const unfinished = incoming.filter((j) => j.status === "processing").map((j) => j.id)
+      if (unfinished.length) void watchUnfinished(unfinished)
+    },
+  })
+
+  /**
+   * Синтез синхронный, но после перезагрузки вкладки запрос уже не наш —
+   * досматриваем такие записи точечными запросами истории, пока не завершатся.
+   */
+  async function watchUnfinished(ids: string[]) {
+    let pending = ids
+    for (let attempt = 0; attempt < 45 && pending.length > 0; attempt++) {
+      await new Promise((r) => setTimeout(r, 4000))
+      try {
+        const res = await fetch(`/api/voice/history?ids=${pending.join(",")}&limit=${pending.length}`)
+        if (!res.ok) continue
+        const data = (await res.json()) as { items?: VoiceHistoryItem[] }
+        const fresh = new Map((data.items ?? []).map((i) => [i.id, voiceJobFromHistory(i)]))
+        setJobs((prev) => prev.map((j) => fresh.get(j.id) ?? j))
+        pending = pending.filter((id) => fresh.get(id)?.status === "processing")
+      } catch {
+        // сетевой сбой — попробуем на следующем шаге
+      }
+    }
+  }
+
   const costEstimate = useMemo(() => estimateVoiceCost(model, text.length), [model, text.length])
   const overLimit = text.length > model.maxChars
   const ru = RUSSIAN_SPEECH_INFO[model.russianSpeech]
@@ -146,6 +168,41 @@ export function VoiceForm({ hasOpenRouterKey, hasElevenLabsKey = false }: VoiceF
     })
   }
 
+  /** «Повторить»: модель, голос, настройки и текст записи — в форму */
+  function handleRepeat(job: VoiceJob) {
+    setText(job.text)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+    const m = getVoiceModel(job.modelId)
+    if (!m || !m.available) {
+      toast.info("Текст подставлен", { description: `Модель «${job.modelName}» сейчас недоступна — выберите другую.` })
+      return
+    }
+    if (!hasKeyFor(m)) {
+      toast.info("Текст подставлен", {
+        description: `Для «${m.name}» нужен ключ ${m.provider === "elevenlabs" ? "ElevenLabs" : "OpenRouter"}.`,
+      })
+      return
+    }
+    setModelId(m.id)
+    savePref("voice_model", m.id)
+    if (m.dynamicVoices) {
+      if (isElevenLabsVoiceId(job.voice)) {
+        const picked = { id: job.voice, name: sanitizeVoiceName(job.voiceName) || job.voice }
+        setElVoice(picked)
+        saveVoicePick(picked, "voice_tts")
+      }
+      if (job.settings) {
+        const next = normalizeTtsSettings({ ...elSettings, ...job.settings })
+        setElSettings(next)
+        saveRawVoiceSettings("voice_tts", next)
+      }
+    } else {
+      setVoice(resolveVoice(m, job.voice))
+      setSpeed(m.supportsSpeed && typeof job.speed === "number" ? job.speed : 1)
+    }
+    toast.success("Форма заполнена")
+  }
+
   async function handleGenerate() {
     if (submittingRef.current) return
     const trimmed = text.trim()
@@ -177,8 +234,13 @@ export function VoiceForm({ hasOpenRouterKey, hasElevenLabsKey = false }: VoiceF
       id: tmpId,
       status: "processing",
       text: trimmed,
+      modelId: model.id,
       modelName: model.name,
-      voiceLabel,
+      providerLabel: model.provider === "elevenlabs" ? "ElevenLabs" : "OpenRouter",
+      voice: model.dynamicVoices ? elVoice.id : voice,
+      voiceName: voiceLabel,
+      ...(model.dynamicVoices ? { settings: elSettings } : model.supportsSpeed ? { speed } : {}),
+      startedAt: Date.now(),
     }
     setJobs((prev) => [pending, ...prev])
     setIsSubmitting(true)
@@ -210,12 +272,12 @@ export function VoiceForm({ hasOpenRouterKey, hasElevenLabsKey = false }: VoiceF
         return
       }
 
+      const realId: string = data.voiceGenerationId || tmpId
       setJobs((prev) =>
-        prev.map((j) =>
-          j.id === tmpId
-            ? { ...j, id: data.voiceGenerationId || tmpId, status: "done", audio: data.audio, cost: data.cost }
-            : j,
-        ),
+        prev
+          // Пока шёл синтез, страница истории могла принести эту же запись «в работе»
+          .filter((j) => j.id !== realId || j.id === tmpId)
+          .map((j) => (j.id === tmpId ? { ...j, id: realId, status: "done", audio: data.audio, cost: data.cost } : j)),
       )
       toast.success("Озвучка готова!", {
         description: typeof data.cost === "number" ? `Стоимость: $${data.cost.toFixed(4)}` : undefined,
@@ -231,8 +293,9 @@ export function VoiceForm({ hasOpenRouterKey, hasElevenLabsKey = false }: VoiceF
   }
 
   return (
+    <div className="space-y-10">
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      {/* Левая колонка — текст и результаты */}
+      {/* Левая колонка — текст */}
       <div className="space-y-6">
         <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-5">
           <textarea
@@ -266,17 +329,6 @@ export function VoiceForm({ hasOpenRouterKey, hasElevenLabsKey = false }: VoiceF
           )}
         </div>
 
-        {/* Результаты */}
-        {jobs.length > 0 && (
-          <div>
-            <h3 className="mb-3 text-sm font-medium text-neutral-400">Результаты</h3>
-            <div className="space-y-3">
-              {jobs.map((job) => (
-                <VoiceCard key={job.id} job={job} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Правая колонка — модель, голос, параметры */}
@@ -350,67 +402,22 @@ export function VoiceForm({ hasOpenRouterKey, hasElevenLabsKey = false }: VoiceF
         </p>
       </div>
     </div>
-  )
-}
 
-function fmtSize(bytes: number | null): string {
-  if (!bytes) return ""
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} КБ`
-  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
-}
-
-function VoiceCard({ job }: { job: VoiceJob }) {
-  if (job.status === "done" && job.audio) {
-    return (
-      <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-3">
-        <p className="mb-2 line-clamp-2 text-xs text-neutral-400" title={job.text}>
-          {job.text}
-        </p>
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <audio src={job.audio.url} controls preload="metadata" className="w-full" />
-        <div className="mt-2 flex items-center gap-2 text-[11px] text-neutral-500">
-          <span className="truncate">
-            {job.modelName} · {job.voiceLabel}
-          </span>
-          <span className="ml-auto shrink-0 uppercase">{job.audio.format}</span>
-          {job.audio.durationSeconds != null && <span className="shrink-0">{job.audio.durationSeconds}с</span>}
-          {job.audio.sizeBytes != null && <span className="shrink-0">{fmtSize(job.audio.sizeBytes)}</span>}
-          <a
-            href={job.audio.url}
-            download={`voice-${job.audio.id}.${job.audio.format}`}
-            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white transition-colors hover:bg-x-blue"
-            title="Скачать"
-            aria-label="Скачать"
-          >
-            <Download className="size-3.5" />
-          </a>
-        </div>
-      </div>
-    )
-  }
-
-  if (job.status === "error") {
-    return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/[0.04] p-4">
-        <p className="text-sm font-medium text-red-400">Не удалось озвучить</p>
-        <p className="mt-1 line-clamp-3 text-xs text-neutral-500">{job.error}</p>
-        <p className="mt-2 truncate text-[11px] text-neutral-600" title={job.text}>
-          {job.modelName} · {job.voiceLabel}
-        </p>
-      </div>
-    )
-  }
-
-  // processing
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-white/[0.12] bg-white/[0.03] p-4">
-      <Loader2 className="size-5 shrink-0 animate-spin text-x-blue" />
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-neutral-300">Синтез речи…</p>
-        <p className="truncate text-[11px] text-neutral-600" title={job.text}>
-          {job.modelName} · {job.voiceLabel}
-        </p>
-      </div>
+      <HistoryFeedSection
+        title="Мои озвучки"
+        count={feedCount(historyFeed.state, jobs)}
+        state={historyFeed.state}
+        onLoadMore={historyFeed.loadMore}
+        libraryHref="/library?tab=audios"
+        libraryLabel="Все аудио в Библиотеке →"
+        emptyText="Здесь появятся ваши озвучки: и готовые, и те, что не удались."
+        hasItems={jobs.length > 0}
+        skeleton={<VoiceJobCardSkeleton />}
+      >
+        {jobs.map((job) => (
+          <VoiceJobCard key={job.id} job={job} onRepeat={handleRepeat} />
+        ))}
+      </HistoryFeedSection>
     </div>
   )
 }

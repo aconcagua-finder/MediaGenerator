@@ -27,7 +27,11 @@ interface ImageEditDialogProps {
   hasOpenAIKey: boolean
   hasOpenRouterKey?: boolean
   onClose: () => void
-  onEditComplete: (newImages: GeneratedImage[]) => void
+  /** meta — для карточки в «Моих картинках» (генерация правки, её промпт и модель) */
+  onEditComplete: (
+    newImages: GeneratedImage[],
+    meta?: { generationId: string; cost: number; prompt: string; provider: string; model: string },
+  ) => void
 }
 
 interface EditModel {
@@ -247,12 +251,19 @@ export function ImageEditDialog({
       const data = await response.json() as {
         images: GeneratedImage[]
         cost: number
+        generationId: string
       }
 
       toast.success("Готово!", {
         description: `Новый вариант создан — $${data.cost?.toFixed(3) || "?"}`,
       })
-      onEditComplete(data.images)
+      onEditComplete(data.images, {
+        generationId: data.generationId,
+        cost: data.cost,
+        prompt: prompt.trim(),
+        provider: currentModel.provider,
+        model: currentModel.modelId,
+      })
       onClose()
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Сетевая ошибка"

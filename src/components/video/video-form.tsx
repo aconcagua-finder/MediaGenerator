@@ -50,9 +50,10 @@ import {
   type VoiceSettings,
 } from "@/lib/providers/voice-change-models"
 import type { VideoHistoryItem } from "@/lib/video/history"
-import { mergeJobsById } from "@/lib/video/history-merge"
+import { mergeJobsById } from "@/lib/history/merge"
 import { jobFromHistory, type VideoJob, type VideoResult, type VoiceOverJob } from "./video-job"
-import { VideoHistorySection, type VideoHistoryState } from "./video-history-section"
+import { VideoHistorySection } from "./video-history-section"
+import { useHistoryFeed } from "@/components/history-feed/use-history-feed"
 
 const HISTORY_PAGE = 8
 import { toast } from "sonner"
@@ -157,18 +158,26 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
   }, [])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobs, setJobs] = useState<VideoJob[]>([])
-  // «Мои генерации»: история из БД маленькими страницами, сливается с задачами вкладки
-  const [history, setHistory] = useState<VideoHistoryState>({
-    loaded: false,
-    loading: false,
-    hasMore: false,
-    offset: 0,
-    total: 0,
-    error: null,
+  // «Мои генерации»: история из БД маленькими страницами, сливается с задачами вкладки;
+  // незавершённые задачи из истории опрашиваются так же, как свежие
+  const historyFeed = useHistoryFeed<VideoHistoryItem>({
+    url: "/api/video/history",
+    pageSize: HISTORY_PAGE,
+    onPage: (items) => {
+      const incoming = items.map(jobFromHistory)
+      setJobs((prev) => mergeJobsById(prev, incoming))
+      for (const job of incoming) {
+        const vo = job.voiceOver ? { voice: job.voiceOver.voice, voiceName: job.voiceOver.voiceName } : undefined
+        if (job.status === "processing") {
+          void pollJob(job.id, vo)
+        } else if (job.status === "done" && job.voiceOver?.status === "waiting") {
+          void pollJob(job.id, vo, { silentDone: true })
+        } else if (job.status === "done" && job.voiceOver?.status === "processing" && job.voiceOver.generationId) {
+          void pollVoiceOver(job.id, job.voiceOver.generationId)
+        }
+      }
+    },
   })
-  const historyRef = useRef(history)
-  historyRef.current = history
-  const historyLoadingRef = useRef(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const dragCounterRef = useRef(0)
   const router = useRouter()
@@ -406,64 +415,6 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
     }
     patch({ status: "error", error: "Превышено время ожидания. Проверьте библиотеку чуть позже." })
   }
-
-  /** Следующая страница истории; незавершённые задачи опрашиваются так же, как свежие */
-  async function loadHistory(offset: number) {
-    // Сторож прокрутки может сработать дважды до обновления состояния
-    if (historyLoadingRef.current) return
-    historyLoadingRef.current = true
-    setHistory((h) => ({ ...h, loading: true, error: null }))
-    try {
-      const res = await fetch(`/api/video/history?offset=${offset}&limit=${HISTORY_PAGE}`)
-      const data = (await res.json().catch(() => ({}))) as {
-        items?: VideoHistoryItem[]
-        hasMore?: boolean
-        total?: number
-        error?: string
-      }
-      if (!res.ok) throw new Error(data.error || `Ошибка сервера (${res.status})`)
-      if (!mountedRef.current) return
-      const incoming = (data.items ?? []).map(jobFromHistory)
-      setJobs((prev) => mergeJobsById(prev, incoming))
-      setHistory({
-        loaded: true,
-        loading: false,
-        hasMore: Boolean(data.hasMore),
-        offset: offset + (data.items?.length ?? 0),
-        total: data.total ?? offset + (data.items?.length ?? 0),
-        error: null,
-      })
-      for (const job of incoming) {
-        const vo = job.voiceOver ? { voice: job.voiceOver.voice, voiceName: job.voiceOver.voiceName } : undefined
-        if (job.status === "processing") {
-          void pollJob(job.id, vo)
-        } else if (job.status === "done" && job.voiceOver?.status === "waiting") {
-          void pollJob(job.id, vo, { silentDone: true })
-        } else if (job.status === "done" && job.voiceOver?.status === "processing" && job.voiceOver.generationId) {
-          void pollVoiceOver(job.id, job.voiceOver.generationId)
-        }
-      }
-    } catch (err) {
-      if (!mountedRef.current) return
-      const msg = err instanceof Error ? err.message : "Не удалось загрузить историю"
-      setHistory((h) => ({ ...h, loaded: true, loading: false, error: msg }))
-    } finally {
-      historyLoadingRef.current = false
-    }
-  }
-
-  // Стабильная ссылка для сторожа прокрутки секции (форма перерисовывается каждую секунду, пока есть задачи)
-  const loadHistoryRef = useRef(loadHistory)
-  loadHistoryRef.current = loadHistory
-  const loadMoreHistory = useCallback(() => {
-    void loadHistoryRef.current(historyRef.current.offset)
-  }, [])
-
-  useEffect(() => {
-    void loadHistory(0)
-    // только при монтировании
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   /** «Повторить с этим промптом»: модель, промпт и параметры задачи — в форму */
   function handleRepeat(job: VideoJob) {
@@ -1006,8 +957,8 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
 
       <VideoHistorySection
         jobs={jobs}
-        history={history}
-        onLoadMore={loadMoreHistory}
+        history={historyFeed.state}
+        onLoadMore={historyFeed.loadMore}
         onRepeat={handleRepeat}
         composeIds={doneVideoIds}
         onCompose={() => router.push(`/video/editor?clips=${doneVideoIds.slice(0, 12).join(",")}`)}

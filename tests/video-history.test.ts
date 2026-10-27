@@ -12,7 +12,7 @@ import {
 } from "@/lib/video/history"
 import { voiceNameFromParams, voiceOverLabel } from "@/lib/video/voice-over"
 import { parseLibraryTab } from "@/lib/library-tab"
-import { mergeJobsById } from "@/lib/video/history-merge"
+import { mergeJobsById } from "@/lib/history/merge"
 import { buildPosterArgs } from "@/lib/video/poster"
 import { posterKeyOf } from "@/lib/video/poster-key"
 
