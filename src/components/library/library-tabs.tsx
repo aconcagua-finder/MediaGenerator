@@ -9,14 +9,7 @@ import type { ImageWithGeneration } from "@/lib/actions/images"
 import type { FolderItem } from "@/lib/actions/folders"
 import type { VideoLibraryItem } from "@/lib/actions/videos"
 import type { AudioLibraryItem } from "@/lib/actions/audios"
-
-export type LibraryTab = "photos" | "videos" | "audios"
-
-/** `?tab=videos|audios` → вкладка (ссылки «Все видео в Библиотеке» с /video и /history) */
-export function parseLibraryTab(value: string | string[] | undefined): LibraryTab {
-  const v = Array.isArray(value) ? value[0] : value
-  return v === "videos" || v === "audios" ? v : "photos"
-}
+import type { LibraryTab } from "@/lib/library-tab"
 
 interface LibraryTabsProps {
   initialTab?: LibraryTab

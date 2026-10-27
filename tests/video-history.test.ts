@@ -11,7 +11,7 @@ import {
   type HistoryVideoRow,
 } from "@/lib/video/history"
 import { voiceNameFromParams, voiceOverLabel } from "@/lib/video/voice-over"
-import { parseLibraryTab } from "@/components/library/library-tabs"
+import { parseLibraryTab } from "@/lib/library-tab"
 import { mergeJobsById } from "@/lib/video/history-merge"
 
 const NOW = new Date("2026-10-27T12:00:00Z").getTime()
