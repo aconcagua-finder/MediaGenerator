@@ -1,30 +1,23 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { AlertCircle, Download, Film, Loader2, Mic2, RotateCcw } from "lucide-react"
+import { useState } from "react"
+import { AlertCircle, Download, Film, Loader2, Mic2 } from "lucide-react"
+import {
+  ACTION_CLASS as ACTION,
+  CardMeta,
+  ClampedText,
+  MetaChip,
+  RepeatButton,
+  formatElapsed,
+  useNearViewport,
+  useNow,
+} from "@/components/history-feed/parts"
 import { voiceOverLabel } from "@/lib/video/voice-over"
 import { VoiceChangeButton } from "./voice-change-button"
 import { MODE_LABELS, type VideoJob, type VideoResult } from "./video-job"
 
-function formatWhen(ts: number): string {
-  const d = new Date(ts)
-  const now = new Date()
-  const time = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
-  if (d.toDateString() === now.toDateString()) return `сегодня, ${time}`
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  if (d.toDateString() === yesterday.toDateString()) return `вчера, ${time}`
-  return `${d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}, ${time}`
-}
-
-function formatElapsed(sec: number): string {
-  if (sec < 60) return `${sec}с`
-  if (sec < 3600) return `${Math.floor(sec / 60)} мин ${sec % 60}с`
-  return `${Math.floor(sec / 3600)} ч ${Math.floor((sec % 3600) / 60)} мин`
-}
-
 /** Коробка медиа фиксированной пропорции: карточки одной высоты, без прыжков при загрузке */
-const MEDIA_BOX = "relative aspect-[4/3] w-full overflow-hidden bg-black"
+export const MEDIA_BOX = "relative aspect-[4/3] w-full overflow-hidden bg-black"
 
 /**
  * Ленивое видео: пока карточка далеко от экрана — только постер/заглушка, без
@@ -34,25 +27,8 @@ const MEDIA_BOX = "relative aspect-[4/3] w-full overflow-hidden bg-black"
  * `preload="metadata"` — браузер покажет первый кадр.
  */
 function LazyVideo({ video }: { video: VideoResult }) {
-  const boxRef = useRef<HTMLDivElement | null>(null)
-  const [near, setNear] = useState(false)
+  const [boxRef, near] = useNearViewport<HTMLDivElement>("200px")
   const [preload, setPreload] = useState<"none" | "metadata">(video.posterUrl ? "none" : "metadata")
-
-  useEffect(() => {
-    const el = boxRef.current
-    if (!el || near) return
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setNear(true)
-          io.disconnect()
-        }
-      },
-      { rootMargin: "200px" },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [near])
 
   return (
     <div ref={boxRef} className={MEDIA_BOX} onMouseEnter={() => setPreload("metadata")}>
@@ -80,35 +56,6 @@ function LazyVideo({ video }: { video: VideoResult }) {
   )
 }
 
-/** Промпт в 2 строки с «ещё» */
-function ClampedText({ text, className }: { text: string; className?: string }) {
-  const [open, setOpen] = useState(false)
-  const long = text.length > 90 || text.includes("\n")
-  return (
-    <p className={`text-xs leading-snug break-words ${className ?? "text-neutral-300"}`}>
-      <span className={open ? "whitespace-pre-wrap" : "line-clamp-2"}>{text}</span>
-      {long && (
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="mt-0.5 text-[11px] text-neutral-500 hover:text-white"
-        >
-          {open ? "свернуть" : "ещё"}
-        </button>
-      )}
-    </p>
-  )
-}
-
-const STATUS_CHIP: Record<VideoJob["status"], { label: string; cls: string }> = {
-  processing: { label: "в работе", cls: "bg-x-blue/[0.12] text-x-blue" },
-  error: { label: "ошибка", cls: "bg-red-500/[0.12] text-red-400" },
-  done: { label: "готово", cls: "bg-emerald-500/[0.12] text-emerald-300" },
-}
-
-const ACTION =
-  "flex h-7 items-center gap-1 rounded-md border border-white/[0.1] bg-white/[0.02] px-2 text-[11px] text-neutral-300 transition-colors hover:border-x-blue/40 hover:text-white"
-
 /**
  * Компактная карточка задачи: медиа фиксированной пропорции (или причина
  * ошибки), статус, режим, модель, время, промпт в 2 строки и ряд действий.
@@ -120,7 +67,6 @@ export function VideoJobCard({ job, onRepeat }: { job: VideoJob; onRepeat: (job:
   const voiced = job.status === "done" && vo?.status === "done" && Boolean(vo.video)
   const shown: VideoResult | undefined = voiced ? vo!.video : job.video
   const text = voiced ? voiceOverLabel(vo!.voiceName, job.prompt) : job.prompt
-  const chip = STATUS_CHIP[job.status]
 
   return (
     <div
@@ -142,12 +88,12 @@ export function VideoJobCard({ job, onRepeat }: { job: VideoJob; onRepeat: (job:
       )}
 
       <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-neutral-500">
-          <span className={`rounded-full px-1.5 py-px ${chip.cls}`}>{chip.label}</span>
-          <span className="rounded-full bg-white/[0.06] px-1.5 py-px text-neutral-400">{MODE_LABELS[job.mode]}</span>
-          <span className="min-w-0 truncate text-neutral-300">{job.modelName}</span>
-          <span className="ml-auto shrink-0">{formatWhen(job.startedAt)}</span>
-        </div>
+        <CardMeta
+          status={job.status}
+          chips={<MetaChip>{MODE_LABELS[job.mode]}</MetaChip>}
+          model={job.modelName}
+          startedAt={job.startedAt}
+        />
 
         {text && <ClampedText text={text} />}
 
@@ -166,10 +112,7 @@ export function VideoJobCard({ job, onRepeat }: { job: VideoJob; onRepeat: (job:
 
         <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
           {job.mode !== "voice" && (
-            <button type="button" onClick={() => onRepeat(job)} className={ACTION} title="Повторить с этим промптом">
-              <RotateCcw className="size-3" />
-              Повторить
-            </button>
+            <RepeatButton onClick={() => onRepeat(job)} />
           )}
           {shown && (
             <a href={shown.url} download={`video-${shown.id}.mp4`} className={ACTION} title="Скачать">
@@ -199,16 +142,6 @@ export function VideoJobCard({ job, onRepeat }: { job: VideoJob; onRepeat: (job:
       </div>
     </div>
   )
-}
-
-/** Текущее время, обновляемое раз в секунду (для счётчика «в работе») */
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [])
-  return now
 }
 
 function ProcessingBox({ job }: { job: VideoJob }) {

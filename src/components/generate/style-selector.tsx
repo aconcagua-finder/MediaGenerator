@@ -49,3 +49,11 @@ export function StyleSelector({ value, onChange }: StyleSelectorProps) {
 export function getStyleSuffix(styleId: string): string {
   return STYLES.find((s) => s.id === styleId)?.suffix || ""
 }
+
+/** Обратная операция для «Повторить»: промпт без суффикса стиля и сам стиль */
+export function splitStyleSuffix(prompt: string): { base: string; styleId: string } {
+  for (const s of STYLES) {
+    if (s.suffix && prompt.endsWith(s.suffix)) return { base: prompt.slice(0, -s.suffix.length), styleId: s.id }
+  }
+  return { base: prompt, styleId: "none" }
+}

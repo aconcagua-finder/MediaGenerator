@@ -2,6 +2,12 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { Sparkles, Loader2, DollarSign, RotateCcw, Wand2, ImagePlus } from "lucide-react"
+import { HistoryFeedSection, feedCount } from "@/components/history-feed/history-feed-section"
+import { useHistoryFeed } from "@/components/history-feed/use-history-feed"
+import { mergeJobsById } from "@/lib/history/merge"
+import type { ImageHistoryImage, ImageHistoryItem } from "@/lib/images/history"
+import { ImageJobCard, ImageJobCardSkeleton } from "./image-job-card"
+import { imageJobFromHistory, type ImageJob } from "./image-job"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -14,7 +20,7 @@ import {
 import { ModelSelector } from "./model-selector"
 import { ParamPanel } from "./param-panel"
 import { PromptInput } from "./prompt-input"
-import { StyleSelector, getStyleSuffix } from "./style-selector"
+import { StyleSelector, getStyleSuffix, splitStyleSuffix } from "./style-selector"
 import { ImageEditDialog } from "./image-edit-dialog"
 import { useImageAttachments } from "@/hooks/use-image-attachments"
 import { AttachmentTray } from "@/components/shared/attachment-tray"
@@ -37,6 +43,14 @@ interface GeneratedImage {
   url: string
   width: number
   height: number
+}
+
+const HISTORY_PAGE = 8
+let tmpCounter = 0
+
+/** Картинка из ленты → вид для лайтбокса и диалога правки */
+function toGenerated(img: ImageHistoryImage): GeneratedImage {
+  return { id: img.id, url: img.url, width: img.width ?? 1024, height: img.height ?? 1024 }
 }
 
 interface GenerateFormProps {
@@ -87,7 +101,17 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
   const [style, setStyle] = useState("none")
   const [params, setParams] = useState<Record<string, string>>({})
   const [isGenerating, setIsGenerating] = useState(false)
-  const [results, setResults] = useState<GeneratedImage[]>([])
+  // «Мои картинки»: свежие генерации вкладки и история из БД в одной ленте
+  const [jobs, setJobs] = useState<ImageJob[]>([])
+  const historyFeed = useHistoryFeed<ImageHistoryItem>({
+    url: "/api/generate/history",
+    pageSize: HISTORY_PAGE,
+    onPage: (items) => setJobs((prev) => mergeJobsById(prev, items.map(imageJobFromHistory))),
+  })
+  const modelName = useCallback(
+    (p: string, id: string) => models[p]?.find((m) => m.modelId === id)?.displayName ?? id,
+    [models],
+  )
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
   const [editingImage, setEditingImage] = useState<GeneratedImage | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -236,6 +260,42 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedImage])
 
+  /** «Повторить»: модель, промпт (со стилем), параметры и количество — в форму */
+  function handleRepeat(job: ImageJob) {
+    const { base, styleId } = splitStyleSuffix(job.prompt)
+    setPrompt(base)
+    setStyle(styleId)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+    const target = models[job.provider]?.find((m) => m.modelId === job.model)
+    if (!target) {
+      toast.info("Промпт подставлен", { description: "Эта модель сейчас недоступна — выберите другую." })
+      return
+    }
+    setProvider(job.provider)
+    setModelId(job.model)
+    savePref("provider", job.provider)
+    savePref("model", job.model)
+    const schema = target.paramsSchema as Record<string, { options?: string[] }> | null
+    const next: Record<string, string> = {}
+    for (const [key, value] of Object.entries(job.params)) {
+      const opts = schema?.[key]?.options
+      if (schema?.[key] && (!opts || opts.includes(value))) next[key] = value
+    }
+    setParams(next)
+    setCount(String(Math.min(Math.max(job.imagesCount || 1, 1), 4)))
+    att.clear()
+    const notes: string[] = []
+    if (job.isEdit) {
+      notes.push(
+        job.parentImageId
+          ? "Это была правка картинки из Библиотеки — прикрепите её заново или откройте «Править» на ней."
+          : "Референс-картинку прикрепите заново.",
+      )
+    }
+    if (!hasApiKeys[job.provider]) notes.push("Для этой модели нужен API-ключ провайдера.")
+    toast.success("Форма заполнена", { description: notes.join(" ") || undefined, duration: notes.length ? 7000 : 3000 })
+  }
+
   async function handleGenerate() {
     if (!prompt.trim()) {
       toast.error("Введите промпт")
@@ -264,6 +324,30 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
     }
 
     setIsGenerating(true)
+    const tmpId = `tmp-${++tmpCounter}`
+    const finalPrompt = prompt.trim() + getStyleSuffix(style)
+    const pendingParams: Record<string, string> = {}
+    if (paramsSchema) {
+      for (const [key, schema] of Object.entries(paramsSchema)) pendingParams[key] = params[key] || schema.default
+    }
+    setJobs((prev) => [
+      {
+        id: tmpId,
+        status: "processing",
+        provider,
+        model: modelId,
+        prompt: finalPrompt,
+        params: pendingParams,
+        imagesCount: parseInt(count) || 1,
+        images: [],
+        isEdit: Boolean(uploadId),
+        parentImageId: null,
+        startedAt: Date.now(),
+      },
+      ...prev,
+    ])
+    const failJob = (error: string) =>
+      setJobs((prev) => prev.map((j) => (j.id === tmpId ? { ...j, status: "error", error } : j)))
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 300_000) // 5 минут
@@ -317,6 +401,7 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
         } else {
           toast.error("Ошибка генерации", { description: errMsg, duration: 6000 })
         }
+        failJob(errMsg)
         return
       }
 
@@ -326,7 +411,17 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
         cost: number
       }
 
-      setResults((prev) => [...data.images, ...prev])
+      const realId = data.generationId || tmpId
+      setJobs((prev) =>
+        prev
+          // Пока шла генерация, страница истории могла принести эту же запись «в работе»
+          .filter((j) => j.id !== realId || j.id === tmpId)
+          .map((j) =>
+            j.id === tmpId
+              ? { ...j, id: realId, status: "done", images: data.images, imagesCount: data.images.length, cost: data.cost }
+              : j,
+          ),
+      )
       // После успешной отправки убираем привязанную картинку, чтобы
       // следующий запрос не унаследовал её случайно.
       att.clear()
@@ -339,8 +434,10 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
       const msg = error instanceof Error ? error.message : "Не удалось подключиться к серверу"
       if (msg.includes("abort")) {
         toast.error("Таймаут", { description: "Генерация заняла слишком много времени. Попробуйте меньше изображений." })
+        failJob("Генерация заняла слишком много времени. Если она всё же завершится — картинки появятся в Библиотеке.")
       } else {
         toast.error("Сетевая ошибка", { description: msg })
+        failJob(msg)
       }
     } finally {
       clearTimeout(timeoutId)
@@ -361,8 +458,9 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
   }
 
   return (
+    <div className="space-y-10">
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      {/* Left — prompt and results */}
+      {/* Left — prompt */}
       <div className="space-y-6">
         <div
           className={`relative rounded-lg border bg-white/[0.02] p-5 transition-colors ${
@@ -472,78 +570,6 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
           )}
         </div>
 
-        {/* Results */}
-        {(results.length > 0 || isGenerating) && (
-          <div>
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-sm font-medium text-neutral-400">Результаты</h3>
-              {results.length > 0 && (
-                <p className="text-[11px] text-neutral-500">
-                  Наведи на картинку — появится <Wand2 className="inline size-3" /> «Править» и скачать
-                </p>
-              )}
-            </div>
-            <div className="columns-2 gap-3 sm:columns-3">
-              {isGenerating &&
-                Array.from({ length: parseInt(count) }).map((_, i) => (
-                  <div
-                    key={`skeleton-${i}`}
-                    className="mb-3 break-inside-avoid aspect-square animate-pulse rounded-lg bg-white/[0.03]"
-                  />
-                ))}
-              {results.map((img) => (
-                <div
-                  key={img.id}
-                  className="group relative mb-3 w-full break-inside-avoid overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.02] transition-all hover:border-x-blue/40"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setSelectedImage(img)}
-                    className="block w-full"
-                    aria-label="Открыть изображение"
-                  >
-                    <img
-                      src={img.url}
-                      alt="Generated"
-                      className="w-full"
-                      style={{ aspectRatio: `${img.width} / ${img.height}` }}
-                    />
-                  </button>
-
-                  {/* Плавающие кнопки действий — всегда видны на мобиле, hover на десктопе */}
-                  <div className="absolute right-2 top-2 flex gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditingImage(img)
-                      }}
-                      className="flex items-center gap-1 rounded-full bg-black/75 px-2.5 py-1.5 text-xs font-medium text-white shadow-md backdrop-blur-sm transition-colors hover:bg-x-blue"
-                      title="Редактировать"
-                    >
-                      <Wand2 className="size-3.5" />
-                      <span className="hidden lg:inline">Править</span>
-                    </button>
-                    <a
-                      href={img.url}
-                      download={`image-${img.id}.png`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex size-7 items-center justify-center rounded-full bg-black/75 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-white/[0.18]"
-                      title="Скачать"
-                      aria-label="Скачать"
-                    >
-                      <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Right panel — model & params */}
@@ -590,6 +616,32 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
           Сбросить на стандартные
         </button>
       </div>
+
+    </div>
+
+      <HistoryFeedSection
+        title="Мои картинки"
+        count={feedCount(historyFeed.state, jobs)}
+        state={historyFeed.state}
+        onLoadMore={historyFeed.loadMore}
+        libraryHref="/library"
+        libraryLabel="Все картинки в Библиотеке →"
+        emptyText="Здесь появятся ваши генерации: и готовые, и те, что не удались."
+        hasItems={jobs.length > 0}
+        skeleton={<ImageJobCardSkeleton />}
+        gridClassName="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      >
+        {jobs.map((job) => (
+          <ImageJobCard
+            key={job.id}
+            job={job}
+            modelName={modelName(job.provider, job.model)}
+            onOpen={(img) => setSelectedImage(toGenerated(img))}
+            onEdit={(img) => setEditingImage(toGenerated(img))}
+            onRepeat={handleRepeat}
+          />
+        ))}
+      </HistoryFeedSection>
 
       {/* Lightbox */}
       {selectedImage && (
@@ -644,8 +696,22 @@ export function GenerateForm({ models, hasApiKeys }: GenerateFormProps) {
           hasOpenAIKey={!!hasApiKeys.openai}
           hasOpenRouterKey={!!hasApiKeys.openrouter}
           onClose={() => setEditingImage(null)}
-          onEditComplete={(newImages) => {
-            setResults((prev) => [...newImages, ...prev])
+          onEditComplete={(newImages, meta) => {
+            const job: ImageJob = {
+              id: meta?.generationId ?? `tmp-${++tmpCounter}`,
+              status: "done",
+              provider: meta?.provider ?? provider,
+              model: meta?.model ?? modelId,
+              prompt: meta?.prompt ?? "",
+              params: {},
+              imagesCount: newImages.length,
+              images: newImages,
+              cost: meta?.cost,
+              isEdit: true,
+              parentImageId: editingImage.id,
+              startedAt: Date.now(),
+            }
+            setJobs((prev) => [job, ...prev.filter((j) => j.id !== job.id)])
           }}
         />
       )}
