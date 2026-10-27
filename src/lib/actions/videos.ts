@@ -8,6 +8,7 @@ import { auth } from "../auth"
 import { headers } from "next/headers"
 import { remove as s3Remove } from "../storage/s3"
 import { voiceNameFromParams, voiceOverLabel } from "../video/voice-over"
+import { posterKeyOf } from "../video/poster-key"
 
 /** Родительская v2v-генерация переозвучки — ради её исходного промпта в подписи */
 const parentGeneration = alias(videoGenerations, "parent_generation")
@@ -202,7 +203,7 @@ export async function deleteVideos(videoIds: string[]) {
   if (!session?.user) throw new Error("Не авторизован")
 
   const toDelete = await db
-    .select({ id: videos.id, s3Key: videos.s3Key })
+    .select({ id: videos.id, s3Key: videos.s3Key, metadata: videos.metadata })
     .from(videos)
     .leftJoin(videoGenerations, eq(videos.videoGenerationId, videoGenerations.id))
     .leftJoin(videoCompositions, eq(videos.compositionId, videoCompositions.id))
@@ -216,7 +217,12 @@ export async function deleteVideos(videoIds: string[]) {
       )
     )
 
-  await Promise.all(toDelete.map((v) => s3Remove(v.s3Key)))
+  await Promise.all(
+    toDelete.flatMap((v) => {
+      const poster = posterKeyOf(v.metadata)
+      return poster ? [s3Remove(v.s3Key), s3Remove(poster).catch(() => {})] : [s3Remove(v.s3Key)]
+    }),
+  )
 
   if (toDelete.length > 0) {
     await db.delete(videos).where(inArray(videos.id, toDelete.map((v) => v.id)))

@@ -13,6 +13,8 @@ import {
 import { voiceNameFromParams, voiceOverLabel } from "@/lib/video/voice-over"
 import { parseLibraryTab } from "@/lib/library-tab"
 import { mergeJobsById } from "@/lib/video/history-merge"
+import { buildPosterArgs } from "@/lib/video/poster"
+import { posterKeyOf } from "@/lib/video/poster-key"
 
 const NOW = new Date("2026-10-27T12:00:00Z").getTime()
 const hoursAgo = (h: number) => new Date(NOW - h * 3600_000)
@@ -261,5 +263,38 @@ describe("история видео — слияние с задачами вк�
     expect(merged[0].state).toBe("вкладка")
     // повторная загрузка той же страницы ничего не добавляет
     expect(mergeJobsById(merged, loaded)).toHaveLength(3)
+  })
+})
+
+describe("постеры видео", () => {
+  it("ключ постера из videos.metadata", () => {
+    expect(posterKeyOf({ posterKey: "videos/g/poster.jpg" })).toBe("videos/g/poster.jpg")
+    expect(posterKeyOf({})).toBeNull()
+    expect(posterKeyOf(null)).toBeNull()
+    expect(posterKeyOf({ posterKey: 5 })).toBeNull()
+  })
+
+  it("ffmpeg: один кадр с отступом, вписан в 640×640, JPEG", () => {
+    const a = buildPosterArgs("/t/in.mp4", "/t/poster.jpg", 0.3)
+    const s = a.join(" ")
+    expect(s).toContain("-ss 0.3 -i /t/in.mp4")
+    expect(s).toContain("-frames:v 1")
+    expect(s).toContain("scale=w='min(640,iw)':h='min(640,ih)':force_original_aspect_ratio=decrease")
+    expect(a[a.length - 1]).toBe("/t/poster.jpg")
+  })
+
+  it("в истории постер отдаётся маршрутом видео, у старых видео — null", () => {
+    const items = buildVideoHistory({
+      rows: [gen({ id: "p1" }), gen({ id: "p2" })],
+      children: [],
+      videos: [
+        { ...vid("v1", "p1"), metadata: { posterKey: "videos/p1/poster.jpg" } },
+        vid("v2", "p2"),
+      ],
+      sources: [],
+      now: NOW,
+    })
+    expect(items[0].video?.posterUrl).toBe("/api/videos/v1/poster")
+    expect(items[1].video?.posterUrl).toBeNull()
   })
 })
