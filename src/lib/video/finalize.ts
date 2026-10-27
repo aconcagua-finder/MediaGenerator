@@ -9,6 +9,7 @@ import { upload, ensureBucket, remove as s3Remove } from "@/lib/storage/s3"
 import { revokeLinksForGeneration, cleanupExpiredMediaSources } from "@/lib/media-link/links"
 import { humanizeVideoError } from "./humanize-error"
 import { buildResultVideo } from "./result-video"
+import { createPoster, posterKeyOf } from "./poster"
 import { startVoiceChange } from "./voice-change"
 import { readVoiceOver, voiceOverDto, type VoiceOverFollowUp, type VoiceOverParams } from "./voice-over"
 
@@ -41,6 +42,8 @@ export interface VideoDto {
   width: number | null
   height: number | null
   hasAudio: boolean
+  /** Постер (JPG) — карточки показывают его вместо скачивания mp4; у старых видео null */
+  posterUrl: string | null
 }
 
 interface VideoRow {
@@ -49,6 +52,7 @@ interface VideoRow {
   width: number | null
   height: number | null
   hasAudio: boolean
+  metadata?: unknown
 }
 
 function videoDto(v: VideoRow): VideoDto {
@@ -59,6 +63,7 @@ function videoDto(v: VideoRow): VideoDto {
     width: v.width,
     height: v.height,
     hasAudio: v.hasAudio,
+    posterUrl: posterKeyOf(v.metadata) ? `/api/videos/${v.id}/poster` : null,
   }
 }
 
@@ -71,6 +76,7 @@ export async function findVideoDto(generationId: string): Promise<VideoDto | nul
       width: videos.width,
       height: videos.height,
       hasAudio: videos.hasAudio,
+      metadata: videos.metadata,
     })
     .from(videos)
     .where(eq(videos.videoGenerationId, generationId))
@@ -286,6 +292,18 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
     const s3Key = `videos/${gen.id}/0.mp4`
     await upload(s3Key, buf, "video/mp4")
 
+    // Постер для истории на /video (карточка не качает mp4, пока его не смотрят).
+    // Не получился — видео всё равно сохраняем, UI покажет заглушку.
+    let posterKey: string | null = null
+    const poster = await createPoster(buf)
+    if (poster) {
+      posterKey = `videos/${gen.id}/poster.jpg`
+      await upload(posterKey, poster, "image/jpeg").catch((err) => {
+        posterKey = null
+        console.error(`[video/finalize] poster ${gen.id}:`, err instanceof Error ? err.message : err)
+      })
+    }
+
     const [savedVideo] = await db
       .insert(videos)
       .values({
@@ -298,6 +316,7 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
         format: "mp4",
         hasAudio,
         sizeBytes: buf.length,
+        ...(posterKey ? { metadata: { posterKey } } : {}),
       })
       .returning({ id: videos.id })
 
@@ -352,6 +371,7 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
         width,
         height,
         hasAudio,
+        metadata: posterKey ? { posterKey } : null,
       }),
       cost,
       voiceOver,

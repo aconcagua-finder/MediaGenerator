@@ -2,6 +2,7 @@ import { getVideoModel } from "@/lib/providers/video-models"
 import { getVoiceEngineByEndpoint } from "@/lib/providers/voice-change-models"
 import { LINK_TTL_MS } from "@/lib/media-link/token"
 import { humanizeVideoError } from "./humanize-error"
+import { posterKeyOf } from "./poster-key"
 
 
 /**
@@ -25,6 +26,8 @@ export interface HistoryVideo {
   width: number | null
   height: number | null
   hasAudio: boolean
+  /** Постер JPG (у видео до появления постеров — null) */
+  posterUrl: string | null
 }
 
 export interface HistoryVoiceOver {
@@ -98,6 +101,7 @@ export interface HistoryVideoRow {
   width: number | null
   height: number | null
   hasAudio: boolean
+  metadata?: unknown
 }
 
 export interface HistorySourceRow {
@@ -167,6 +171,7 @@ function videoOf(row: HistoryVideoRow | undefined): HistoryVideo | null {
     width: row.width,
     height: row.height,
     hasAudio: row.hasAudio,
+    posterUrl: posterKeyOf(row.metadata) ? `/api/videos/${row.id}/poster` : null,
   }
 }
 

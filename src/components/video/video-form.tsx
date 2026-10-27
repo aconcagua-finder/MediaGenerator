@@ -2,8 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Video, Loader2, DollarSign, Volume2, VolumeX, ImagePlus, Download, Scissors, Wand2, Clapperboard, Mic2, RotateCcw } from "lucide-react"
+import { Video, Loader2, DollarSign, Volume2, VolumeX, ImagePlus, Wand2, Clapperboard, Mic2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -15,7 +14,6 @@ import {
 import { PromptInput } from "@/components/generate/prompt-input"
 import { VideoModelSelector } from "./video-model-selector"
 import { SourceUpload, type ReadySource } from "./source-upload"
-import { VoiceChangeButton } from "./voice-change-button"
 import { ElevenLabsVoicePicker } from "./elevenlabs-voice-picker"
 import {
   loadVoicePick,
@@ -51,99 +49,15 @@ import {
   isElevenLabsVoiceId,
   type VoiceSettings,
 } from "@/lib/providers/voice-change-models"
-import type { HistoryMode, HistorySource, VideoHistoryItem } from "@/lib/video/history"
-import { voiceOverLabel } from "@/lib/video/voice-over"
+import type { VideoHistoryItem } from "@/lib/video/history"
 import { mergeJobsById } from "@/lib/video/history-merge"
+import { jobFromHistory, type VideoJob, type VideoResult, type VoiceOverJob } from "./video-job"
+import { VideoHistorySection, type VideoHistoryState } from "./video-history-section"
+
+const HISTORY_PAGE = 8
 import { toast } from "sonner"
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-interface VideoResult {
-  id: string
-  url: string
-  width: number | null
-  height: number | null
-  hasAudio: boolean
-  durationSeconds: number | null
-}
-
-interface VoiceOverJob {
-  /** Голос ElevenLabs (voice_id) */
-  voice: string
-  /** Подпись голоса */
-  voiceName: string
-  status: "waiting" | "processing" | "done" | "error"
-  generationId?: string
-  video?: VideoResult
-  error?: string
-  /** Тонкие настройки — для «Повторить» */
-  settings?: unknown
-}
-
-interface VideoJob {
-  id: string
-  status: "processing" | "done" | "error"
-  prompt: string
-  modelName: string
-  aspect: string
-  /** Время запуска (мс): для счётчика «в работе» и сортировки истории */
-  startedAt: number
-  video?: VideoResult
-  error?: string
-  /** Автопереозвучка через ElevenLabs после видео → видео */
-  voiceOver?: VoiceOverJob
-  /** Для «Повторить с этим промптом» и подписи режима */
-  modelId: string
-  mode: HistoryMode
-  params?: VideoHistoryItem["params"]
-  /** v2v: исходник (null — уже удалён, хранится 24 ч) */
-  source?: HistorySource | null
-  cost?: number | null
-  /** Загружено из истории (а не запущено в этой вкладке) */
-  fromHistory?: boolean
-}
-
-const MODE_LABELS: Record<HistoryMode, string> = {
-  t2v: "Текст → видео",
-  i2v: "Картинка → видео",
-  v2v: "Видео → видео",
-  voice: "Замена голоса",
-}
-
-const HISTORY_PAGE = 20
-
-/** Карточка истории (из БД) → задача формы: тот же вид и тот же поллинг, что у свежих */
-function jobFromHistory(item: VideoHistoryItem): VideoJob {
-  return {
-    id: item.id,
-    status: item.status,
-    prompt: item.prompt,
-    modelName: item.modelName,
-    aspect: item.aspect,
-    startedAt: new Date(item.createdAt).getTime(),
-    video: item.video ?? undefined,
-    error: item.error,
-    voiceOver: item.voiceOver
-      ? {
-          voice: item.voiceOver.voice,
-          voiceName: item.voiceOver.voiceName,
-          status: item.voiceOver.status,
-          generationId: item.voiceOver.generationId,
-          video: item.voiceOver.video,
-          error: item.voiceOver.error,
-          settings: item.voiceOver.settings,
-        }
-      : undefined,
-    modelId: item.modelId,
-    mode: item.mode,
-    params: item.params,
-    source: item.source,
-    cost: item.cost,
-    fromHistory: true,
-  }
-}
-
-
 
 interface VoiceOverStatus {
   voice: string
@@ -243,14 +157,18 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
   }, [])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobs, setJobs] = useState<VideoJob[]>([])
-  // «Мои последние генерации»: история из БД страницами, сливается с задачами вкладки
-  const [history, setHistory] = useState<{
-    loaded: boolean
-    loading: boolean
-    hasMore: boolean
-    offset: number
-    error: string | null
-  }>({ loaded: false, loading: false, hasMore: false, offset: 0, error: null })
+  // «Мои генерации»: история из БД маленькими страницами, сливается с задачами вкладки
+  const [history, setHistory] = useState<VideoHistoryState>({
+    loaded: false,
+    loading: false,
+    hasMore: false,
+    offset: 0,
+    total: 0,
+    error: null,
+  })
+  const historyRef = useRef(history)
+  historyRef.current = history
+  const historyLoadingRef = useRef(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const dragCounterRef = useRef(0)
   const router = useRouter()
@@ -274,14 +192,6 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       mountedRef.current = false
     }
   }, [])
-
-  // Тикаем раз в секунду, пока есть незавершённые задачи — для счётчика времени
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    if (!jobs.some((j) => j.status === "processing")) return
-    const t = setInterval(() => setTick((x) => x + 1), 1000)
-    return () => clearInterval(t)
-  }, [jobs])
 
   const voiceOverCost = voiceOverActive ? estimateVoiceChangeCost(voiceEngine, source?.durationSeconds ?? 0) : 0
   const costEstimate = useMemo(
@@ -499,10 +409,18 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
 
   /** Следующая страница истории; незавершённые задачи опрашиваются так же, как свежие */
   async function loadHistory(offset: number) {
+    // Сторож прокрутки может сработать дважды до обновления состояния
+    if (historyLoadingRef.current) return
+    historyLoadingRef.current = true
     setHistory((h) => ({ ...h, loading: true, error: null }))
     try {
       const res = await fetch(`/api/video/history?offset=${offset}&limit=${HISTORY_PAGE}`)
-      const data = (await res.json().catch(() => ({}))) as { items?: VideoHistoryItem[]; hasMore?: boolean; error?: string }
+      const data = (await res.json().catch(() => ({}))) as {
+        items?: VideoHistoryItem[]
+        hasMore?: boolean
+        total?: number
+        error?: string
+      }
       if (!res.ok) throw new Error(data.error || `Ошибка сервера (${res.status})`)
       if (!mountedRef.current) return
       const incoming = (data.items ?? []).map(jobFromHistory)
@@ -512,6 +430,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
         loading: false,
         hasMore: Boolean(data.hasMore),
         offset: offset + (data.items?.length ?? 0),
+        total: data.total ?? offset + (data.items?.length ?? 0),
         error: null,
       })
       for (const job of incoming) {
@@ -528,8 +447,17 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       if (!mountedRef.current) return
       const msg = err instanceof Error ? err.message : "Не удалось загрузить историю"
       setHistory((h) => ({ ...h, loaded: true, loading: false, error: msg }))
+    } finally {
+      historyLoadingRef.current = false
     }
   }
+
+  // Стабильная ссылка для сторожа прокрутки секции (форма перерисовывается каждую секунду, пока есть задачи)
+  const loadHistoryRef = useRef(loadHistory)
+  loadHistoryRef.current = loadHistory
+  const loadMoreHistory = useCallback(() => {
+    void loadHistoryRef.current(historyRef.current.offset)
+  }, [])
 
   useEffect(() => {
     void loadHistory(0)
@@ -727,8 +655,9 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
   }
 
   return (
+    <div className="space-y-10">
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      {/* Левая колонка — промпт и результаты */}
+      {/* Левая колонка — промпт */}
       <div className="space-y-6">
         <div
           className={`relative rounded-lg border bg-white/[0.02] p-5 transition-colors ${
@@ -876,68 +805,6 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
           )}
         </div>
 
-        {/* Мои последние генерации: история из БД + задачи этой вкладки */}
-        <div>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-medium text-neutral-400">Мои последние генерации</h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/library?tab=videos" className="text-xs text-x-blue hover:underline">
-                Все видео в Библиотеке →
-              </Link>
-              {doneVideoIds.length >= 2 && (
-                <button
-                  type="button"
-                  onClick={() => router.push(`/video/editor?clips=${doneVideoIds.slice(0, 12).join(",")}`)}
-                  className="flex h-8 items-center gap-1.5 rounded-full border border-x-blue/40 bg-x-blue/[0.1] px-3 text-xs font-medium text-x-blue transition-colors hover:bg-x-blue/[0.18]"
-                >
-                  <Scissors className="size-3.5" />
-                  Склеить готовые ({doneVideoIds.length})
-                </button>
-              )}
-            </div>
-          </div>
-          {jobs.length > 0 ? (
-            <div className="grid items-start gap-4 sm:grid-cols-2">
-              {jobs.map((job) => (
-                <VideoCard key={job.id} job={job} onRepeat={handleRepeat} />
-              ))}
-            </div>
-          ) : history.loaded && !history.error ? (
-            <p className="rounded-lg border border-dashed border-white/[0.12] px-4 py-8 text-center text-xs text-neutral-500">
-              Здесь появятся ваши видео-запросы: и готовые, и те, что ещё в работе или не удались.
-            </p>
-          ) : !history.loaded ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-xs text-neutral-500">
-              <Loader2 className="size-4 animate-spin" />
-              Загружаем историю…
-            </div>
-          ) : null}
-          {history.error && (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-neutral-500">
-              <span>История не загрузилась: {history.error}</span>
-              <button
-                type="button"
-                onClick={() => void loadHistory(history.offset)}
-                className="rounded-full border border-white/[0.12] px-3 py-1 text-neutral-300 hover:text-white"
-              >
-                Повторить
-              </button>
-            </div>
-          )}
-          {history.hasMore && !history.error && (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                disabled={history.loading}
-                onClick={() => void loadHistory(history.offset)}
-                className="flex h-8 items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.02] px-4 text-xs text-neutral-300 transition-colors hover:text-white disabled:opacity-60"
-              >
-                {history.loading && <Loader2 className="size-3.5 animate-spin" />}
-                Показать ещё
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Правая колонка — модель и параметры */}
@@ -1136,6 +1003,16 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
         </p>
       </div>
     </div>
+
+      <VideoHistorySection
+        jobs={jobs}
+        history={history}
+        onLoadMore={loadMoreHistory}
+        onRepeat={handleRepeat}
+        composeIds={doneVideoIds}
+        onCompose={() => router.push(`/video/editor?clips=${doneVideoIds.slice(0, 12).join(",")}`)}
+      />
+    </div>
   )
 }
 
@@ -1168,203 +1045,6 @@ function ParamSelect({ label, value, options, onChange }: ParamSelectProps) {
           {options[0]?.label || value}
         </div>
       )}
-    </div>
-  )
-}
-
-function formatWhen(ts: number): string {
-  const d = new Date(ts)
-  const now = new Date()
-  const time = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
-  if (d.toDateString() === now.toDateString()) return `сегодня, ${time}`
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  if (d.toDateString() === yesterday.toDateString()) return `вчера, ${time}`
-  return `${d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}, ${time}`
-}
-
-function formatElapsed(sec: number): string {
-  if (sec < 60) return `${sec}с`
-  if (sec < 3600) return `${Math.floor(sec / 60)} мин ${sec % 60}с`
-  return `${Math.floor(sec / 3600)} ч ${Math.floor((sec % 3600) / 60)} мин`
-}
-
-/**
- * Подпись карточки: режим, модель, время, стоимость; промпт (раскрывается по
- * клику) и «Повторить с этим промптом». У переозвученного v2v промпт
- * показывается как «Переозвучка: <голос> · <промпт>».
- */
-function CardInfo({
-  job,
-  voiced,
-  onRepeat,
-}: {
-  job: VideoJob
-  voiced: boolean
-  onRepeat: (job: VideoJob) => void
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const text = voiced && job.voiceOver ? voiceOverLabel(job.voiceOver.voiceName, job.prompt) : job.prompt
-  const status =
-    job.status === "processing"
-      ? { label: "в работе", cls: "bg-x-blue/[0.12] text-x-blue" }
-      : job.status === "error"
-        ? { label: "ошибка", cls: "bg-red-500/[0.12] text-red-400" }
-        : { label: "готово", cls: "bg-emerald-500/[0.12] text-emerald-300" }
-  return (
-    <div className="space-y-1.5 px-3 py-2">
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-neutral-500">
-        <span className={`rounded-full px-1.5 py-px ${status.cls}`}>{status.label}</span>
-        <span className="rounded-full bg-white/[0.06] px-1.5 py-px text-neutral-400">{MODE_LABELS[job.mode]}</span>
-        <span className="min-w-0 truncate text-neutral-300">{job.modelName}</span>
-        <span>· {formatWhen(job.startedAt)}</span>
-        {typeof job.cost === "number" && job.cost > 0 && <span>· ${job.cost.toFixed(3)}</span>}
-      </div>
-      {text && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          title={expanded ? "Свернуть" : "Показать целиком"}
-          className="block w-full text-left text-xs text-neutral-400 hover:text-neutral-200"
-        >
-          <span className={expanded ? "whitespace-pre-wrap break-words" : "line-clamp-2 break-words"}>{text}</span>
-        </button>
-      )}
-      {job.mode !== "voice" && (
-        <button
-          type="button"
-          onClick={() => onRepeat(job)}
-          className="flex items-center gap-1 text-[11px] text-x-blue hover:underline"
-        >
-          <RotateCcw className="size-3" />
-          Повторить с этим промптом
-        </button>
-      )}
-    </div>
-  )
-}
-
-function VideoCard({ job, onRepeat }: { job: VideoJob; onRepeat: (job: VideoJob) => void }) {
-  const aspectStyle = (() => {
-    if (job.video?.width && job.video?.height) {
-      return { aspectRatio: `${job.video.width} / ${job.video.height}` }
-    }
-    const [aw, ah] = job.aspect.split(":")
-    return { aspectRatio: `${aw || 16} / ${ah || 9}` }
-  })()
-
-  if (job.status === "done" && job.video) {
-    const vo = job.voiceOver
-    // Готовая переозвучка подменяет видео в карточке; оригинал остаётся ссылкой
-    const voiced = vo?.status === "done" && Boolean(vo.video)
-    const shown = voiced && vo?.video ? vo.video : job.video
-    return (
-      <div className="overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.02]">
-        <video
-          key={shown.id}
-          src={shown.url}
-          controls
-          preload="metadata"
-          playsInline
-          className="w-full bg-black"
-          style={aspectStyle}
-        />
-        <div className="flex items-center gap-2 px-3 pt-2">
-          {shown.durationSeconds != null && (
-            <span className="shrink-0 text-[11px] text-neutral-500">{shown.durationSeconds}с</span>
-          )}
-          {shown.hasAudio ? (
-            <Volume2 className="size-3.5 shrink-0 text-neutral-500" />
-          ) : (
-            <VolumeX className="size-3.5 shrink-0 text-neutral-600" />
-          )}
-          <span className="flex-1" />
-          <a
-            href={shown.url}
-            download={`video-${shown.id}.mp4`}
-            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white transition-colors hover:bg-x-blue"
-            title="Скачать"
-            aria-label="Скачать"
-          >
-            <Download className="size-3.5" />
-          </a>
-        </div>
-        <CardInfo job={job} voiced={voiced} onRepeat={onRepeat} />
-        {vo && (
-          <div className="flex items-center gap-1.5 border-t border-white/[0.08] px-3 py-2 text-[11px]">
-            {vo.status === "done" ? (
-              <>
-                <Mic2 className="size-3.5 shrink-0 text-x-blue" />
-                <span className="min-w-0 flex-1 truncate text-neutral-400">
-                  Переозвучено: {vo.voiceName}
-                </span>
-                <a
-                  href={job.video.url}
-                  download={`video-${job.video.id}.mp4`}
-                  className="shrink-0 text-x-blue hover:underline"
-                >
-                  Оригинал со звуком
-                </a>
-              </>
-            ) : vo.status === "error" ? (
-              <span className="text-red-400">Переозвучка не удалась: {vo.error}</span>
-            ) : (
-              <>
-                <Loader2 className="size-3.5 shrink-0 animate-spin text-x-blue" />
-                <span className="text-neutral-400">Переозвучиваем голосом {vo.voiceName}…</span>
-              </>
-            )}
-          </div>
-        )}
-        {shown.hasAudio && (!vo || vo.status === "done" || vo.status === "error") && (
-          <VoiceChangeButton
-            videoId={shown.id}
-            durationSeconds={shown.durationSeconds}
-            hasAudio={shown.hasAudio}
-            variant="card"
-          />
-        )}
-      </div>
-    )
-  }
-
-  if (job.status === "done") {
-    // Готово, но файла нет: видео удалили из Библиотеки
-    return (
-      <div className="overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.02]">
-        <p className="px-3 pt-3 text-xs text-neutral-500">Видео удалено из Библиотеки.</p>
-        <CardInfo job={job} voiced={false} onRepeat={onRepeat} />
-      </div>
-    )
-  }
-
-  if (job.status === "error") {
-    return (
-      <div className="overflow-hidden rounded-lg border border-red-500/30 bg-red-500/[0.04]">
-        <div className="px-3 pt-3">
-          <p className="text-sm font-medium text-red-400">Не удалось сгенерировать</p>
-          <p className="mt-1 line-clamp-4 text-xs text-neutral-400">{job.error}</p>
-        </div>
-        <CardInfo job={job} voiced={false} onRepeat={onRepeat} />
-      </div>
-    )
-  }
-
-  // processing
-  const elapsed = Math.max(0, Math.floor((Date.now() - job.startedAt) / 1000))
-  return (
-    <div className="overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.03]">
-      {/* Высота заглушки ограничена: вертикальный 9:16 иначе занимает весь экран телефона */}
-      <div className="relative flex max-h-72 w-full items-center justify-center" style={aspectStyle}>
-        <div className="flex flex-col items-center gap-2 px-4 text-center">
-          <Loader2 className="size-6 animate-spin text-x-blue" />
-          <p className="text-sm font-medium text-neutral-300">
-            {job.mode === "voice" ? "Меняем голос…" : "Генерация видео…"}
-          </p>
-          <p className="text-[11px] text-neutral-500">{formatElapsed(elapsed)}</p>
-        </div>
-      </div>
-      <CardInfo job={job} voiced={false} onRepeat={onRepeat} />
     </div>
   )
 }

@@ -13,7 +13,7 @@ export async function loadVideoHistory(
   uid: string,
   offset: number,
   limit: number,
-): Promise<{ items: VideoHistoryItem[]; hasMore: boolean }> {
+): Promise<{ items: VideoHistoryItem[]; hasMore: boolean; total: number }> {
   const genFields = {
     id: videoGenerations.id,
     model: videoGenerations.model,
@@ -26,21 +26,24 @@ export async function loadVideoHistory(
     createdAt: videoGenerations.createdAt,
   }
 
-  // На одну строку больше — чтобы знать, есть ли ещё
-  const page = await db
-    .select(genFields)
-    .from(videoGenerations)
-    .where(
-      and(
-        eq(videoGenerations.userId, uid),
-        eq(videoGenerations.hidden, false),
-        inArray(videoGenerations.mode, ["t2v", "i2v", "v2v", "voice"]),
-        sql`not (${videoGenerations.mode} = 'voice' and coalesce(${videoGenerations.params}, '{}'::jsonb) ? 'parent_generation_id')`,
-      ),
-    )
-    .orderBy(desc(videoGenerations.createdAt))
-    .limit(limit + 1)
-    .offset(offset)
+  const visible = and(
+    eq(videoGenerations.userId, uid),
+    eq(videoGenerations.hidden, false),
+    inArray(videoGenerations.mode, ["t2v", "i2v", "v2v", "voice"]),
+    sql`not (${videoGenerations.mode} = 'voice' and coalesce(${videoGenerations.params}, '{}'::jsonb) ? 'parent_generation_id')`,
+  )
+
+  // На одну строку больше — чтобы знать, есть ли ещё; счётчик — для заголовка секции
+  const [page, [{ total }]] = await Promise.all([
+    db
+      .select(genFields)
+      .from(videoGenerations)
+      .where(visible)
+      .orderBy(desc(videoGenerations.createdAt))
+      .limit(limit + 1)
+      .offset(offset),
+    db.select({ total: sql<number>`count(*)::int` }).from(videoGenerations).where(visible),
+  ])
 
   const rows = page.slice(0, limit)
   const childIds = rows.map((r) => voiceOverChildId(r.params)).filter((id): id is string => id !== null)
@@ -83,6 +86,7 @@ export async function loadVideoHistory(
           width: videos.width,
           height: videos.height,
           hasAudio: videos.hasAudio,
+          metadata: videos.metadata,
         })
         .from(videos)
         .where(inArray(videos.videoGenerationId, genIds))
@@ -91,5 +95,6 @@ export async function loadVideoHistory(
   return {
     items: buildVideoHistory({ rows, children, videos: videoRows, sources }),
     hasMore: page.length > limit,
+    total,
   }
 }

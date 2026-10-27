@@ -3,13 +3,14 @@ import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { loadVideoHistory } from "@/lib/video/history-query"
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 8
 const MAX_PAGE_SIZE = 50
 
 /**
  * «Мои последние генерации» на /video: свежие видео-генерации ТЕКУЩЕГО
  * пользователя (у админа тоже только свои), новые сверху, страницами.
- * `GET /api/video/history?offset=0&limit=20` → `{ items, hasMore }`.
+ * `GET /api/video/history?offset=0&limit=8` → `{ items, hasMore, total }` (страница
+ * маленькая: секция догружает остальное при прокрутке).
  *
  * Сам запрос — `loadVideoHistory`.
  */
