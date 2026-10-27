@@ -1,5 +1,6 @@
 import { getGenerations } from "@/lib/actions/generations"
 import { getSession } from "@/lib/auth-server"
+import Link from "next/link"
 import { HistoryView } from "@/components/history/history-view"
 
 export default async function HistoryPage() {
@@ -19,7 +20,20 @@ export default async function HistoryPage() {
       <div>
         <h1 className="text-xl font-bold text-white">История</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          {isAdmin ? "Генерации всех пользователей" : "Все ваши генерации изображений"}
+          {isAdmin ? "Генерации изображений всех пользователей." : "Все ваши генерации изображений."} Видео и
+          озвучка здесь не показываются — они в Библиотеке:{" "}
+          <Link href="/library?tab=videos" className="text-x-blue hover:underline">
+            видео
+          </Link>
+          ,{" "}
+          <Link href="/library?tab=audios" className="text-x-blue hover:underline">
+            озвучка
+          </Link>
+          . Последние видео-запросы (и неудачные) — на странице{" "}
+          <Link href="/video" className="text-x-blue hover:underline">
+            Видео
+          </Link>
+          .
         </p>
       </div>
 

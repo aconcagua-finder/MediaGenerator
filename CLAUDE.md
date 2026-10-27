@@ -107,6 +107,7 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
 - `src/lib/video/finalize.ts` — `finalizeVideoGeneration` + `reconcileStaleVideoJobs` (общий код)
 - `src/app/api/video/[id]/status/route.ts` — клиентский поллинг (тонкий, зовёт finalize)
 - `src/app/api/cron/video-reconcile/route.ts` — cron-дочистка зависших задач
+- `src/app/api/video/history/route.ts` + `src/lib/video/{history,history-query,history-merge}.ts` — «Мои последние генерации» под формой
 
 **Архитектурные принципы:**
 1. **i2v: `frame_images` — массив ОБЪЕКТОВ**, не строк: `{ type:"image_url", image_url:{ url }, frame_type:"first_frame"|"last_frame" }`. `url` принимает data:-URI. Массив строк → 400 `expected object, received string`. Текст-промпт уходит всегда (`{model,prompt}`), картинка — поверх.
@@ -114,6 +115,15 @@ Build cache легко нарастает до 30-40 ГБ от повторны�
 3. **Финализация — единый `finalize.ts`** для клиентского поллинга и cron. Claim `processing → saving` (UPDATE с `where status='processing'`) защищает от двойного скачивания при гонке клиент/cron.
 4. **Поллинг статуса целиком клиентский** (браузер дёргает `/status`). Если вкладку закрыли — задачу дочищает cron `video-reconcile` (каждые 15 мин): опрашивает провайдера, скачивает mp4 в S3 при успехе или ставит `error`. Без него закрытая вкладка = вечный `processing`. ❗ Добавление в cron-команду требует `--force-recreate cron` (см. п.12 мониторинга).
 5. **Биллинг — только за успех.** `user.totalSpent` растёт лишь в ветке `done`; упавшая задача → `cost = NULL`. OpenRouter за `failed` денег не берёт (нет `usage.cost`, политика Zero Completion Insurance).
+6. **История под формой — из БД, не из состояния вкладки.** `GET /api/video/history` отдаёт свои (у админа тоже только свои)
+   генерации всех режимов страницами по 20, новые сверху; склейки не входят. Переозвучка после v2v (`params.parent_generation_id`)
+   отдельной карточкой не идёт: `buildVideoHistory` кладёт её видео главным в карточку родителя (связь через
+   `params.voice_over.generation_id`), ручная «Заменить голос» — своя карточка. Карточки истории превращаются в те же задачи
+   формы и сливаются со свежими без повторов (`mergeJobsById`); незавершённые после перезагрузки опрашиваются тем же
+   `/api/video/[id]/status`, включая ожидание переозвучки. «Повторить с этим промптом» заполняет модель, промпт и параметры;
+   у v2v — ещё переозвучку и исходник, если он жив (< 24 ч, просмотр владельцем — `GET /api/video/source?id=`).
+   Подпись переозвученного видео — «Переозвучка: <голос> · <исходный промпт>» (`voiceOverLabel`, промпт родителя берётся
+   join'ом в `getVideos`, строки в БД не переписываются). Библиотека открывается на нужной вкладке по `?tab=videos|audios`.
 
 #### Видео → видео (Runway Aleph 2, Kling Motion Control) и замена голоса
 
