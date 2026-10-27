@@ -42,7 +42,7 @@ export function buildMuxArgs(videoPath: string, audioPath: string, outPath: stri
   ]
 }
 
-function run(args: string[]): Promise<void> {
+export function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(FFMPEG_BIN, args, { stdio: ["ignore", "ignore", "pipe"] })
     let tail = ""
@@ -60,9 +60,9 @@ function run(args: string[]): Promise<void> {
 }
 
 export function extractAudio(videoPath: string, outPath: string): Promise<void> {
-  return run(buildExtractAudioArgs(videoPath, outPath))
+  return runFfmpeg(buildExtractAudioArgs(videoPath, outPath))
 }
 
 export function muxAudioOntoVideo(videoPath: string, audioPath: string, outPath: string): Promise<void> {
-  return run(buildMuxArgs(videoPath, audioPath, outPath))
+  return runFfmpeg(buildMuxArgs(videoPath, audioPath, outPath))
 }

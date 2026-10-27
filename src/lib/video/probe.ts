@@ -16,6 +16,8 @@ export interface MediaProbe {
   hasVideo: boolean
   hasAudio: boolean
   videoCodec: string | null
+  /** Частота кадров видео (avg_frame_rate, иначе r_frame_rate); null — не определена */
+  fps: number | null
 }
 
 interface RawProbe {
@@ -26,9 +28,19 @@ interface RawProbe {
     width?: number
     height?: number
     duration?: string
+    avg_frame_rate?: string
+    r_frame_rate?: string
     side_data_list?: Array<{ rotation?: number }>
     tags?: { rotate?: string }
   }>
+}
+
+/** «30000/1001» → 29.97; «0/0» и мусор → null */
+export function parseFrameRate(raw: string | undefined): number | null {
+  if (!raw) return null
+  const [num, den] = raw.split("/").map(Number)
+  const fps = den === undefined ? num : num / den
+  return Number.isFinite(fps) && fps > 0 ? fps : null
 }
 
 /** Чистый разбор JSON-ответа ffprobe (вынесен для тестов). Учитывает поворот кадра. */
@@ -62,6 +74,7 @@ export function parseProbeJson(raw: unknown): MediaProbe | null {
     hasVideo: Boolean(video),
     hasAudio: Boolean(audio),
     videoCodec: video?.codec_name ?? null,
+    fps: parseFrameRate(video?.avg_frame_rate) ?? parseFrameRate(video?.r_frame_rate),
   }
 }
 
