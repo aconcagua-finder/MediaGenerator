@@ -3,7 +3,8 @@ import { getVideos } from "@/lib/actions/videos"
 import { getAudios } from "@/lib/actions/audios"
 import { getFolders } from "@/lib/actions/folders"
 import { getApiKeys } from "@/lib/actions/api-keys"
-import { LibraryTabs, parseLibraryTab } from "@/components/library/library-tabs"
+import { LibraryTabs } from "@/components/library/library-tabs"
+import { parseLibraryTab } from "@/lib/library-tab"
 
 export default async function LibraryPage({
   searchParams,
