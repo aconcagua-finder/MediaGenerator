@@ -13,6 +13,7 @@ import { db } from "@/lib/db"
 import { videoSources } from "@/lib/db/schema"
 import { ensureBucket, uploadFile } from "@/lib/storage/s3"
 import { probeFile } from "@/lib/video/probe"
+import { needsFpsNormalize, normalizeSourceFps } from "@/lib/video/source-fps"
 import {
   MAX_SAMPLE_BYTES,
   MAX_SOURCE_BYTES,
@@ -109,8 +110,8 @@ export async function POST(request: NextRequest) {
       createWriteStream(filePath),
     )
 
-    const { size } = await stat(filePath)
-    const probe = await probeFile(filePath)
+    let { size } = await stat(filePath)
+    let probe = await probeFile(filePath)
     if (!probe) {
       return NextResponse.json(
         { error: "Не удалось прочитать файл — возможно, он повреждён или это не видео/аудио." },
@@ -127,16 +128,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: check.message }, { status: 400 })
     }
 
-    const s3Key = `video-sources/${id}/${kind === "video" ? "source" : "sample"}.${ext}`
+    // Видео выше 30 fps (телефоны часто снимают в 60) Runway Aleph отклоняет:
+    // пересобираем в mp4 30 fps и дальше работаем с ним
+    let storedPath = filePath
+    let storedExt = ext
+    let storedMime = mime
+    if (kind === "video" && needsFpsNormalize(probe.fps)) {
+      const normalizedPath = join(workDir, "normalized.mp4")
+      try {
+        await normalizeSourceFps(filePath, normalizedPath)
+      } catch (err) {
+        console.error("[video/source] пересборка в 30 fps:", err instanceof Error ? err.message : err)
+        return NextResponse.json(
+          { error: "Не удалось пересобрать видео в 30 кадров в секунду. Снимите ролик в 30 fps и загрузите снова." },
+          { status: 400 },
+        )
+      }
+      const normalizedProbe = await probeFile(normalizedPath)
+      if (!normalizedProbe) {
+        return NextResponse.json({ error: "Не удалось прочитать пересобранное видео." }, { status: 400 })
+      }
+      probe = normalizedProbe
+      ;({ size } = await stat(normalizedPath))
+      storedPath = normalizedPath
+      storedExt = "mp4"
+      storedMime = "video/mp4"
+    }
+
+    const s3Key = `video-sources/${id}/${kind === "video" ? "source" : "sample"}.${storedExt}`
     await ensureBucket()
-    await uploadFile(s3Key, filePath, mime, size)
+    await uploadFile(s3Key, storedPath, storedMime, size)
 
     await db.insert(videoSources).values({
       id,
       userId: session.user.id,
       kind,
       s3Key,
-      contentType: mime,
+      contentType: storedMime,
       sizeBytes: size,
       durationSeconds: probe.durationSeconds.toFixed(3),
       width: probe.width,

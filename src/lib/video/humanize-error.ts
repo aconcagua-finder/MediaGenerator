@@ -30,6 +30,13 @@ const FILTERED =
  */
 const RUNWAY_MODERATION = /runway.{0,60}(moderation|rejected)|SAFETY\.INPUT/i
 
+/**
+ * Runway (Aleph) не принимает видео выше 30 fps: «INPUT_VALIDATION.VIDEO.UNSUPPORTED_FPS».
+ * Новые загрузки пересобираются в 30 fps сами (source-fps.ts), сюда попадают
+ * только старые исходники.
+ */
+const RUNWAY_FPS = /UNSUPPORTED_FPS|exceeds the 30\s?fps/i
+
 /** fal.ai: кончились деньги на предоплаченном балансе / ключ заблокирован */
 const FAL_BALANCE = /exhausted balance|insufficient (balance|funds|credits)|user is locked|payment required/i
 
@@ -43,6 +50,10 @@ export function humanizeVideoError(raw: string | null | undefined): string {
 
   if (RUNWAY_MODERATION.test(msg)) {
     return "Модерация Runway отклонила запрос: уберите откровенные формулировки про фигуру и одежду (например, «busty», «curvy», «low-cut») и опишите образ нейтрально — например, «элегантное вечернее платье». За отклонённую задачу деньги не списываются."
+  }
+
+  if (RUNWAY_FPS.test(msg)) {
+    return "Runway принимает видео не больше 30 кадров в секунду, а этот ролик снят в 60. Загрузите видео заново: сервис сам пересоберёт его в 30 кадров. Или снимайте в настройках камеры 30 fps. За отклонённую задачу деньги не списываются."
   }
 
   if (FAL_BALANCE.test(msg)) {
