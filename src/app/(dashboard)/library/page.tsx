@@ -3,9 +3,14 @@ import { getVideos } from "@/lib/actions/videos"
 import { getAudios } from "@/lib/actions/audios"
 import { getFolders } from "@/lib/actions/folders"
 import { getApiKeys } from "@/lib/actions/api-keys"
-import { LibraryTabs } from "@/components/library/library-tabs"
+import { LibraryTabs, parseLibraryTab } from "@/components/library/library-tabs"
 
-export default async function LibraryPage() {
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string | string[] }>
+}) {
+  const { tab } = await searchParams
   const [imagesResult, videosResult, audiosResult, folders, keys] = await Promise.all([
     getImages({ limit: 40, offset: 0 }),
     getVideos({ limit: 40, offset: 0 }),
@@ -27,6 +32,7 @@ export default async function LibraryPage() {
       </div>
 
       <LibraryTabs
+        initialTab={parseLibraryTab(tab)}
         initialImages={imagesResult.items}
         initialTotal={imagesResult.total}
         initialFolders={folders}

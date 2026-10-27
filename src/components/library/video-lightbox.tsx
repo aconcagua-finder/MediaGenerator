@@ -32,7 +32,8 @@ export function VideoLightbox({ video, onClose, onDelete, onMove }: VideoLightbo
   }, [onClose])
 
   function copyPrompt() {
-    navigator.clipboard.writeText(video.generation.prompt)
+    // У переозвучки копируем исходный промпт v2v, а не служебный «Замена голоса: …»
+    navigator.clipboard.writeText(video.generation.parentPrompt ?? video.generation.prompt)
     toast.success("Промпт скопирован")
   }
 
@@ -82,7 +83,7 @@ export function VideoLightbox({ video, onClose, onDelete, onMove }: VideoLightbo
               </Button>
             </div>
             <p className="max-h-[30vh] overflow-y-auto text-sm leading-relaxed">
-              {video.generation.prompt}
+              {video.generation.title}
             </p>
           </div>
 

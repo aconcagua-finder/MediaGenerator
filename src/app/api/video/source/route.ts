@@ -11,7 +11,8 @@ import { and, eq, gte, sql } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { videoSources } from "@/lib/db/schema"
-import { ensureBucket, uploadFile } from "@/lib/storage/s3"
+import { downloadStream, ensureBucket, uploadFile } from "@/lib/storage/s3"
+import { LINK_TTL_MS } from "@/lib/media-link/token"
 import { probeFile } from "@/lib/video/probe"
 import { needsFpsNormalize, normalizeSourceFps } from "@/lib/video/source-fps"
 import {
@@ -194,5 +195,45 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Не удалось загрузить файл. Попробуйте ещё раз." }, { status: 500 })
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+/**
+ * Просмотр своего загруженного исходника (для «Повторить с этим промптом» на
+ * /video: форма показывает исходник, не загружая его заново). Только владелец и
+ * только пока исходник жив (24 ч). Поддерживает Range — для перемотки в <video>.
+ * `GET /api/video/source?id=<id>`
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() })
+    if (!session?.user) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 })
+    }
+    const id = request.nextUrl.searchParams.get("id") ?? ""
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      return NextResponse.json({ error: "Файл не найден" }, { status: 404 })
+    }
+    const [row] = await db
+      .select({ s3Key: videoSources.s3Key, contentType: videoSources.contentType, createdAt: videoSources.createdAt })
+      .from(videoSources)
+      .where(and(eq(videoSources.id, id), eq(videoSources.userId, session.user.id)))
+    if (!row || Date.now() - row.createdAt.getTime() > LINK_TTL_MS) {
+      return NextResponse.json({ error: "Файл не найден" }, { status: 404 })
+    }
+
+    const range = request.headers.get("range") || undefined
+    const { body, contentType, contentLength, contentRange, statusCode } = await downloadStream(row.s3Key, range)
+    const respHeaders: Record<string, string> = {
+      "Content-Type": contentType || row.contentType,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "private, max-age=3600",
+    }
+    if (contentLength != null) respHeaders["Content-Length"] = String(contentLength)
+    if (statusCode === 206 && contentRange) respHeaders["Content-Range"] = contentRange
+    return new NextResponse(body as unknown as BodyInit, { status: statusCode, headers: respHeaders })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Ошибка загрузки файла"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

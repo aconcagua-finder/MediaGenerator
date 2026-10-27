@@ -121,7 +121,9 @@ function VideoCard({
 
           {/* Подпись при наведении */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-            <p className="truncate text-xs text-white">{video.generation.model}</p>
+            <p className="truncate text-xs text-white">
+              {video.generation.parentPrompt != null ? video.generation.title : video.generation.model}
+            </p>
           </div>
         </div>
       </ContextMenuTrigger>

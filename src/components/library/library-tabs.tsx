@@ -10,7 +10,16 @@ import type { FolderItem } from "@/lib/actions/folders"
 import type { VideoLibraryItem } from "@/lib/actions/videos"
 import type { AudioLibraryItem } from "@/lib/actions/audios"
 
+export type LibraryTab = "photos" | "videos" | "audios"
+
+/** `?tab=videos|audios` → вкладка (ссылки «Все видео в Библиотеке» с /video и /history) */
+export function parseLibraryTab(value: string | string[] | undefined): LibraryTab {
+  const v = Array.isArray(value) ? value[0] : value
+  return v === "videos" || v === "audios" ? v : "photos"
+}
+
 interface LibraryTabsProps {
+  initialTab?: LibraryTab
   initialImages: ImageWithGeneration[]
   initialTotal: number
   initialFolders: FolderItem[]
@@ -23,6 +32,7 @@ interface LibraryTabsProps {
 }
 
 export function LibraryTabs({
+  initialTab = "photos",
   initialImages,
   initialTotal,
   initialFolders,
@@ -33,7 +43,16 @@ export function LibraryTabs({
   initialAudios,
   initialAudioTotal,
 }: LibraryTabsProps) {
-  const [tab, setTab] = useState<"photos" | "videos" | "audios">("photos")
+  const [tab, setTabState] = useState<LibraryTab>(initialTab)
+
+  // Вкладка — в адресе, чтобы обновление страницы и «назад» не сбрасывали её на «Фото»
+  function setTab(next: LibraryTab) {
+    setTabState(next)
+    const url = new URL(window.location.href)
+    if (next === "photos") url.searchParams.delete("tab")
+    else url.searchParams.set("tab", next)
+    window.history.replaceState(window.history.state, "", url)
+  }
 
   return (
     <div className="flex flex-col gap-4">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition, useEffect } from "react"
+import Link from "next/link"
 import {
   CheckCircle2,
   XCircle,
@@ -107,8 +108,19 @@ export function HistoryTable({ generations, onRegenerate, showUser = false, sele
 
   if (generations.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center py-20">
-        <p className="text-muted-foreground">Нет генераций</p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 py-20 text-center">
+        <p className="text-muted-foreground">Нет генераций изображений</p>
+        <p className="text-sm text-neutral-500">
+          Видео и озвучка — в Библиотеке:{" "}
+          <Link href="/library?tab=videos" className="text-x-blue hover:underline">
+            видео
+          </Link>
+          ,{" "}
+          <Link href="/library?tab=audios" className="text-x-blue hover:underline">
+            озвучка
+          </Link>
+          .
+        </p>
       </div>
     )
   }

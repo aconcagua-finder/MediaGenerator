@@ -1,11 +1,16 @@
 "use server"
 
 import { eq, and, or, desc, isNull, isNotNull, inArray, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import { db } from "../db"
 import { videos, videoGenerations, videoCompositions, folders } from "../db/schema"
 import { auth } from "../auth"
 import { headers } from "next/headers"
 import { remove as s3Remove } from "../storage/s3"
+import { voiceNameFromParams, voiceOverLabel } from "../video/voice-over"
+
+/** Родительская v2v-генерация переозвучки — ради её исходного промпта в подписи */
+const parentGeneration = alias(videoGenerations, "parent_generation")
 
 export interface VideoLibraryItem {
   id: string
@@ -26,6 +31,14 @@ export interface VideoLibraryItem {
     provider: string
     model: string
     prompt: string
+    /**
+     * Подпись для показа. У переозвучки после v2v — «Переозвучка: Marina ·
+     * <исходный промпт>» (у самой строки промпт служебный «Замена голоса: …»),
+     * у остальных совпадает с prompt.
+     */
+    title: string
+    /** Исходный промпт v2v у переозвучки (его и копируем), иначе null */
+    parentPrompt: string | null
     params: unknown
     /** Стоимость генерации видео в USD (у склеек — null, рендер локальный) */
     cost: number | null
@@ -93,10 +106,18 @@ export async function getVideos(opts: {
         compTitle: videoCompositions.title,
         compParams: videoCompositions.params,
         segmentCount: sql<number>`(select count(*)::int from video_composition_segments where composition_id = ${videos.compositionId})`,
+        parentPrompt: parentGeneration.prompt,
       })
       .from(videos)
       .leftJoin(videoGenerations, eq(videos.videoGenerationId, videoGenerations.id))
       .leftJoin(videoCompositions, eq(videos.compositionId, videoCompositions.id))
+      .leftJoin(
+        parentGeneration,
+        and(
+          eq(videoGenerations.mode, "voice"),
+          sql`${parentGeneration.id}::text = ${videoGenerations.params}->>'parent_generation_id'`,
+        ),
+      )
       .where(and(...conditions))
       .orderBy(desc(videos.createdAt))
       .limit(limit)
@@ -130,6 +151,12 @@ export async function getVideos(opts: {
           provider: isComp ? "compose" : (row.provider as string),
           model: isComp ? "Склейка" : (row.model as string),
           prompt: isComp ? row.compTitle || "Склейка" : (row.prompt as string),
+          title: isComp
+            ? row.compTitle || "Склейка"
+            : row.parentPrompt != null
+              ? voiceOverLabel(voiceNameFromParams(row.params), row.parentPrompt)
+              : (row.prompt as string),
+          parentPrompt: isComp ? null : (row.parentPrompt ?? null),
           params: isComp ? row.compParams : row.params,
           cost: !isComp && row.cost != null ? parseFloat(row.cost) : null,
         },
