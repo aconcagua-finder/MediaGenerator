@@ -196,7 +196,13 @@ Chatterbox HD через fal (ключ fal). В v2v можно сразу зак
    переводит `humanize-error.ts` по коду (`invalid_api_key`, `quota_exceeded`, `voice_not_found`, …).
 8. `finalize.ts` для v2v/voice берёт реальные размеры/длительность/наличие звука из ffprobe результата, а не из
    параметров; `VideoProvider.poll/fetchVideo` получают `ctx` (`model`, `params`) — нужен fal.
-9. **Автопереозвучка v2v (ElevenLabs напрямую).** OpenRouter speech-to-speech не умеет (проверено 2026-10-08).
+9. **Автопереозвучка (ElevenLabs напрямую): v2v и текст/картинка → видео со звуком.** OpenRouter speech-to-speech не умеет (проверено 2026-10-08).
+   t2v/i2v: только если модель отдаёт звук (`modelProducesAudio`: «Со звуком» или встроенный звук), оценка — видео + замена
+   голоса на заказанную длительность (`estimateGenerationCost`), `finalize.ts` запускает её для режимов `AUTO_VOICE_OVER_MODES`
+   и смотрит ffprobe результата, есть ли звук на самом деле. ❗ Умолчания настроек зависят от происхождения звука
+   (`defaultVoiceSettingsFor`): у сгенерированного (t2v/i2v) **без чистки фона** — так звучит эталон заказчика (0.5/0.75/0/усиление,
+   remove_background_noise=false), у записи (v2v, ручная замена) — с чисткой. В форме настройки хранятся раздельно
+   (`mg_video_voice_over_settings` / `mg_video_voice_over_generated_settings`), голос общий.
    `POST /api/video/generate` принимает `voiceOver: {voice, voiceName, settings}` → `params.voice_over = {engine, voice,
    voice_name, settings}` (санитизирует `parseVoiceOver`), оценка включает переозвучку, нужен звук в исходнике и ключ
    ElevenLabs (иначе 400). `finalize.ts`, сохранив v2v-видео (`status=done`), сам

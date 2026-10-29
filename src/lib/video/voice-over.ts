@@ -1,7 +1,7 @@
-import type { VoiceSettings } from "@/lib/providers/voice-change-models"
+import { supportsAutoVoiceOver, type VoiceSettings } from "@/lib/providers/voice-change-models"
 
 /**
- * Состояние автопереозвучки v2v-генерации в `params.voice_over` (jsonb):
+ * Состояние автопереозвучки генерации (v2v, t2v/i2v со звуком) в `params.voice_over` (jsonb):
  * `{ engine, voice, voice_name, settings }` при запуске генерации, затем
  * дописываются `generation_id` (задача замены голоса) или `error`.
  * У задач до перехода на прямой ElevenLabs `voice_name`/`settings` нет.
@@ -58,4 +58,12 @@ export function voiceNameFromParams(params: unknown): string | null {
 export function voiceOverLabel(voiceName: string | null, parentPrompt: string): string {
   const prompt = parentPrompt.trim()
   return `Переозвучка: ${voiceName || "другой голос"}${prompt ? ` · ${prompt}` : ""}`
+}
+
+/**
+ * Заказанная при запуске автопереозвучка, которую `finalize.ts` должен запустить
+ * после сохранения видео: только режимы с автопереозвучкой (v2v, t2v, i2v).
+ */
+export function requestedAutoVoiceOver(mode: string, params: unknown): VoiceOverParams | null {
+  return supportsAutoVoiceOver(mode) ? readVoiceOver(params) : null
 }

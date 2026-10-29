@@ -7,9 +7,9 @@ import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { getVideoProvider } from "@/lib/providers/video/registry"
 import {
   getVideoModel,
-  estimateVideoCost,
   estimateV2VCost,
   isV2VModel,
+  modelProducesAudio,
   videoModelProvider,
 } from "@/lib/providers/video-models"
 import { downloadBuffer } from "@/lib/storage/s3"
@@ -27,6 +27,7 @@ import {
   type VoiceOverSetting,
 } from "@/lib/providers/voice-change-models"
 import { headers } from "next/headers"
+import { estimateGenerationCost } from "@/lib/video/estimate"
 
 interface GenerateVideoBody {
   model: string
@@ -46,9 +47,9 @@ interface GenerateVideoBody {
   /** Motion Control: id картинки-персонажа из таблицы uploads */
   characterUploadId?: string
   /**
-   * video-to-video: переозвучить результат через ElevenLabs сразу после
-   * готовности (voice — voice_id, voiceName — подпись, settings — тонкие
-   * настройки). Не передан — остаётся исходный звук.
+   * Переозвучить результат через ElevenLabs сразу после готовности: v2v, а
+   * также t2v/i2v у моделей со звуком (voice — voice_id, voiceName — подпись,
+   * settings — тонкие настройки). Не передан — остаётся исходный звук.
    */
   voiceOver?: { voice?: string; voiceName?: string; settings?: unknown }
 }
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
       estimate = estimateV2VCost(videoModel, sourceSeconds)
 
       // Автопереозвучка: нужен звук в исходнике и ключ провайдера движка (ElevenLabs)
-      voiceOver = parseVoiceOver(body.voiceOver)
+      voiceOver = parseVoiceOver(body.voiceOver, "v2v")
       if (voiceOver) {
         const voiceEngine = getVoiceEngine(voiceOver.engine)!
         if (!row.hasAudio) {
@@ -239,11 +240,32 @@ export async function POST(request: NextRequest) {
         )
       }
       mode = wantsImage && supportsI2V ? "i2v" : "t2v"
-      estimate = estimateVideoCost(videoModel, {
+
+      // Автопереозвучка сгенерированного звука: только если модель его отдаёт
+      // (включён «Со звуком» или звук встроен); длина звука ≈ заказанной длительности
+      voiceOver = parseVoiceOver(body.voiceOver, mode)
+      if (voiceOver) {
+        const voiceEngine = getVoiceEngine(voiceOver.engine)!
+        if (!modelProducesAudio(videoModel, generateAudio)) {
+          return NextResponse.json(
+            {
+              error: videoModel.supportsAudio
+                ? "Включите звук у модели, чтобы переозвучить."
+                : `${videoModel.name} генерирует видео без звука — переозвучивать нечего. Выключите переозвучку.`,
+            },
+            { status: 400 }
+          )
+        }
+        if (!(await hasActiveProviderKey(session.user.id, voiceEngine.provider))) {
+          return NextResponse.json({ error: voiceEngineNoKeyMessage(voiceEngine) }, { status: 400 })
+        }
+      }
+      estimate = estimateGenerationCost(videoModel, {
         durationSeconds: duration,
         resolution,
         audio: generateAudio,
-      })
+        voiceOver: Boolean(voiceOver),
+      }).total
     }
 
     // 4. Лимиты пользователя (бюджет, дневной и общий лимит, бан)
@@ -309,6 +331,7 @@ export async function POST(request: NextRequest) {
           resolution,
           aspect_ratio: aspectRatio,
           generate_audio: generateAudio,
+          ...(voiceOver ? { voice_over: voiceOver } : {}),
         }
     const [generation] = await db
       .insert(videoGenerations)

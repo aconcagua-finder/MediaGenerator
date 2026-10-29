@@ -788,3 +788,12 @@ export function estimateV2VCost(model: VideoModel, sourceSeconds: number): numbe
   if (!(sourceSeconds > 0)) return 0
   return estimateVideoCost(model, { durationSeconds: sourceSeconds })
 }
+
+/**
+ * Будет ли у результата звук: модели с переключателем — по «Со звуком»,
+ * у моделей со встроенным звуком — всегда. От этого зависит, можно ли заказать
+ * автопереозвучку для текст/картинка → видео.
+ */
+export function modelProducesAudio(model: VideoModel, generateAudio: boolean): boolean {
+  return model.supportsAudio ? generateAudio : Boolean(model.builtInAudio)
+}

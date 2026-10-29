@@ -10,6 +10,8 @@ interface ElevenLabsVoicePickerProps {
   onVoiceChange: (voice: PickedVoice) => void
   settings: VoiceSettings
   onSettingsChange: (settings: VoiceSettings) => void
+  /** Умолчания для «Сбросить» (у сгенерированного звука — без чистки фона) */
+  defaults?: VoiceSettings
   disabled?: boolean
 }
 
@@ -30,6 +32,7 @@ export function ElevenLabsVoicePicker({
   onVoiceChange,
   settings,
   onSettingsChange,
+  defaults = DEFAULT_VOICE_SETTINGS,
   disabled,
 }: ElevenLabsVoicePickerProps) {
   const engine = getVoiceEngine("elevenlabs")!
@@ -39,12 +42,12 @@ export function ElevenLabsVoicePicker({
       <VoiceSettingsPanel
         fields={FIELDS}
         values={settings}
-        defaults={DEFAULT_VOICE_SETTINGS}
+        defaults={defaults}
         onChange={onSettingsChange}
         disabled={disabled}
       />
       <p className="text-[11px] leading-snug text-neutral-500">
-        Интонация, темп и эмоции берутся из вашей речи, меняется тембр. ≈ {voicePriceLabel(engine)} звука.
+        Интонация, темп и эмоции берутся из исходной речи, меняется тембр. ≈ {voicePriceLabel(engine)} звука.
       </p>
     </div>
   )
