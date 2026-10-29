@@ -213,8 +213,34 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
   similarity_boost: 0.75,
   style: 0,
   use_speaker_boost: true,
-  // Лучший ручной результат на русской речи был с чисткой фона
+  // Исходники v2v и ручной замены голоса — обычно запись с телефона: чистка фона помогает
   remove_background_noise: true,
+}
+
+/**
+ * Откуда звук, который переозвучиваем: `recording` — запись пользователя
+ * (исходник «Видео → видео», ручная замена голоса), `generated` — звук,
+ * сгенерированный видеомоделью (текст/картинка → видео: Veo, Kling, Seedance…).
+ */
+export type VoiceSourceKind = "recording" | "generated"
+
+/**
+ * Настройки по умолчанию для происхождения звука. ❗ У сгенерированного звука
+ * чистка фона ВЫКЛЮЧЕНА: он и так чистый, а remove_background_noise рассчитан
+ * на запись с телефона и на чистом звуке только портит речь. Эталон заказчика
+ * (eleven_multilingual_sts_v2, 0.5 / 0.75 / 0 / усиление вкл / без чистки фона,
+ * mp3_44100_128, затем подкладка `-c:v copy -c:a aac -b:a 192k -shortest`)
+ * совпадает с этими значениями для `generated`.
+ */
+export function defaultVoiceSettingsFor(kind: VoiceSourceKind): VoiceSettings {
+  return kind === "generated"
+    ? { ...DEFAULT_VOICE_SETTINGS, remove_background_noise: false }
+    : { ...DEFAULT_VOICE_SETTINGS }
+}
+
+/** Режим видео-генерации → происхождение звука для автопереозвучки */
+export function voiceSourceKindForMode(mode: string): VoiceSourceKind {
+  return mode === "v2v" ? "recording" : "generated"
 }
 
 function unit(value: unknown, fallback: number): number {
@@ -226,10 +252,10 @@ function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback
 }
 
-/** Настройки из запроса: числа зажаты в [0, 1], всё некорректное — по умолчанию */
-export function sanitizeVoiceSettings(raw: unknown): VoiceSettings {
+/** Настройки из запроса: числа зажаты в [0, 1], всё некорректное — по умолчанию (`defaults`) */
+export function sanitizeVoiceSettings(raw: unknown, defaults: VoiceSettings = DEFAULT_VOICE_SETTINGS): VoiceSettings {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
-  const d = DEFAULT_VOICE_SETTINGS
+  const d = defaults
   return {
     stability: unit(r.stability, d.stability),
     similarity_boost: unit(r.similarity_boost, d.similarity_boost),
@@ -264,13 +290,22 @@ export interface VoiceOverSetting {
  * Санитизация запроса автопереозвучки из тела `/api/video/generate`
  * (`{ voice, voiceName?, settings? }`). null — переозвучка не нужна (оставляем
  * исходный звук); неизвестный голос заменяется женским голосом по умолчанию.
+ * Незаданные настройки берутся по умолчанию для режима (см. defaultVoiceSettingsFor).
  */
-export function parseVoiceOver(raw: unknown): VoiceOverSetting | null {
+export function parseVoiceOver(raw: unknown, mode: string = "v2v"): VoiceOverSetting | null {
   if (!raw || typeof raw !== "object") return null
   const r = raw as { voice?: unknown; voiceName?: unknown; settings?: unknown }
   const engine = getVoiceEngine(AUTO_VOICE_ENGINE)!
   const voice = resolveVoice(engine, r.voice, r.voiceName)
-  return { engine: engine.id, voice: voice.id, voice_name: voice.name, settings: sanitizeVoiceSettings(r.settings) }
+  const defaults = defaultVoiceSettingsFor(voiceSourceKindForMode(mode))
+  return { engine: engine.id, voice: voice.id, voice_name: voice.name, settings: sanitizeVoiceSettings(r.settings, defaults) }
+}
+
+/** Режимы, после которых умеем автопереозвучку: v2v и генерация видео со звуком */
+export const AUTO_VOICE_OVER_MODES = ["v2v", "t2v", "i2v"] as const
+
+export function supportsAutoVoiceOver(mode: string): boolean {
+  return (AUTO_VOICE_OVER_MODES as readonly string[]).includes(mode)
 }
 
 /**

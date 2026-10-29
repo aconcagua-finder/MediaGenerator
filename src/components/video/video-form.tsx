@@ -28,18 +28,18 @@ import { AttachmentTray } from "@/components/shared/attachment-tray"
 import {
   getVideoModel,
   defaultVideoParams,
-  estimateVideoCost,
   estimateV2VCost,
   videoPricePerSecond,
   modelsForMode,
   isV2VModel,
+  modelProducesAudio,
   DEFAULT_VIDEO_MODEL,
   RUSSIAN_SPEECH_INFO,
 } from "@/lib/providers/video-models"
 import { closestAspectRatio, MAX_SOURCE_SECONDS } from "@/lib/video/source-limits"
 import {
   AUTO_VOICE_ENGINE,
-  DEFAULT_VOICE_SETTINGS,
+  defaultVoiceSettingsFor,
   estimateVoiceChangeCost,
   getVoiceEngine,
   voiceEngineNoKeyMessage,
@@ -48,9 +48,11 @@ import {
   sanitizeVoiceSettings,
   isElevenLabsVoiceId,
   type VoiceSettings,
+  type VoiceSourceKind,
 } from "@/lib/providers/voice-change-models"
 import type { VideoHistoryItem } from "@/lib/video/history"
 import { mergeJobsById } from "@/lib/history/merge"
+import { estimateGenerationCost } from "@/lib/video/estimate"
 import { jobFromHistory, type VideoJob, type VideoResult, type VoiceOverJob } from "./video-job"
 import { VideoHistorySection } from "./video-history-section"
 import { useHistoryFeed } from "@/components/history-feed/use-history-feed"
@@ -125,22 +127,39 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
     character_orientation: "video",
   }))
   const [source, setSource] = useState<ReadySource | null>(null)
-  // Переозвучка результата v2v через ElevenLabs: выключено = исходный звук
+  // Переозвучка результата через ElevenLabs (v2v и генерация со звуком): выключено = исходный звук.
+  // Голос общий, настройки — свои у записи (v2v) и у сгенерированного звука (t2v/i2v):
+  // у сгенерированного по умолчанию без чистки фона (см. defaultVoiceSettingsFor)
   const [voiceOverOn, setVoiceOverOn] = useState(false)
   const [voiceOverVoice, setVoiceOverVoice] = useState<PickedVoice>(() => presetVoice(voiceEngine.defaultFemale))
-  const [voiceOverSettings, setVoiceOverSettings] = useState<VoiceSettings>(DEFAULT_VOICE_SETTINGS)
+  const [recordingSettings, setRecordingSettings] = useState<VoiceSettings>(() => defaultVoiceSettingsFor("recording"))
+  const [generatedSettings, setGeneratedSettings] = useState<VoiceSettings>(() => defaultVoiceSettingsFor("generated"))
+  const voiceSourceKind: VoiceSourceKind = isV2V ? "recording" : "generated"
+  const voiceOverSettings = isV2V ? recordingSettings : generatedSettings
+  const setVoiceOverSettings = (s: VoiceSettings) => {
+    if (isV2V) setRecordingSettings(s)
+    else setGeneratedSettings(s)
+    saveVoiceSettings(s, voiceSourceKind)
+  }
+  // Блок «Звук» с переозвучкой: у v2v всегда, у генерации — если модель вообще умеет звук
+  const voiceOverAvailable = isV2V || model.supportsAudio || Boolean(model.builtInAudio)
   const voiceOverBlocked = !hasElevenLabsKey
     ? voiceEngineNoKeyMessage(voiceEngine)
-    : source && !source.hasAudio
-      ? "В исходном видео нет звука, переозвучивать нечего."
-      : null
-  const voiceOverActive = isV2V && voiceOverOn && !voiceOverBlocked
+    : isV2V
+      ? source && !source.hasAudio
+        ? "В исходном видео нет звука, переозвучивать нечего."
+        : null
+      : !modelProducesAudio(model, params.generate_audio)
+        ? "Включите звук у модели, чтобы переозвучить."
+        : null
+  const voiceOverActive = voiceOverAvailable && voiceOverOn && !voiceOverBlocked
 
   useEffect(() => {
     setVoiceOverOn(loadSaved("video_voice_over", "") === "1")
     // Старое значение (имя пресета fal) loadVoicePick заменит голосом по умолчанию
     setVoiceOverVoice(loadVoicePick())
-    setVoiceOverSettings(loadVoiceSettings())
+    setRecordingSettings(loadVoiceSettings("recording"))
+    setGeneratedSettings(loadVoiceSettings("generated"))
   }, [])
 
   useEffect(() => {
@@ -202,18 +221,19 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
     }
   }, [])
 
-  const voiceOverCost = voiceOverActive ? estimateVoiceChangeCost(voiceEngine, source?.durationSeconds ?? 0) : 0
-  const costEstimate = useMemo(
-    () =>
-      isV2V
-        ? estimateV2VCost(model, source?.durationSeconds ?? 0)
-        : estimateVideoCost(model, {
-            durationSeconds: params.duration,
-            resolution: params.resolution,
-            audio: params.generate_audio,
-          }),
-    [model, isV2V, source?.durationSeconds, params.duration, params.resolution, params.generate_audio]
-  ) + voiceOverCost
+  // Длина звука: у v2v — исходника, у генерации — заказанная длительность (та же оценка, что на сервере)
+  const generationCost = estimateGenerationCost(model, {
+    durationSeconds: params.duration,
+    resolution: params.resolution,
+    audio: params.generate_audio,
+    voiceOver: voiceOverActive,
+  })
+  const voiceOverCost = isV2V
+    ? voiceOverActive
+      ? estimateVoiceChangeCost(voiceEngine, source?.durationSeconds ?? 0)
+      : 0
+    : generationCost.voiceOver
+  const costEstimate = isV2V ? estimateV2VCost(model, source?.durationSeconds ?? 0) + voiceOverCost : generationCost.total
 
   const handleModelChange = useCallback(
     (newId: string) => {
@@ -447,6 +467,12 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
         character_orientation: prev.character_orientation,
       }))
       if (job.mode === "i2v") notes.push("Стартовый кадр загрузите заново.")
+      const vo = job.voiceOver
+      setVoiceOverOn(Boolean(vo))
+      if (vo && isElevenLabsVoiceId(vo.voice)) {
+        setVoiceOverVoice({ id: vo.voice, name: sanitizeVoiceName(vo.voiceName) || vo.voice })
+        if (vo.settings) setGeneratedSettings(sanitizeVoiceSettings(vo.settings, defaultVoiceSettingsFor("generated")))
+      }
     } else {
       setParams((prev) => ({
         ...base,
@@ -456,7 +482,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       setVoiceOverOn(Boolean(vo))
       if (vo && isElevenLabsVoiceId(vo.voice)) {
         setVoiceOverVoice({ id: vo.voice, name: sanitizeVoiceName(vo.voiceName) || vo.voice })
-        if (vo.settings) setVoiceOverSettings(sanitizeVoiceSettings(vo.settings))
+        if (vo.settings) setRecordingSettings(sanitizeVoiceSettings(vo.settings))
       }
       if (job.source) {
         const src = job.source
@@ -524,19 +550,19 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             ? {
                 sourceId: source!.id,
                 ...(model.requiresCharacterImage ? { characterUploadId: uploadId } : {}),
-                ...(voiceOverActive
-                  ? {
-                      voiceOver: {
-                        voice: voiceOverVoice.id,
-                        voiceName: voiceOverVoice.name,
-                        settings: voiceOverSettings,
-                      },
-                    }
-                  : {}),
               }
             : uploadId
               ? { uploadId }
               : {}),
+          ...(voiceOverActive
+            ? {
+                voiceOver: {
+                  voice: voiceOverVoice.id,
+                  voiceName: voiceOverVoice.name,
+                  settings: voiceOverSettings,
+                },
+              }
+            : {}),
         }),
       })
 
@@ -604,6 +630,60 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       setIsSubmitting(false)
     }
   }
+
+  // Переключатель «Исходный / Переозвучить» с выбором голоса — общий для v2v и генерации со звуком
+  const voiceOverBlock = (
+    <>
+      <div className="grid grid-cols-2 gap-1.5">
+        {([
+          { on: false, label: "Исходный" },
+          { on: true, label: "Переозвучить" },
+        ] as const).map((o) => {
+          const selected = o.on ? voiceOverActive : !voiceOverActive
+          return (
+            <button
+              key={o.label}
+              type="button"
+              disabled={isSubmitting || (o.on && Boolean(voiceOverBlocked))}
+              onClick={() => {
+                setVoiceOverOn(o.on)
+                savePref("video_voice_over", o.on ? "1" : "")
+              }}
+              className={`flex h-9 items-center justify-center gap-1.5 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                selected
+                  ? "border-x-blue/40 bg-x-blue/[0.12] text-x-blue"
+                  : "border-white/[0.12] bg-white/[0.02] text-neutral-400 hover:text-white"
+              }`}
+            >
+              {o.on ? <Mic2 className="size-4" /> : <Volume2 className="size-4" />}
+              {o.label}
+            </button>
+          )
+        })}
+      </div>
+      {voiceOverBlocked ? (
+        <p className="text-[11px] leading-snug text-neutral-500">{voiceOverBlocked}</p>
+      ) : voiceOverActive ? (
+        <>
+          <ElevenLabsVoicePicker
+            voice={voiceOverVoice}
+            onVoiceChange={(v) => {
+              setVoiceOverVoice(v)
+              saveVoicePick(v)
+            }}
+            settings={voiceOverSettings}
+            onSettingsChange={setVoiceOverSettings}
+            defaults={defaultVoiceSettingsFor(voiceSourceKind)}
+            disabled={isSubmitting}
+          />
+          <p className="text-[11px] leading-snug text-neutral-600">
+            После готовности видео речь в нём заменится выбранным голосом ElevenLabs
+            ({voicePriceLabel(voiceEngine)}). В библиотеке останутся обе версии.
+          </p>
+        </>
+      ) : null}
+    </>
+  )
 
   return (
     <div className="space-y-10">
@@ -858,56 +938,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             {isV2V && (
               <div className="space-y-2 sm:col-span-2">
                 <Label className="block text-sm font-medium leading-tight text-neutral-400">Звук</Label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {([
-                    { on: false, label: "Исходный" },
-                    { on: true, label: "Переозвучить" },
-                  ] as const).map((o) => {
-                    const selected = o.on ? voiceOverActive : !voiceOverActive
-                    return (
-                      <button
-                        key={o.label}
-                        type="button"
-                        disabled={isSubmitting || (o.on && Boolean(voiceOverBlocked))}
-                        onClick={() => {
-                          setVoiceOverOn(o.on)
-                          savePref("video_voice_over", o.on ? "1" : "")
-                        }}
-                        className={`flex h-9 items-center justify-center gap-1.5 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-                          selected
-                            ? "border-x-blue/40 bg-x-blue/[0.12] text-x-blue"
-                            : "border-white/[0.12] bg-white/[0.02] text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        {o.on ? <Mic2 className="size-4" /> : <Volume2 className="size-4" />}
-                        {o.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                {voiceOverBlocked ? (
-                  <p className="text-[11px] leading-snug text-neutral-500">{voiceOverBlocked}</p>
-                ) : voiceOverActive ? (
-                  <>
-                    <ElevenLabsVoicePicker
-                      voice={voiceOverVoice}
-                      onVoiceChange={(v) => {
-                        setVoiceOverVoice(v)
-                        saveVoicePick(v)
-                      }}
-                      settings={voiceOverSettings}
-                      onSettingsChange={(s) => {
-                        setVoiceOverSettings(s)
-                        saveVoiceSettings(s)
-                      }}
-                      disabled={isSubmitting}
-                    />
-                    <p className="text-[11px] leading-snug text-neutral-600">
-                      После готовности видео речь в нём заменится выбранным голосом ElevenLabs
-                      ({voicePriceLabel(voiceEngine)}). В библиотеке останутся обе версии.
-                    </p>
-                  </>
-                ) : null}
+                {voiceOverBlock}
               </div>
             )}
             {!isV2V && model.supportsAudio && (
@@ -925,6 +956,12 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
                   {params.generate_audio ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
                   {params.generate_audio ? "Со звуком" : "Без звука"}
                 </button>
+              </div>
+            )}
+            {!isV2V && voiceOverAvailable && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="block text-sm font-medium leading-tight text-neutral-400">Голос в видео</Label>
+                {voiceOverBlock}
               </div>
             )}
           </div>
@@ -948,7 +985,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             </>
           ) : (
             <>
-              Точная сумма спишется по факту от OpenRouter после генерации (≈${videoPricePerSecond(model, params.resolution, params.generate_audio).toFixed(3)}/сек при {params.resolution} × {params.duration} сек).
+              Точная сумма спишется по факту от OpenRouter после генерации (≈${videoPricePerSecond(model, params.resolution, params.generate_audio).toFixed(3)}/сек при {params.resolution} × {params.duration} сек){voiceOverActive ? ` + переозвучка ~$${voiceOverCost.toFixed(3)}` : ""}.
             </>
           )}
         </p>

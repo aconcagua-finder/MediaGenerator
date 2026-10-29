@@ -1,17 +1,28 @@
-import { and, eq, isNotNull, isNull, lt, sql } from "drizzle-orm"
+import { and, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { videoGenerations, videos, user } from "@/lib/db/schema"
 import { getDecryptedApiKey } from "@/lib/actions/api-keys"
 import { getVideoProvider } from "@/lib/providers/video/registry"
 import { getVideoModel, estimateVideoCost, estimateV2VCost } from "@/lib/providers/video-models"
-import { getVoiceEngineByEndpoint, estimateVoiceChangeCost } from "@/lib/providers/voice-change-models"
+import {
+  AUTO_VOICE_OVER_MODES,
+  getVoiceEngineByEndpoint,
+  estimateVoiceChangeCost,
+  voiceSourceKindForMode,
+} from "@/lib/providers/voice-change-models"
 import { upload, ensureBucket, remove as s3Remove } from "@/lib/storage/s3"
 import { revokeLinksForGeneration, cleanupExpiredMediaSources } from "@/lib/media-link/links"
 import { humanizeVideoError } from "./humanize-error"
 import { buildResultVideo } from "./result-video"
 import { createPoster, posterKeyOf } from "./poster"
 import { startVoiceChange } from "./voice-change"
-import { readVoiceOver, voiceOverDto, type VoiceOverFollowUp, type VoiceOverParams } from "./voice-over"
+import {
+  readVoiceOver,
+  requestedAutoVoiceOver,
+  voiceOverDto,
+  type VoiceOverFollowUp,
+  type VoiceOverParams,
+} from "./voice-over"
 
 /**
  * Финализация одной видео-генерации: опрос провайдера → скачивание mp4 в S3 →
@@ -91,11 +102,14 @@ export type FinalizeOutcome =
   | { status: "error"; error: string }
 
 /**
- * Запуск автопереозвучки готового v2v-видео. Ошибка запуска не валит саму
- * генерацию: видео с исходным звуком уже в библиотеке, ошибку показываем рядом.
+ * Запуск автопереозвучки готового видео (v2v или t2v/i2v со звуком). Ошибка
+ * запуска не валит саму генерацию: видео с исходным звуком уже в библиотеке,
+ * ошибку показываем рядом.
  */
 async function startAutoVoiceOver(opts: {
   genId: string
+  /** Режим родителя: от него зависят настройки по умолчанию (чистка фона) */
+  mode: string
   userId: string
   /** null — в результате нет звука */
   videoId: string | null
@@ -114,6 +128,7 @@ async function startAutoVoiceOver(opts: {
         voice: opts.voiceOver.voice,
         voiceName: opts.voiceOver.voice_name,
         settings: opts.voiceOver.settings,
+        sourceKind: voiceSourceKindForMode(opts.mode),
         skipLimits: true,
         parentGenerationId: opts.genId,
       })
@@ -263,20 +278,24 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
       source_video_id?: string
     }
 
+    // Заказанная при запуске переозвучка (v2v, а также t2v/i2v у моделей со звуком)
+    const requestedVoiceOver = requestedAutoVoiceOver(gen.mode, gen.params)
+
     // v2v / замена голоса: реальные размеры и длительность берём из ffprobe самого
     // результата (у v2v нет ни duration, ни resolution в параметрах); для голоса
-    // сначала подкладываем новый звук под исходное видео
+    // сначала подкладываем новый звук под исходное видео. У t2v/i2v с заказанной
+    // переозвучкой тоже смотрим ffprobe: есть ли в результате звук на самом деле
     let buf = fetched
     let width: number | null
     let height: number | null
     let durationSeconds: number | null = p.duration ?? null
     let hasAudio = Boolean(p.generate_audio)
-    if (gen.mode === "v2v" || gen.mode === "voice") {
+    if (gen.mode === "v2v" || gen.mode === "voice" || requestedVoiceOver) {
       const built = await buildResultVideo({
-        mode: gen.mode,
+        mode: gen.mode === "voice" ? "voice" : "v2v",
         fetched,
         sourceVideoId: p.source_video_id,
-        fallbackAudio: gen.mode === "v2v" ? Boolean(p.source_has_audio) : true,
+        fallbackAudio: gen.mode === "v2v" ? Boolean(p.source_has_audio) : gen.mode === "voice" ? true : Boolean(p.generate_audio),
         fallbackDuration: p.duration ?? null,
       })
       buf = built.buffer
@@ -351,12 +370,12 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
 
     await releaseGenerationResources(gen.id)
 
-    // Заказанная при запуске переозвучка (только v2v и только если в результате есть звук)
-    const requestedVoiceOver = gen.mode === "v2v" ? readVoiceOver(gen.params) : null
+    // Переозвучка запускается, только если в результате есть звук
     let voiceOver: VoiceOverFollowUp | undefined
     if (requestedVoiceOver) {
       voiceOver = await startAutoVoiceOver({
         genId: gen.id,
+        mode: gen.mode,
         userId: gen.userId,
         videoId: hasAudio ? savedVideo.id : null,
         voiceOver: requestedVoiceOver,
@@ -498,7 +517,7 @@ export async function reconcileStaleVideoJobs(minAgeMs = 2 * 60 * 1000): Promise
       .where(
         and(
           eq(videoGenerations.status, "done"),
-          eq(videoGenerations.mode, "v2v"),
+          inArray(videoGenerations.mode, [...AUTO_VOICE_OVER_MODES]),
           sql`${videoGenerations.params} ? 'voice_over'`,
           sql`not (${videoGenerations.params}->'voice_over' ? 'generation_id')`,
           sql`not (${videoGenerations.params}->'voice_over' ? 'error')`,

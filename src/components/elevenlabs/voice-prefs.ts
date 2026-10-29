@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
-  DEFAULT_VOICE_SETTINGS,
+  defaultVoiceSettingsFor,
   getVoiceEngine,
   isElevenLabsVoiceId,
   sanitizeVoiceName,
   sanitizeVoiceSettings,
   type VoiceSettings,
+  type VoiceSourceKind,
 } from "@/lib/providers/voice-change-models"
 import type { CatalogVoice } from "@/lib/providers/elevenlabs-voices"
 
@@ -51,10 +52,12 @@ export function presetVoice(id: string): PickedVoice {
 
 /**
  * Где запоминается выбор: `video_voice_over` — замена голоса (общий для
- * автопереозвучки v2v и кнопки «Заменить голос»), `voice_tts` — «Озвучка».
+ * автопереозвучки v2v и кнопки «Заменить голос»), `video_voice_over_generated` —
+ * только настройки автопереозвучки сгенерированного звука (t2v/i2v: другие
+ * умолчания, голос общий с v2v), `voice_tts` — «Озвучка».
  * Ключи localStorage — `mg_` + имя, как у savePref форм.
  */
-export type VoicePrefsScope = "video_voice_over" | "voice_tts"
+export type VoicePrefsScope = "video_voice_over" | "video_voice_over_generated" | "voice_tts"
 
 const keys = (scope: VoicePrefsScope) => ({
   voice: `mg_${scope}_voice`,
@@ -119,14 +122,18 @@ export function saveRawVoiceSettings(scope: VoicePrefsScope, settings: object) {
   write(keys(scope).settings, JSON.stringify(settings))
 }
 
-/** Настройки замены голоса */
-export function loadVoiceSettings(): VoiceSettings {
-  const raw = loadRawVoiceSettings("video_voice_over")
-  return raw ? sanitizeVoiceSettings(raw) : { ...DEFAULT_VOICE_SETTINGS }
+const settingsScope = (kind: VoiceSourceKind): VoicePrefsScope =>
+  kind === "generated" ? "video_voice_over_generated" : "video_voice_over"
+
+/** Настройки замены голоса для происхождения звука (запись / сгенерированный) */
+export function loadVoiceSettings(kind: VoiceSourceKind = "recording"): VoiceSettings {
+  const defaults = defaultVoiceSettingsFor(kind)
+  const raw = loadRawVoiceSettings(settingsScope(kind))
+  return raw ? sanitizeVoiceSettings(raw, defaults) : defaults
 }
 
-export function saveVoiceSettings(settings: VoiceSettings) {
-  saveRawVoiceSettings("video_voice_over", settings)
+export function saveVoiceSettings(settings: VoiceSettings, kind: VoiceSourceKind = "recording") {
+  saveRawVoiceSettings(settingsScope(kind), settings)
 }
 
 /**

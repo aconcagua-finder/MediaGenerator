@@ -17,7 +17,9 @@ import {
   sanitizeVoiceSettings,
   voiceEngineNoKeyMessage,
   voicePresetTitle,
+  defaultVoiceSettingsFor,
   type VoiceChangeEngine,
+  type VoiceSourceKind,
 } from "@/lib/providers/voice-change-models"
 import { downloadToFile, ensureBucket, upload } from "@/lib/storage/s3"
 import { createMediaLink } from "@/lib/media-link/links"
@@ -41,6 +43,11 @@ export interface StartVoiceChangeOptions {
   voiceName?: string
   /** ElevenLabs: тонкие настройки голоса (сырые, санитизируются) */
   settings?: unknown
+  /**
+   * Откуда звук: незаданные настройки берутся по умолчанию для него
+   * (у сгенерированного звука — без чистки фона). По умолчанию — запись.
+   */
+  sourceKind?: VoiceSourceKind
   /** Chatterbox: id загруженного образца голоса */
   sampleSourceId?: string
   /**
@@ -261,7 +268,7 @@ async function runElevenLabs(ctx: {
 }): Promise<StartVoiceChangeResult> {
   const { opts, engine, genId } = ctx
   const voice = resolveVoice(engine, opts.voice, opts.voiceName)
-  const settings = sanitizeVoiceSettings(opts.settings)
+  const settings = sanitizeVoiceSettings(opts.settings, defaultVoiceSettingsFor(opts.sourceKind ?? "recording"))
   const baseParams = {
     duration: ctx.audioSeconds,
     source_video_id: opts.videoId,
