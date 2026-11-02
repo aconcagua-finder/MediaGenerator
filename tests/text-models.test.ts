@@ -14,6 +14,7 @@ describe("реестр текстовых моделей", () => {
 
   it("свежие флагманы (октябрь 2026) на месте с ценами OpenRouter", () => {
     expect(getTextModel("openai/gpt-6.1-sol")?.pricing).toEqual({ input: 2.0, output: 10.0 })
+    expect(getTextModel("openai/gpt-6.1-terra")?.pricing).toEqual({ input: 1.0, output: 5.0 })
     expect(getTextModel("openai/gpt-6-astra")?.pricing).toEqual({ input: 10.0, output: 50.0 })
     expect(getTextModel("openai/gpt-6-luna")?.pricing).toEqual({ input: 0.1, output: 0.5 })
     expect(getTextModel("anthropic/claude-fable-5.1")?.pricing).toEqual({ input: 10.0, output: 50.0 })

@@ -22,6 +22,7 @@ export type VideoVendor =
   | "runway"
   | "bfl"
   | "heygen"
+  | "tbc"
 
 /**
  * Режимы модели:
@@ -577,6 +578,22 @@ export const VIDEO_MODELS: VideoModel[] = [
     price: { perSecond: { "480p": 0.02, "768p": 0.036, "2K": 0.1 } },
     isNew: true,
   },
+  {
+    id: "tbc/mischief-1",
+    name: "mischief 1",
+    vendor: "tbc",
+    description: "The Biological Computing Co. — экспериментальная модель (октябрь 2026). ТОЛЬКО из стартового кадра, клипы 3 или 5 сек, 16:9, без звука. Самая дешёвая: от $0.005/сек.",
+    modes: ["i2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [3, 5],
+    resolutions: ["480p", "720p"],
+    aspectRatios: ["16:9"],
+    // cents_per_video_output_second_480p 0.5, _720p 1. Живой вызов W45: i2v 3 сек 480p — usage.cost $0.015;
+    // без frame_images — 400 «requires exactly one frame_images entry with frame_type first_frame»
+    price: { perSecond: { "480p": 0.005, "720p": 0.01 } },
+    isNew: true,
+  },
 ]
 
 /**
@@ -658,6 +675,7 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
     reference_duration_seconds_480p: 0.07, reference_duration_seconds_768p: 0.1, reference_duration_seconds_2k: 0.18,
     reference_input_images: 0.04,
   },
+  "tbc/mischief-1": { cents_per_video_output_second_480p: 0.5, cents_per_video_output_second_720p: 1 },
 }
 
 /** Цветовая маркировка вендоров для UI */
@@ -672,6 +690,7 @@ export const VIDEO_VENDOR_COLORS: Record<VideoVendor, { dot: string; text: strin
   runway:    { dot: "bg-fuchsia-400", text: "text-fuchsia-300", label: "Runway" },
   bfl:       { dot: "bg-lime-400", text: "text-lime-300", label: "Black Forest Labs" },
   heygen:    { dot: "bg-pink-400", text: "text-pink-300", label: "HeyGen" },
+  tbc:       { dot: "bg-teal-400", text: "text-teal-300", label: "TBC" },
 }
 
 /** Подписи/цвета для индикатора русской озвучки */

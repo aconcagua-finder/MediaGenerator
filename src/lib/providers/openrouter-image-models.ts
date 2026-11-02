@@ -412,6 +412,17 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     price: { bySize: { "1K": 0.13, "2K": 0.15, "4K": 0.17 } },
     imageInput: true,
   },
+  {
+    modelId: "sourceful/riverflow-v2.6-pro",
+    displayName: "Riverflow V2.6 Pro",
+    description: "Sourceful — свежая Riverflow 2.6 (октябрь 2026): встроенное планирование композиции, сильна в дизайне и тексте на картинке, до 4K.",
+    aspects: A_WIDE,
+    sizes: ["1K", "2K", "4K"],
+    // SKU как у 2.5 Pro: 1k 0.13, 2k 0.15, 4k 0.17. ❗ Живой вызов W45 (1K) — usage.cost $0.151
+    // (у 2.5 Pro в тот же день $0.246): фактическое списание выше листинга, берётся из usage.cost
+    price: { bySize: { "1K": 0.13, "2K": 0.15, "4K": 0.17 } },
+    imageInput: true,
+  },
 ]
 
 const SPEC_BY_ID = new Map(OPENROUTER_IMAGE_SPECS.map((s) => [s.modelId, s]))

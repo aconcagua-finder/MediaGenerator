@@ -86,6 +86,18 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "openai/gpt-6.1-terra",
+    name: "GPT-6.1 Terra",
+    vendor: "openai",
+    description: "Свежая GPT-6.1 (октябрь 2026) — тир между Sol и Luna: повседневные задачи, код, тексты, хорошо читает скриншоты. Вдвое дешевле Sol.",
+    category: "balanced",
+    contextTokens: 1_050_000,
+    pricing: { input: 1.0, output: 5.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "openai/gpt-5.4",
     name: "GPT-5.4",
     vendor: "openai",
@@ -259,7 +271,7 @@ export const TEXT_MODELS: TextModel[] = [
     id: "openai/gpt-5-mini",
     name: "GPT-5 Mini",
     vendor: "openai",
-    description: "Лёгкая GPT. Быстро и почти бесплатно для простых задач.",
+    description: "Лёгкая GPT. Быстро и почти бесплатно для простых задач. ⚠️ OpenAI отключает её 11.12.2026 — замена: GPT-6 Luna / GPT-6.1 Terra.",
     category: "fast",
     contextTokens: 400_000,
     pricing: { input: 0.25, output: 2.0 },
@@ -374,9 +386,10 @@ export const TEXT_MODELS: TextModel[] = [
     // $1.04226/$2.08452; в W37 просел до $0.95526/$1.91052; в W38 дефолт подскочил
     // до $1.6/$3.2 (+67%); в W39 откатился обратно к $0.95526/$1.91052 (−40%,
     // сверено с живым /models); W41 (07.10.2026) — просел до $0.2088/$0.4176 (−78%);
-    // W42 (12.10.2026) — вернулся к StreamLake $0.95526/$1.91052 (×4.6).
+    // W42 (12.10.2026) — вернулся к StreamLake $0.95526/$1.91052 (×4.6);
+    // W45 (02.11.2026) — снова $1.6/$3.2 (+67%).
     // Реселлеры сильно волатильны, следующий аудит сверит снова.
-    pricing: { input: 0.955, output: 1.911 },
+    pricing: { input: 1.6, output: 3.2 },
     isNew: true,
     streaming: true,
   },
@@ -389,7 +402,8 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 1_049_000,
     // W42: дефолт /models сместился с реселлера ($0.05/$1.2) на нативный DeepSeek $0.15/$0.60.
     // W43: снова реселлер — $0.04/$0.08 (нативный тариф DeepSeek теперь у снапшота -1017).
-    pricing: { input: 0.02, output: 1.0 },
+    // W44: $0.02/$1.00; W45: $0.045/$0.50.
+    pricing: { input: 0.045, output: 0.5 },
     isNew: true,
     streaming: true,
     supportsVision: true,
