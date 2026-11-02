@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: октябрь 2026 (аудит 2026-W44)
+> Актуально на: ноябрь 2026 (аудит 2026-W45)
 
 ---
 
@@ -204,6 +204,7 @@
 | Riverflow V2 Pro | `sourceful/riverflow-v2-pro` | 1K $0.15 / 2K $0.15 / 4K $0.33 | 1K/2K/4K | да |
 | Riverflow V2.5 Fast | `sourceful/riverflow-v2.5-fast` | 1K $0.019 / 2K $0.021 | 1K/2K | да |
 | Riverflow V2.5 Pro | `sourceful/riverflow-v2.5-pro` | 1K $0.13 / 2K $0.15 / 4K $0.17 | 1K/2K/4K | да |
+| Riverflow V2.6 Pro | `sourceful/riverflow-v2.6-pro` | 1K $0.13 / 2K $0.15 / 4K $0.17 (факт 1K $0.151) | 1K/2K/4K | да |
 
 Запрос: `{ model, prompt, n: 1, aspect_ratio?, resolution?, quality?, output_format?, input_references? }`
 (`image_size` формы → `resolution`, `0.5K` → `512`). Ответ: `data[].b64_json` + `media_type`, `usage.cost`.
@@ -518,6 +519,36 @@ $0.048 (OpenRouter сейчас даёт скидку 50%). Цены Gemini-по
 > - **Perplexity:** даты отключения Sonar Chat Completions в changelog нет; 24.10 из Agent API уходят GPT-5.x — не касается.
 > - **Дубли цен:** `OPENAI_PRICING` (reddit-search), `PERPLEXITY_PRICING`, `cover-models.ts` совпадают с живыми ценами.
 
+> **Аудит 2026-W45 (02.11.2026).**
+> - **Механический дифф.** Видео: 31 id (+1). **Добавлена** `tbc/mischief-1` (The Biological Computing Co., 23.10):
+>   ТОЛЬКО i2v (без `frame_images` — 400 «requires exactly one frame_images entry with frame_type first_frame»),
+>   3/5 сек, 480p/720p, только 16:9, без звука, $0.005/$0.01 за сек — живой вызов i2v 3 сек 480p = `usage.cost` $0.015.
+>   Новый вендор `tbc` в `VideoVendor`/цветах. Вне реестра — прежние пропуски `flux-video-edit` (v2v-кандидат,
+>   контракт не проверен), `flux-video-upscale` (апскейл — режима нет), `heygen/avatar-iv` (lip-sync — режима нет);
+>   fal-модели Motion Control — не OpenRouter. `pricing_skus` всех моделей совпали со снимком.
+>   Картинки: 64 id (+1). **Добавлена** `sourceful/riverflow-v2.6-pro` (29.10, Images API, SKU как у 2.5 Pro:
+>   $0.13/$0.15/$0.17). ❗ Живой вызов 1K: `usage.cost` $0.151 (у 2.5 Pro в тот же день — $0.246 при тех же 4175
+>   image-токенах) — фактическое списание Riverflow Pro выше листинга, оценка в UI занижена. Riverflow 2.6 Pro
+>   заявляет `background: transparent` — кандидат на замену прозрачного фона после отключения `gpt-image-1.5`
+>   (наш спек параметр `background` пока не передаёт). Остальные вне реестра — прежние осознанные пропуски
+>   (`qwen-image-2.1-pro`, `krea/k3-edit`, Recraft V4 Styles, дубли прямых провайдеров, Gemini `*-preview`, `openrouter/auto*`).
+>   Текст: **добавлена** `openai/gpt-6.1-terra` (26.10, $1/$5, 1.05M, vision; живой вызов 200). Пропущены
+>   `gpt-6.1-terra-pro` (pro-режим), `*:batch`, `~openai/gpt-terra-latest` (плавающий алиас).
+> - **Чат:** дрейф `deepseek-v4-pro` $0.955/$1.911 → $1.6/$3.2; `deepseek-v4.1-flash` $0.02/$1.00 → $0.045/$0.50.
+>   ⏳ `gpt-5-mini` отключается у OpenAI **11.12.2026** (замена `gpt-5.6-terra`) — дата добавлена в описание модели.
+> - **Картинки:** FLUX.2 pro/max/flex, Seedream 4.5, все Gemini-слаги (вкл. `gemini-2.5-flash-image` и `*-preview`) —
+>   `/endpoints` 200, status 0. Google: новых депрекейшенов нет (`gemini-3.1-flash-image` устарела 06.10, даты нет).
+>   OpenAI: новых image-депрекейшенов нет; `gpt-image-1.5`/`-1-mini` — 01.12.2026 (через 4 недели), прозрачный фон
+>   пропадёт. BFL: 22.10 у FLUX 3 Image — произвольные width/height и `match_input`, цены те же; FLUX.2 без даты.
+>   Recraft: V4.1 Flash уже в реестре, депрекейшенов нет. xAI: прайс Grok Imagine без изменений, депрекейшенов нет.
+> - **Видео:** xAI новее `grok-imagine-video-1.5` не выпускал (1.5 и 1.5-lite уже в реестре).
+> - **Классификатор:** `claude-sonnet-4.6` Active (не раньше 17.02.2027). Sonnet 4.5 уходит 30.11.2026 — в реестре нет.
+>   Haiku 4.5 — «не раньше 15.10.2026», всё ещё Active.
+> - **Публикации:** Perplexity — даты отключения Sonar Chat Completions нет; цены `sonar`/`sonar-pro`/`sonar-deep-research`
+>   совпадают с `PERPLEXITY_PRICING`. `OPENAI_PRICING` (reddit-search) совпадает с живыми ценами, дополнен `gpt-6.1-terra`; ❗ `gpt-5-mini` там
+>   же — после 11.12 Reddit-поиск с этой моделью начнёт падать (дефолт рубрик — `gpt-5.4`, не задет).
+>   Обложки — без изменений, все слаги живы.
+
 > **Аудит 2026-W44 (26.10.2026).**
 > - **Механический дифф.** Видео: 30 id, новых нет; вне реестра — прежние осознанные пропуски
 >   `flux-video-edit` (v2v-кандидат, контракт не проверен), `flux-video-upscale` (апскейл — режима нет),
@@ -747,6 +778,7 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 | `x-ai/grok-imagine-video-1.5` | оба² | нет² | 5/10 | 480p/720p/1080p | ~0.08–0.25 |
 | `x-ai/grok-imagine-video-1.5-lite` | оба | нет | 5/10/15 | 480p/720p/1080p | ~0.02–0.14 |
 | `heygen/heygen-video-1` | оба | встроен⁵ | 5/10/15 | 480p/768p/2K | ~0.02–0.10 |
+| `tbc/mischief-1` | только i2v | нет | 3/5 | 480p/720p (16:9) | ~0.005–0.01 |
 
 Источник правды — `src/lib/providers/video-models.ts`. Цены за секунду — ориентир для UI;
 точная сумма берётся из ответа OpenRouter (`usage.cost`) после генерации.

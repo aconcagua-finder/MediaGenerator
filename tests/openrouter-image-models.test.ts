@@ -104,6 +104,11 @@ describe("стоимость новых image-моделей OpenRouter", () => 
     expect(calculateCost("openrouter", "qwen/qwen-image-2.1-turbo", { image_size: "2K" }, 2)).toBeCloseTo(0.0368, 6)
   })
 
+  it("новая модель W45: Riverflow V2.6 Pro (tier-цены как у 2.5 Pro)", () => {
+    expect(calculateCost("openrouter", "sourceful/riverflow-v2.6-pro", { image_size: "1K" }, 1)).toBeCloseTo(0.13, 6)
+    expect(calculateCost("openrouter", "sourceful/riverflow-v2.6-pro", { image_size: "4K" }, 1)).toBeCloseTo(0.17, 6)
+  })
+
   it("FLUX.3 не перехватывается веткой «flux» старых FLUX.2", () => {
     expect(getOpenRouterImageSpec("black-forest-labs/flux-3-image")).not.toBeNull()
     expect(calculateCost("openrouter", "black-forest-labs/flux-3-image", { image_size: "2K" }, 1)).toBeCloseTo(0.1, 6)

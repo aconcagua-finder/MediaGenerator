@@ -30,6 +30,7 @@ export const VISION_TEXT_MODELS = new Set<string>([
   "openai/gpt-5.5",
   "openai/gpt-5-mini",
   "openai/gpt-6.1-sol",
+  "openai/gpt-6.1-terra",
   "openai/gpt-6-astra",
   "openai/gpt-6-luna",
   // Google — Gemini 3.x и 4 все принимают картинки

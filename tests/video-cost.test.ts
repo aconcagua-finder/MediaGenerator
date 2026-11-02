@@ -106,6 +106,13 @@ describe("оценка стоимости видео", () => {
     expect(p("bytedance/seedance-2.5", "480p")).toBeCloseTo(854 * 480 * 0.0234375 * 0.0000107, 3)
   })
 
+  it("mischief 1 (W45): только i2v, от $0.005/сек", () => {
+    const m = getVideoModel("tbc/mischief-1")!
+    expect(m.modes).toEqual(["i2v"])
+    expect(videoPricePerSecond(m, "480p")).toBeCloseTo(0.005, 4)
+    expect(videoPricePerSecond(m, "720p")).toBeCloseTo(0.01, 4)
+  })
+
   it("HeyGen Video: звук встроен и не переключается", () => {
     const hg = getVideoModel("heygen/heygen-video-1")!
     expect(hg.supportsAudio).toBe(false)
