@@ -48,6 +48,27 @@ const A_MAI = ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"]
 const A_KREA = ["1:1", "2:3", "3:2", "4:3", "4:5", "9:16", "16:9"]
 
 export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
+  // === OpenAI GPT Image 2.6 (W46) ===
+  {
+    modelId: "openai/gpt-image-2.6-sunburst",
+    displayName: "GPT Image 2.6 Sunburst",
+    description: "OpenAI — точный тир GPT Image 2.6 (ноябрь 2026): плотные композиции, текст на картинке, правки с сохранением деталей. Цена зависит от качества.",
+    aspects: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+    sizes: [],
+    // токенный тариф как у 2.5: $0.00003 за выходной image-токен; оценка по высокому качеству
+    price: { perImage: 0.12 },
+    imageInput: true,
+  },
+  {
+    modelId: "openai/gpt-image-2.6-flare",
+    displayName: "GPT Image 2.6 Flare",
+    description: "OpenAI — быстрый тир GPT Image 2.6 (ноябрь 2026): примерно вдвое быстрее GPT Image 2.5. Цена зависит от качества.",
+    aspects: ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+    sizes: [],
+    price: { perImage: 0.12 },
+    imageInput: true,
+  },
+
   // === OpenAI GPT Image 2.5 ===
   {
     modelId: "openai/gpt-image-2.5-sunburst",

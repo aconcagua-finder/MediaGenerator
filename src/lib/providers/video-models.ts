@@ -216,6 +216,23 @@ export const VIDEO_MODELS: VideoModel[] = [
     },
   },
   {
+    id: "google/gemini-omni-1.2-flash",
+    name: "Gemini Omni 1.2 Flash",
+    vendor: "google",
+    description: "Google — новинка ноября 2026: клипы до 15 сек с диалогами и звуком, из текста или стартового кадра, до 4K. Звук входит в цену. Русская озвучка не подтверждена — лучше проверить.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: true,
+    russianSpeech: "partial",
+    // живой API принимает любое целое 3–15; в форме — опорные значения
+    durations: [3, 5, 8, 10, 12, 15],
+    resolutions: ["360p", "720p", "1080p", "4K"],
+    aspectRatios: ["16:9", "9:16"],
+    // W46: в pricing_skus только duration_seconds_with_audio_* — тарифа без звука нет,
+    // поэтому perSecondAudio не задан (цена одна). Безымянный SKU = 1080p.
+    price: { perSecond: { "360p": 0.023172, "720p": 0.069504, "1080p": 0.104256, "4K": 0.208512 } },
+    isNew: true,
+  },
+  {
     id: "google/veo-3.1-lite",
     name: "Veo 3.1 Lite",
     vendor: "google",
@@ -595,12 +612,14 @@ export const VIDEO_MODELS: VideoModel[] = [
     builtInAudio: true,
     russianSpeech: "partial",
     durations: [5, 10, 15],
-    resolutions: ["480p", "768p", "2K"],
+    resolutions: ["480p", "768p", "1080p", "2K"],
     aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
-    // duration_seconds_480p $0.02, _768p $0.036, _2k $0.10 (W43: 768p 0.03→0.036,
+    // duration_seconds_480p $0.02, _768p $0.036, _1080p $0.10 (W46), _2k $0.10 (W43: 768p 0.03→0.036,
     // 2K 0.09→0.10); reference_duration_seconds_* (с референсами) дороже, плюс
-    // reference_input_images $0.04 — в оценку за секунду не входит
-    price: { perSecond: { "480p": 0.02, "768p": 0.036, "2K": 0.1 } },
+    // reference_input_images $0.04 — в оценку за секунду не входит. W46: API принимает до 30 сек,
+    // появились long_duration_seconds_* (480p $0.045, 768p $0.075, 1080p/2K $0.105); порог «длинного»
+    // клипа не опубликован, поэтому длительности в реестре остаются 5/10/15.
+    price: { perSecond: { "480p": 0.02, "768p": 0.036, "1080p": 0.1, "2K": 0.1 } },
     isNew: true,
   },
   {
@@ -696,11 +715,16 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "bytedance/seedance-2.5": { video_tokens: 0.0000107, video_tokens_without_audio: 0.0000107, video_tokens_with_video_input: 0.0000064 },
   "runway/aleph-2": { cents_per_second_output: 28, minimum_cents_per_generation: 56 },
   "heygen/heygen-video-1": {
-    duration_seconds_480p: 0.02, duration_seconds_768p: 0.036, duration_seconds_2k: 0.1,
-    reference_duration_seconds_480p: 0.07, reference_duration_seconds_768p: 0.1, reference_duration_seconds_2k: 0.18,
+    duration_seconds_480p: 0.02, duration_seconds_768p: 0.036, duration_seconds_1080p: 0.1, duration_seconds_2k: 0.1,
+    long_duration_seconds_480p: 0.045, long_duration_seconds_768p: 0.075, long_duration_seconds_1080p: 0.105, long_duration_seconds_2k: 0.105,
+    reference_duration_seconds_480p: 0.07, reference_duration_seconds_768p: 0.1, reference_duration_seconds_1080p: 0.18, reference_duration_seconds_2k: 0.18,
     reference_input_images: 0.04,
   },
   "tbc/mischief-1": { cents_per_video_output_second_480p: 0.5, cents_per_video_output_second_720p: 1 },
+  "google/gemini-omni-1.2-flash": {
+    duration_seconds_with_audio: 0.104256, duration_seconds_with_audio_4k: 0.208512,
+    duration_seconds_with_audio_360p: 0.023172, duration_seconds_with_audio_720p: 0.069504,
+  },
 }
 
 /** Цветовая маркировка вендоров для UI */

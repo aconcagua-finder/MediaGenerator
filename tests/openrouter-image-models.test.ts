@@ -104,6 +104,13 @@ describe("стоимость новых image-моделей OpenRouter", () => 
     expect(calculateCost("openrouter", "qwen/qwen-image-2.1-turbo", { image_size: "2K" }, 2)).toBeCloseTo(0.0368, 6)
   })
 
+  it("новые модели W46: GPT Image 2.6 (оценка как у 2.5, правка доступна)", () => {
+    for (const id of ["openai/gpt-image-2.6-sunburst", "openai/gpt-image-2.6-flare"]) {
+      expect(calculateCost("openrouter", id, {}, 1)).toBeCloseTo(0.12, 6)
+      expect(supportsImageInput("openrouter", id), id).toBe(true)
+    }
+  })
+
   it("новая модель W45: Riverflow V2.6 Pro (tier-цены как у 2.5 Pro)", () => {
     expect(calculateCost("openrouter", "sourceful/riverflow-v2.6-pro", { image_size: "1K" }, 1)).toBeCloseTo(0.13, 6)
     expect(calculateCost("openrouter", "sourceful/riverflow-v2.6-pro", { image_size: "4K" }, 1)).toBeCloseTo(0.17, 6)
