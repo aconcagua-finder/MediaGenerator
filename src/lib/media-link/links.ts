@@ -17,7 +17,7 @@ export interface CreateLinkInput {
   s3Key: string
   contentType: string
   sizeBytes?: number | null
-  purpose: "v2v-source" | "character-image" | "voice-audio" | "voice-sample"
+  purpose: "v2v-source" | "character-image" | "voice-audio" | "voice-sample" | "a2v-audio" | "a2v-image"
   userId: string
   generationId?: string | null
   /** Имя в хвосте URL (расширение подсказывает тип провайдеру) */

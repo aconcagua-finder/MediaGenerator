@@ -8,6 +8,8 @@ import { getVideoProvider } from "@/lib/providers/video/registry"
 import {
   getVideoModel,
   estimateV2VCost,
+  estimateVideoCost,
+  isA2VModel,
   isV2VModel,
   modelProducesAudio,
   videoModelProvider,
@@ -16,7 +18,13 @@ import { downloadBuffer } from "@/lib/storage/s3"
 import { humanizeVideoError } from "@/lib/video/humanize-error"
 import { createMediaLink, revokeLinksForGeneration } from "@/lib/media-link/links"
 import { LINK_TTL_MS } from "@/lib/media-link/token"
-import { MAX_SOURCE_SECONDS, fileExtension } from "@/lib/video/source-limits"
+import {
+  A2V_MAX_AUDIO_SECONDS,
+  A2V_MIN_AUDIO_SECONDS,
+  MAX_SOURCE_SECONDS,
+  a2vDurationSeconds,
+  fileExtension,
+} from "@/lib/video/source-limits"
 import { checkVideoLimits } from "@/lib/video/limits"
 import { hasActiveProviderKey } from "@/lib/provider-keys"
 import {
@@ -42,7 +50,7 @@ interface GenerateVideoBody {
   }
   /** Опциональный референс-кадр (image-to-video) — id из таблицы uploads */
   uploadId?: string
-  /** video-to-video: id загруженного исходника (`POST /api/video/source`) */
+  /** video-to-video и «картинка + звук»: id загруженного файла (`POST /api/video/source`) */
   sourceId?: string
   /** Motion Control: id картинки-персонажа из таблицы uploads */
   characterUploadId?: string
@@ -81,7 +89,8 @@ export async function POST(request: NextRequest) {
       )
     }
     const isV2V = isV2VModel(videoModel)
-    if (!prompt?.trim() && !(isV2V && videoModel.promptOptional)) {
+    const isA2V = isA2VModel(videoModel)
+    if (!prompt?.trim() && !videoModel.promptOptional) {
       return NextResponse.json(
         { error: "Модель и промпт обязательны" },
         { status: 400 }
@@ -107,8 +116,11 @@ export async function POST(request: NextRequest) {
       : false
 
     // 3. Режим
-    let mode: "t2v" | "i2v" | "v2v"
-    // v2v: исходник и вычисленная по нему оценка
+    let mode: "t2v" | "i2v" | "v2v" | "a2v"
+    // a2v: длина видео по дорожке и размеры картинки
+    let a2vDuration = 0
+    let a2vImageSize: { width: number | null; height: number | null } | null = null
+    // v2v и a2v: загруженный файл и вычисленная по нему оценка
     let source: {
       id: string
       s3Key: string
@@ -221,6 +233,78 @@ export async function POST(request: NextRequest) {
         }
         estimate += estimateVoiceChangeCost(voiceEngine, sourceSeconds)
       }
+    } else if (isA2V) {
+      mode = "a2v"
+
+      if (!sourceId) {
+        return NextResponse.json({ error: "Загрузите звуковую дорожку" }, { status: 400 })
+      }
+      if (!uploadId) {
+        return NextResponse.json({ error: "Загрузите картинку" }, { status: 400 })
+      }
+      const [row] = await db
+        .select()
+        .from(videoSources)
+        .where(eq(videoSources.id, sourceId))
+      if (!row || row.kind !== "audio") {
+        return NextResponse.json(
+          { error: "Звуковая дорожка не найдена — возможно, она устарела. Загрузите её заново." },
+          { status: 404 }
+        )
+      }
+      if (row.userId !== session.user.id) {
+        return NextResponse.json({ error: "Нет доступа к файлу" }, { status: 403 })
+      }
+      if (Date.now() - row.createdAt.getTime() > LINK_TTL_MS) {
+        return NextResponse.json(
+          { error: "Звуковая дорожка загружена более суток назад и удалена. Загрузите её заново." },
+          { status: 410 }
+        )
+      }
+      const audioSeconds = Number(row.durationSeconds)
+      if (!(audioSeconds >= A2V_MIN_AUDIO_SECONDS - 0.05) || audioSeconds > A2V_MAX_AUDIO_SECONDS + 0.05) {
+        return NextResponse.json(
+          { error: `Звук должен быть длиной от ${A2V_MIN_AUDIO_SECONDS} до ${A2V_MAX_AUDIO_SECONDS} секунд` },
+          { status: 400 }
+        )
+      }
+      source = {
+        id: row.id,
+        s3Key: row.s3Key,
+        contentType: row.contentType,
+        sizeBytes: row.sizeBytes,
+        durationSeconds: audioSeconds,
+        width: row.width,
+        height: row.height,
+        hasAudio: row.hasAudio,
+      }
+
+      const [img] = await db
+        .select({
+          s3Key: uploads.s3Key,
+          mimeType: uploads.mimeType,
+          sizeBytes: uploads.sizeBytes,
+          userId: uploads.userId,
+          width: uploads.width,
+          height: uploads.height,
+        })
+        .from(uploads)
+        .where(eq(uploads.id, uploadId))
+      if (!img) {
+        return NextResponse.json({ error: "Картинка не найдена" }, { status: 404 })
+      }
+      if (img.userId !== session.user.id && !isAdmin) {
+        return NextResponse.json({ error: "Нет доступа к файлу" }, { status: 403 })
+      }
+      // Схема fal: JPEG, PNG, BMP, WEBP. GIF наш общий загрузчик пропускает
+      if (!/^image\/(jpe?g|png|webp|bmp)$/i.test(img.mimeType)) {
+        return NextResponse.json({ error: "Нужна картинка jpg, png или webp" }, { status: 400 })
+      }
+      characterUpload = { s3Key: img.s3Key, mimeType: img.mimeType, sizeBytes: img.sizeBytes }
+      a2vImageSize = { width: img.width, height: img.height }
+
+      a2vDuration = a2vDurationSeconds(audioSeconds)
+      estimate = estimateVideoCost(videoModel, { durationSeconds: a2vDuration, resolution })
     } else {
       // image-to-video только для поддерживающих моделей
       const wantsImage = Boolean(uploadId)
@@ -312,7 +396,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Создаём запись (processing)
-    const params: Record<string, unknown> = isV2V
+    const params: Record<string, unknown> = isA2V
+      ? {
+          duration: a2vDuration,
+          resolution,
+          generate_audio: true,
+          source_id: source!.id,
+          // размеры картинки: по ним история рисует карточку нужной формы
+          source_width: a2vImageSize?.width ?? null,
+          source_height: a2vImageSize?.height ?? null,
+        }
+      : isV2V
       ? {
           // длительность результата = длительности исходника (для оценки и записи в библиотеку)
           duration: source!.durationSeconds,
@@ -352,7 +446,28 @@ export async function POST(request: NextRequest) {
       // временные ссылки (24 ч), отзываются при завершении задачи (finalize.ts)
       let sourceVideoUrl: string | undefined
       let characterImageUrl: string | undefined
-      if (source) {
+      let audioUrl: string | undefined
+      let startImageUrl: string | undefined
+      if (source && isA2V) {
+        audioUrl = await createMediaLink({
+          s3Key: source.s3Key,
+          contentType: source.contentType,
+          sizeBytes: source.sizeBytes,
+          purpose: "a2v-audio",
+          userId: session.user.id,
+          generationId: generation.id,
+          filename: `audio.${fileExtension(source.s3Key) || "mp3"}`,
+        })
+        startImageUrl = await createMediaLink({
+          s3Key: characterUpload!.s3Key,
+          contentType: characterUpload!.mimeType,
+          sizeBytes: characterUpload!.sizeBytes,
+          purpose: "a2v-image",
+          userId: session.user.id,
+          generationId: generation.id,
+          filename: `image.${fileExtension(characterUpload!.s3Key) || "png"}`,
+        })
+      } else if (source) {
         sourceVideoUrl = await createMediaLink({
           s3Key: source.s3Key,
           contentType: source.contentType,
@@ -363,7 +478,7 @@ export async function POST(request: NextRequest) {
           filename: `source.${fileExtension(source.s3Key) || "mp4"}`,
         })
       }
-      if (characterUpload) {
+      if (characterUpload && !isA2V) {
         characterImageUrl = await createMediaLink({
           s3Key: characterUpload.s3Key,
           contentType: characterUpload.mimeType,
@@ -384,6 +499,8 @@ export async function POST(request: NextRequest) {
         frameImageDataUrl,
         sourceVideoUrl,
         characterImageUrl,
+        audioUrl,
+        startImageUrl,
       })
 
       await db

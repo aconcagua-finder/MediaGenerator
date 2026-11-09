@@ -290,7 +290,7 @@ export async function finalizeVideoGeneration(genId: string): Promise<FinalizeOu
     let height: number | null
     let durationSeconds: number | null = p.duration ?? null
     let hasAudio = Boolean(p.generate_audio)
-    if (gen.mode === "v2v" || gen.mode === "voice" || requestedVoiceOver) {
+    if (gen.mode === "v2v" || gen.mode === "a2v" || gen.mode === "voice" || requestedVoiceOver) {
       const built = await buildResultVideo({
         mode: gen.mode === "voice" ? "voice" : "v2v",
         fetched,

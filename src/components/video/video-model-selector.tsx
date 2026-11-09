@@ -117,6 +117,8 @@ export function VideoModelSelector({
                       )}
                       {isV2VModel(m) ? (
                         <span className="rounded bg-white/[0.05] px-1.5 py-0.5">звук исходника сохраняется</span>
+                      ) : m.modes.includes("a2v") ? (
+                        <span className="rounded bg-white/[0.05] px-1.5 py-0.5">ваш звук сохраняется</span>
                       ) : m.supportsAudio || m.builtInAudio ? (
                         <span className={`rounded bg-white/[0.05] px-1.5 py-0.5 ${RUSSIAN_SPEECH_INFO[m.russianSpeech].text}`}>
                           звук · {RUSSIAN_SPEECH_INFO[m.russianSpeech].short}

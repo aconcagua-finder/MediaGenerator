@@ -15,6 +15,7 @@ import { downloadStream, ensureBucket, uploadFile } from "@/lib/storage/s3"
 import { LINK_TTL_MS } from "@/lib/media-link/token"
 import { probeFile } from "@/lib/video/probe"
 import { needsFpsNormalize, normalizeSourceFps } from "@/lib/video/source-fps"
+import { buildAudioToMp3Args, runFfmpeg } from "@/lib/video/ffmpeg-audio"
 import {
   MAX_SAMPLE_BYTES,
   MAX_SOURCE_BYTES,
@@ -27,8 +28,11 @@ import {
 export const runtime = "nodejs"
 export const maxDuration = 300
 
-/** Не больше стольких загруженных (и ещё не вычищенных) источников на пользователя */
-const MAX_ACTIVE_SOURCES = 20
+/**
+ * Не больше стольких загруженных за сутки источников на пользователя, отдельно
+ * по видам. Аудио мелкое, а длинный ролик собирают из кусков по 5–8 секунд
+ */
+const MAX_ACTIVE_SOURCES: Record<SourceKind, number> = { video: 20, audio: 60 }
 
 class TooLargeError extends Error {}
 
@@ -84,8 +88,8 @@ export async function POST(request: NextRequest) {
   const [active] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(videoSources)
-    .where(and(eq(videoSources.userId, session.user.id), gte(videoSources.createdAt, since)))
-  if (active.count >= MAX_ACTIVE_SOURCES) {
+    .where(and(eq(videoSources.userId, session.user.id), eq(videoSources.kind, kind), gte(videoSources.createdAt, since)))
+  if (active.count >= MAX_ACTIVE_SOURCES[kind]) {
     return NextResponse.json(
       { error: "Слишком много загруженных файлов за сутки. Подождите, пока старые удалятся." },
       { status: 429 },
@@ -154,6 +158,24 @@ export async function POST(request: NextRequest) {
       storedPath = normalizedPath
       storedExt = "mp4"
       storedMime = "video/mp4"
+    }
+
+    // Голосовые с телефона часто m4a/ogg, а провайдеры принимают mp3 и wav
+    if (kind === "audio" && ext !== "mp3" && ext !== "wav") {
+      const convertedPath = join(workDir, "converted.mp3")
+      try {
+        await runFfmpeg(buildAudioToMp3Args(filePath, convertedPath))
+      } catch (err) {
+        console.error("[video/source] перевод в mp3:", err instanceof Error ? err.message : err)
+        return NextResponse.json(
+          { error: "Не удалось прочитать аудио. Сохраните файл в mp3 или wav и загрузите снова." },
+          { status: 400 },
+        )
+      }
+      ;({ size } = await stat(convertedPath))
+      storedPath = convertedPath
+      storedExt = "mp3"
+      storedMime = "audio/mpeg"
     }
 
     const s3Key = `video-sources/${id}/${kind === "video" ? "source" : "sample"}.${storedExt}`

@@ -31,11 +31,15 @@ export type VideoVendor =
  *   персонажа/одежды/обстановки у Runway Aleph 2, перенос движений на персонажа
  *   у Kling Motion Control). Длительность результата = длительности исходника.
  *
+ * - a2v — «картинка + звук → видео»: пользователь грузит картинку и готовую
+ *   звуковую дорожку, модель анимирует картинку под неё. Дорожка остаётся в
+ *   результате без изменений, длина видео задаётся её длиной.
+ *
  * Сама запись `video_generations.mode` дополнительно бывает `voice` — пост-шаг
  * «Заменить голос» на готовом видео (см. `voice-change-models.ts`), в реестр
  * видеомоделей он не входит.
  */
-export type VideoMode = "t2v" | "i2v" | "v2v"
+export type VideoMode = "t2v" | "i2v" | "v2v" | "a2v"
 
 /** Через какой API вызывается модель */
 export type VideoApiProvider = "openrouter" | "fal"
@@ -107,7 +111,7 @@ export interface VideoModel {
   requiresCharacterImage?: boolean
   /** Только для v2v: максимальная длина исходного видео, сек (по умолчанию 30) */
   maxSourceSeconds?: number
-  /** Только для v2v: можно ли отправить без промпта */
+  /** v2v и a2v: можно ли отправить без промпта */
   promptOptional?: boolean
 }
 
@@ -416,6 +420,27 @@ export const VIDEO_MODELS: VideoModel[] = [
     isNew: true,
   },
   {
+    // Живой тест 2026-11-09: дорожка в результате совпала с исходной побитно
+    // (корреляция 1.0). Wan 3.0 reference-to-video на этом же тесте сказал другой
+    // текст, поэтому для «своего звука» он не годится.
+    id: "fal-ai/wan/v2.7/image-to-video",
+    name: "Wan 2.7",
+    vendor: "alibaba",
+    description:
+      "Alibaba через fal.ai — оживляет картинку под вашу звуковую дорожку: речь и интонация остаются вашими, губы двигаются под них. Лучше всего короткие куски по 5–8 секунд.",
+    modes: ["a2v"],
+    supportsAudio: false,
+    russianSpeech: "none",
+    durations: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    resolutions: ["720p", "1080p"],
+    aspectRatios: [],
+    // fal.ai: за секунду результата
+    price: { perSecond: { "720p": 0.1, "1080p": 0.15 } },
+    provider: "fal",
+    promptOptional: true,
+    isNew: true,
+  },
+  {
     id: "fal-ai/kling-video/v3/standard/motion-control",
     name: "Kling Motion Control",
     vendor: "kuaishou",
@@ -712,6 +737,10 @@ export function isV2VModel(model: VideoModel): boolean {
   return model.modes.includes("v2v")
 }
 
+export function isA2VModel(model: VideoModel): boolean {
+  return model.modes.includes("a2v")
+}
+
 /** Модель вызывается через fal.ai (доступна только при активном ключе fal) */
 export function isFalModel(model: VideoModel): boolean {
   return model.provider === "fal"
@@ -727,12 +756,14 @@ export function videoModelProvider(model: VideoModel): VideoApiProvider {
  * режим — только t2v/i2v. fal-модели скрыты, пока нет ключа fal.
  */
 export function modelsForMode(
-  mode: "generate" | "v2v",
+  mode: "generate" | "v2v" | "a2v",
   opts: { hasFalKey: boolean } = { hasFalKey: false },
 ): VideoModel[] {
   return VIDEO_MODELS.filter((m) => {
     if (isFalModel(m) && !opts.hasFalKey) return false
-    return mode === "v2v" ? isV2VModel(m) : m.modes.some((x) => x === "t2v" || x === "i2v")
+    if (mode === "v2v") return isV2VModel(m)
+    if (mode === "a2v") return isA2VModel(m)
+    return m.modes.some((x) => x === "t2v" || x === "i2v")
   })
 }
 

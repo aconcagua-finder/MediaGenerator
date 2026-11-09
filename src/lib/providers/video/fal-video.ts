@@ -87,7 +87,42 @@ export function buildKlingMotionControlInput(opts: {
   return input
 }
 
+/**
+ * Тело запроса Wan 2.7 image-to-video со своим звуком: `audio_url` ведёт анимацию
+ * и остаётся в результате как есть (mp3/wav, 2–30 сек, до 15 МБ по схеме fal).
+ */
+export function buildWanAudioInput(opts: {
+  imageUrl: string
+  audioUrl: string
+  prompt?: string
+  duration?: number
+  resolution?: string
+}): Record<string, unknown> {
+  assertHttps(opts.imageUrl, "картинку")
+  assertHttps(opts.audioUrl, "звуковую дорожку")
+  const input: Record<string, unknown> = {
+    image_url: opts.imageUrl,
+    audio_url: opts.audioUrl,
+  }
+  if (opts.duration != null) input.duration = opts.duration
+  if (opts.resolution) input.resolution = opts.resolution
+  const prompt = opts.prompt?.trim()
+  if (prompt) input.prompt = prompt
+  return input
+}
+
 export function buildFalVideoInput(request: VideoSubmitRequest): Record<string, unknown> {
+  if (request.model === "fal-ai/wan/v2.7/image-to-video") {
+    if (!request.startImageUrl) throw new Error("Для этого режима нужна картинка")
+    if (!request.audioUrl) throw new Error("Для этого режима нужна звуковая дорожка")
+    return buildWanAudioInput({
+      imageUrl: request.startImageUrl,
+      audioUrl: request.audioUrl,
+      prompt: request.prompt,
+      duration: request.params.duration,
+      resolution: request.params.resolution,
+    })
+  }
   if (/\/motion-control$/.test(request.model)) {
     if (!request.sourceVideoUrl) throw new Error("Для Motion Control нужно исходное видео с движением")
     if (!request.characterImageUrl) throw new Error("Для Motion Control нужна картинка персонажа")

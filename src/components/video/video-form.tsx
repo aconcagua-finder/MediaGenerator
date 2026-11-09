@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Video, Loader2, DollarSign, Volume2, VolumeX, ImagePlus, Wand2, Clapperboard, Mic2 } from "lucide-react"
+import { Video, Loader2, DollarSign, Volume2, VolumeX, ImagePlus, Wand2, Clapperboard, Mic2, AudioLines } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -29,14 +29,22 @@ import {
   getVideoModel,
   defaultVideoParams,
   estimateV2VCost,
+  estimateVideoCost,
   videoPricePerSecond,
   modelsForMode,
+  isA2VModel,
   isV2VModel,
   modelProducesAudio,
   DEFAULT_VIDEO_MODEL,
   RUSSIAN_SPEECH_INFO,
 } from "@/lib/providers/video-models"
-import { closestAspectRatio, MAX_SOURCE_SECONDS } from "@/lib/video/source-limits"
+import {
+  A2V_MAX_AUDIO_SECONDS,
+  A2V_MIN_AUDIO_SECONDS,
+  a2vDurationSeconds,
+  closestAspectRatio,
+  MAX_SOURCE_SECONDS,
+} from "@/lib/video/source-limits"
 import {
   AUTO_VOICE_ENGINE,
   defaultVoiceSettingsFor,
@@ -79,8 +87,20 @@ interface VideoFormProps {
   hasElevenLabsKey?: boolean
 }
 
-type FormMode = "generate" | "v2v"
+type FormMode = "generate" | "v2v" | "a2v"
 
+/** Ключ localStorage с последней моделью режима */
+const MODEL_PREF: Record<FormMode, string> = {
+  generate: "video_model",
+  v2v: "video_model_v2v",
+  a2v: "video_model_a2v",
+}
+
+function parseFormMode(value: string): FormMode {
+  return value === "v2v" || value === "a2v" ? value : "generate"
+}
+
+const A2V_PROMPT_PLACEHOLDER = "Например: сидит в припаркованной машине и говорит в камеру, машина не едет"
 const V2V_PROMPT_PLACEHOLDER =
   "Преврати человека в седого профессора в твидовом пиджаке, сохрани движения и мимику"
 const MOTION_PROMPT_PLACEHOLDER = "Необязательно: опишите сцену или стиль, например «в уютном кафе, дневной свет»"
@@ -118,8 +138,11 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
   const model =
     modeModels.find((m) => m.id === modelId) ||
     modeModels.find((m) => m.id === DEFAULT_VIDEO_MODEL) ||
-    modeModels[0]
+    modeModels[0] ||
+    // без ключа fal в режиме «картинка + звук» доступных моделей нет: показываем серую
+    visibleModels[0]
   const isV2V = formMode === "v2v" && isV2VModel(model)
+  const isA2V = formMode === "a2v" && isA2VModel(model)
 
   const [prompt, setPrompt] = useState("")
   const [params, setParams] = useState<VideoParams>(() => ({
@@ -127,6 +150,9 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
     character_orientation: "video",
   }))
   const [source, setSource] = useState<ReadySource | null>(null)
+  // «Картинка + звук»: своя дорожка (исходник v2v при переключении вкладок не теряется)
+  const [audioSource, setAudioSource] = useState<ReadySource | null>(null)
+  const a2vDuration = audioSource ? a2vDurationSeconds(audioSource.durationSeconds) : 0
   // Переозвучка результата через ElevenLabs (v2v и генерация со звуком): выключено = исходный звук.
   // Голос общий, настройки — свои у записи (v2v) и у сгенерированного звука (t2v/i2v):
   // у сгенерированного по умолчанию без чистки фона (см. defaultVoiceSettingsFor)
@@ -163,10 +189,10 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
   }, [])
 
   useEffect(() => {
-    const savedMode: FormMode = loadSaved("video_form_mode", "generate") === "v2v" ? "v2v" : "generate"
-    const savedModelId = loadSaved(savedMode === "v2v" ? "video_model_v2v" : "video_model", "")
+    const savedMode = parseFormMode(loadSaved("video_form_mode", "generate"))
+    const savedModelId = loadSaved(MODEL_PREF[savedMode], "")
     const list = modelsForMode(savedMode, { hasFalKey })
-    const pick = list.find((m) => m.id === savedModelId) || (savedMode === "v2v" ? list[0] : undefined)
+    const pick = list.find((m) => m.id === savedModelId) || (savedMode !== "generate" ? list[0] : undefined)
     if (savedMode !== "generate") setFormMode(savedMode)
     if (pick) {
       setModelId(pick.id)
@@ -208,7 +234,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
     .map((j) => (j.voiceOver?.status === "done" && j.voiceOver.video ? j.voiceOver.video.id : j.video!.id))
 
   // Картинка: стартовый кадр (i2v) или персонаж (Motion Control)
-  const modelTakesImage = isV2V ? Boolean(model.requiresCharacterImage) : model.modes.includes("i2v")
+  const modelTakesImage = isA2V || (isV2V ? Boolean(model.requiresCharacterImage) : model.modes.includes("i2v"))
   const att = useImageAttachments({ disabled: !modelTakesImage, maxCount: 1 })
 
   const pollingRef = useRef<Set<string>>(new Set())
@@ -233,12 +259,16 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       ? estimateVoiceChangeCost(voiceEngine, source?.durationSeconds ?? 0)
       : 0
     : generationCost.voiceOver
-  const costEstimate = isV2V ? estimateV2VCost(model, source?.durationSeconds ?? 0) + voiceOverCost : generationCost.total
+  const costEstimate = isA2V
+    ? estimateVideoCost(model, { durationSeconds: a2vDuration, resolution: params.resolution })
+    : isV2V
+      ? estimateV2VCost(model, source?.durationSeconds ?? 0) + voiceOverCost
+      : generationCost.total
 
   const handleModelChange = useCallback(
     (newId: string) => {
       setModelId(newId)
-      savePref(formMode === "v2v" ? "video_model_v2v" : "video_model", newId)
+      savePref(MODEL_PREF[formMode], newId)
       const m = getVideoModel(newId)
       if (m) {
         setParams((prev) => ({
@@ -260,7 +290,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       setFormMode(next)
       savePref("video_form_mode", next)
       const list = modelsForMode(next, { hasFalKey })
-      const saved = loadSaved(next === "v2v" ? "video_model_v2v" : "video_model", "")
+      const saved = loadSaved(MODEL_PREF[next], "")
       const m =
         list.find((x) => x.id === saved) ||
         list.find((x) => x.id === DEFAULT_VIDEO_MODEL) ||
@@ -438,7 +468,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
 
   /** «Повторить с этим промптом»: модель, промпт и параметры задачи — в форму */
   function handleRepeat(job: VideoJob) {
-    const targetMode: FormMode = job.mode === "v2v" ? "v2v" : "generate"
+    const targetMode: FormMode = job.mode === "v2v" ? "v2v" : job.mode === "a2v" ? "a2v" : "generate"
     const list = modelsForMode(targetMode, { hasFalKey })
     const m = list.find((x) => x.id === job.modelId)
     setFormMode(targetMode)
@@ -453,12 +483,25 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       return
     }
     setModelId(m.id)
-    savePref(targetMode === "v2v" ? "video_model_v2v" : "video_model", m.id)
+    savePref(MODEL_PREF[targetMode], m.id)
     const p = job.params ?? {}
     const base = defaultVideoParams(m)
     const notes: string[] = []
 
-    if (targetMode === "generate") {
+    if (targetMode === "a2v") {
+      setParams((prev) => ({
+        ...base,
+        resolution: p.resolution && m.resolutions.includes(p.resolution) ? p.resolution : base.resolution,
+        character_orientation: prev.character_orientation,
+      }))
+      if (job.source) {
+        setAudioSource({ ...job.source, kind: "audio", previewUrl: `/api/video/source?id=${job.source.id}` })
+      } else {
+        setAudioSource(null)
+        notes.push("Звук уже удалён (файлы хранятся 24 часа) — загрузите его заново.")
+      }
+      notes.push("Картинку загрузите заново.")
+    } else if (targetMode === "generate") {
       setParams((prev) => ({
         duration: p.duration && m.durations.includes(p.duration) ? p.duration : base.duration,
         resolution: p.resolution && m.resolutions.includes(p.resolution) ? p.resolution : base.resolution,
@@ -500,7 +543,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
   }
 
   async function handleGenerate() {
-    const promptRequired = !(isV2V && model.promptOptional)
+    const promptRequired = !model.promptOptional
     if (promptRequired && !prompt.trim()) {
       toast.error(isV2V ? "Опишите, что изменить в видео" : "Введите промпт")
       return
@@ -519,7 +562,16 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       return
     }
     const uploadId = att.readyIds[0]
-    if (isV2V) {
+    if (isA2V) {
+      if (!audioSource) {
+        toast.error("Загрузите звуковую дорожку")
+        return
+      }
+      if (!uploadId) {
+        toast.error("Загрузите картинку", { description: "Её и оживит нейросеть под ваш звук." })
+        return
+      }
+    } else if (isV2V) {
       if (!source) {
         toast.error("Загрузите исходное видео")
         return
@@ -546,7 +598,9 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
           model: model.id,
           prompt: prompt.trim(),
           params,
-          ...(isV2V
+          ...(isA2V
+            ? { sourceId: audioSource!.id, uploadId }
+            : isV2V
             ? {
                 sourceId: source!.id,
                 ...(model.requiresCharacterImage ? { characterUploadId: uploadId } : {}),
@@ -580,12 +634,15 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
       }
 
       const data = (await response.json()) as { videoGenerationId: string }
+      const startImage = isA2V ? att.attachments.find((a) => a.serverId === uploadId) : undefined
       const job: VideoJob = {
         id: data.videoGenerationId,
         status: "processing",
-        prompt: prompt.trim() || model.name,
+        prompt: prompt.trim(),
         modelName: model.name,
-        aspect: isV2V && source?.width && source?.height ? `${source.width}:${source.height}` : params.aspect_ratio || "16:9",
+        aspect: startImage?.width && startImage?.height
+          ? `${startImage.width}:${startImage.height}`
+          : isV2V && source?.width && source?.height ? `${source.width}:${source.height}` : params.aspect_ratio || "16:9",
         startedAt: Date.now(),
         ...(voiceOverActive
           ? {
@@ -598,24 +655,31 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             }
           : {}),
         modelId: model.id,
-        mode: isV2V ? "v2v" : uploadId ? "i2v" : "t2v",
-        params: isV2V ? { character_orientation: params.character_orientation } : { ...params },
-        source: isV2V && source
-          ? {
-              id: source.id,
-              durationSeconds: source.durationSeconds,
-              width: source.width,
-              height: source.height,
-              hasAudio: source.hasAudio,
-              sizeBytes: source.sizeBytes,
-              name: source.name,
-            }
-          : undefined,
+        mode: isA2V ? "a2v" : isV2V ? "v2v" : uploadId ? "i2v" : "t2v",
+        params: isA2V
+          ? { resolution: params.resolution }
+          : isV2V
+            ? { character_orientation: params.character_orientation }
+            : { ...params },
+        source: (() => {
+          const used = isA2V ? audioSource : isV2V ? source : null
+          return used
+            ? {
+                id: used.id,
+                durationSeconds: used.durationSeconds,
+                width: used.width,
+                height: used.height,
+                hasAudio: used.hasAudio,
+                sizeBytes: used.sizeBytes,
+                name: used.name,
+              }
+            : undefined
+        })(),
       }
       setJobs((prev) => [job, ...prev])
       att.clear()
       toast.success("Запущено", {
-        description: isV2V
+        description: isV2V || isA2V
           ? "Обработка видео обычно занимает 1–3 минуты"
           : "Генерация видео обычно занимает 30 сек – 2 минуты",
       })
@@ -698,6 +762,8 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
           onDragEnter={(e) => {
             if (!modelTakesImage) return
             if (!e.dataTransfer?.types?.includes("Files")) return
+            // Подсказка про картинку не нужна, когда тащат звук или видео
+            if (!Array.from(e.dataTransfer.items ?? []).some((i) => i.type.startsWith("image/"))) return
             dragCounterRef.current += 1
             setIsDragOver(true)
           }}
@@ -718,14 +784,22 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             dragCounterRef.current = 0
             setIsDragOver(false)
             const files = e.dataTransfer?.files
-            if (files && files.length > 0) att.addFiles(files, "drop")
+            // Файл, брошенный в зону загрузки звука или видео, обрабатывает она сама
+            if ((e.target as Element).closest?.("[data-source-upload]")) return
+            if (!files || files.length === 0) return
+            if (isA2V && !Array.from(files).some((f) => f.type.startsWith("image/"))) {
+              toast.info("Звук перетащите в блок «Ваш звук»")
+              return
+            }
+            att.addFiles(files, "drop")
           }}
         >
           {/* Режим: обычная генерация или «видео → видео» */}
-          <div className="mb-4 inline-flex rounded-full border border-white/[0.12] bg-white/[0.02] p-0.5" role="tablist" aria-label="Режим">
+          <div className="mb-4 inline-flex flex-wrap rounded-3xl border border-white/[0.12] bg-white/[0.02] p-0.5" role="tablist" aria-label="Режим">
             {([
               { id: "generate", label: "Текст / картинка → видео", Icon: Clapperboard },
               { id: "v2v", label: "Видео → видео", Icon: Wand2 },
+              { id: "a2v", label: "Картинка + звук → видео", Icon: AudioLines },
             ] as const).map(({ id, label, Icon }) => (
               <button
                 key={id}
@@ -763,13 +837,68 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             </div>
           )}
 
+          {isA2V && !hasFalKey && (
+            <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-xs text-amber-200">
+              Режим пока недоступен: администратор ещё не добавил ключ fal.ai.
+            </p>
+          )}
+
+          {/* Картинка идёт первым шагом и видна так же заметно, как зона звука */}
+          {isA2V && (
+            <div className="mb-4 space-y-2">
+              <Label className="block text-sm font-medium text-neutral-400">Картинка</Label>
+              {att.attachments.length === 0 ? (
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/[0.18] bg-white/[0.02] px-4 py-8 text-center transition-colors hover:border-x-blue/40">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={isSubmitting}
+                    onChange={(e) => {
+                      att.addFiles(e.target.files, "picker")
+                      e.target.value = ""
+                    }}
+                  />
+                  <ImagePlus className="size-6 text-neutral-400" />
+                  <span className="text-sm font-medium text-neutral-200">Загрузите картинку</span>
+                  <span className="text-xs text-neutral-500">Перетащите файл сюда, вставьте из буфера или нажмите. jpg, png, webp</span>
+                  <span className="max-w-md text-[11px] leading-snug text-neutral-600">
+                    Видео начнётся с неё. Лучше всего получается, когда лицо крупное и ничем не закрыто.
+                  </span>
+                </label>
+              ) : (
+                <AttachmentTray
+                  attachments={att.attachments}
+                  onRemove={att.remove}
+                  onPick={(files) => att.addFiles(files, "picker")}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Своя звуковая дорожка. Скрываем, а не размонтируем: при размонтировании
+              SourceUpload освобождает blob-превью, и после смены вкладки плеер был бы пустым */}
+          <div className={`mb-4 space-y-2 ${isA2V ? "" : "hidden"}`}>
+            <Label className="block text-sm font-medium text-neutral-400">Ваш звук</Label>
+            <SourceUpload
+              kind="audio"
+              value={audioSource}
+              onChange={setAudioSource}
+              minSeconds={A2V_MIN_AUDIO_SECONDS}
+              maxSeconds={A2V_MAX_AUDIO_SECONDS}
+              disabled={isSubmitting}
+              title="Загрузите готовую озвучку"
+              hint="Голос и интонация останутся вашими, губы подстроятся под них. Лучше всего получаются куски по 5–8 секунд."
+            />
+          </div>
+
           <PromptInput
             value={prompt}
             onChange={setPrompt}
             onSubmit={handleGenerate}
             disabled={isSubmitting}
-            label={isV2V ? (model.promptOptional ? "Что изменить (необязательно)" : "Что изменить в видео") : "Промпт"}
-            placeholder={isV2V ? (model.requiresCharacterImage ? MOTION_PROMPT_PLACEHOLDER : V2V_PROMPT_PLACEHOLDER) : "Опишите видео, которое хотите сгенерировать..."}
+            label={isA2V ? "Что происходит в кадре (необязательно)" : isV2V ? (model.promptOptional ? "Что изменить (необязательно)" : "Что изменить в видео") : "Промпт"}
+            placeholder={isA2V ? A2V_PROMPT_PLACEHOLDER : isV2V ? (model.requiresCharacterImage ? MOTION_PROMPT_PLACEHOLDER : V2V_PROMPT_PLACEHOLDER) : "Опишите видео, которое хотите сгенерировать..."}
           />
           {isV2V && !model.requiresCharacterImage && (
             <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">
@@ -779,7 +908,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
           )}
 
           {/* Картинка: стартовый кадр (image-to-video) или персонаж (Motion Control) */}
-          {(modelTakesImage || att.attachments.length > 0) && (
+          {!isA2V && (modelTakesImage || att.attachments.length > 0) && (
             <div className="mt-3">
               {isV2V && (
                 <Label className="mb-1.5 block text-sm font-medium text-neutral-400">Персонаж (картинка)</Label>
@@ -810,7 +939,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
               onClick={handleGenerate}
               disabled={
                 isSubmitting ||
-                (!(isV2V && model.promptOptional) && !prompt.trim()) ||
+                (!model.promptOptional && !prompt.trim()) ||
                 (isV2V && !source) ||
                 (model.provider === "fal" ? !hasFalKey : !hasOpenRouterKey)
               }
@@ -830,7 +959,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg border-2 border-dashed border-x-blue/60 bg-x-blue/[0.08]">
               <div className="flex items-center gap-2 text-sm font-medium text-x-blue">
                 <ImagePlus className="size-4" />
-                Отпустите, чтобы прикрепить первый кадр
+                {isA2V ? "Отпустите, чтобы прикрепить картинку" : "Отпустите, чтобы прикрепить первый кадр"}
               </div>
             </div>
           )}
@@ -855,7 +984,11 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             </p>
           )}
           {/* Индикатор русской озвучки выбранной модели */}
-          {isV2V ? (
+          {isA2V ? (
+            <p className="mt-3 text-[11px] leading-snug text-neutral-500">
+              В видео останется ваша дорожка без изменений, на любом языке. Длина видео равна длине звука.
+            </p>
+          ) : isV2V ? (
             <p className="mt-3 text-[11px] leading-snug text-neutral-500">
               {voiceOverActive
                 ? `Звук результата переозвучится голосом ${voiceOverVoice.name} (ElevenLabs). Длина результата равна длине исходного видео.`
@@ -895,7 +1028,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
           <h3 className="mb-4 text-sm font-bold text-white">Параметры</h3>
           <div className="grid items-end gap-4 sm:grid-cols-2">
             {/* Длительность и разрешение у v2v не задаются: длина = исходнику */}
-            {!isV2V && (
+            {!isV2V && !isA2V && (
               <ParamSelect
                 label="Длительность"
                 value={String(params.duration)}
@@ -973,10 +1106,15 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             <DollarSign className="size-4" />
             <span>Примерная стоимость</span>
           </div>
-          <span className="text-sm font-bold text-white">~${costEstimate.toFixed(3)}</span>
+          <span className="text-sm font-bold text-white">{isA2V && !audioSource ? "—" : `~$${costEstimate.toFixed(3)}`}</span>
         </div>
         <p className="-mt-3 px-1 text-[11px] leading-snug text-neutral-600">
-          {isV2V ? (
+          {isA2V ? (
+            <>
+              ≈${videoPricePerSecond(model, params.resolution).toFixed(3)}/сек при {params.resolution}
+              {audioSource ? ` × ${a2vDuration} сек` : ", считается по длине звука"}. За упавшую задачу деньги не берутся.
+            </>
+          ) : isV2V ? (
             <>
               Цена зависит от длины исходного видео (≈${videoPricePerSecond(model, "source").toFixed(3)}/сек
               {source ? ` × ${source.durationSeconds.toFixed(1)} сек` : ""}

@@ -28,6 +28,10 @@ export interface VideoSubmitRequest {
   sourceVideoUrl?: string
   /** Motion Control: публичный HTTPS-URL картинки персонажа */
   characterImageUrl?: string
+  /** a2v: публичный HTTPS-URL картинки, которую оживляем */
+  startImageUrl?: string
+  /** a2v: публичный HTTPS-URL звуковой дорожки (mp3 или wav) */
+  audioUrl?: string
 }
 
 /**

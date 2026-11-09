@@ -29,7 +29,7 @@ export async function loadVideoHistory(
   const visible = and(
     eq(videoGenerations.userId, uid),
     eq(videoGenerations.hidden, false),
-    inArray(videoGenerations.mode, ["t2v", "i2v", "v2v", "voice"]),
+    inArray(videoGenerations.mode, ["t2v", "i2v", "v2v", "a2v", "voice"]),
     sql`not (${videoGenerations.mode} = 'voice' and coalesce(${videoGenerations.params}, '{}'::jsonb) ? 'parent_generation_id')`,
   )
 
@@ -48,7 +48,7 @@ export async function loadVideoHistory(
   const rows = page.slice(0, limit)
   const childIds = rows.map((r) => voiceOverChildId(r.params)).filter((id): id is string => id !== null)
   const sourceIds = rows
-    .filter((r) => r.mode === "v2v")
+    .filter((r) => r.mode === "v2v" || r.mode === "a2v")
     .map((r) => (r.params as { source_id?: unknown } | null)?.source_id)
     .filter((id): id is string => typeof id === "string" && id.length > 0)
 
@@ -72,7 +72,7 @@ export async function loadVideoHistory(
             createdAt: videoSources.createdAt,
           })
           .from(videoSources)
-          .where(and(eq(videoSources.userId, uid), eq(videoSources.kind, "video"), inArray(videoSources.id, sourceIds)))
+          .where(and(eq(videoSources.userId, uid), inArray(videoSources.id, sourceIds)))
       : Promise.resolve([]),
   ])
 

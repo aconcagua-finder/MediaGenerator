@@ -106,7 +106,7 @@ describe("режимы и видимость моделей", () => {
   it("ни одна существующая t2v/i2v-модель не потеряна и не стала v2v", () => {
     const legacy = VIDEO_MODELS.filter((m) => !isV2VModel(m))
     expect(legacy.length).toBe(VIDEO_MODELS.length - modelsForMode("v2v", { hasFalKey: true }).length)
-    for (const m of legacy) expect(m.modes.some((x) => x === "t2v" || x === "i2v")).toBe(true)
+    for (const m of legacy) expect(m.modes.some((x) => x === "t2v" || x === "i2v" || x === "a2v")).toBe(true)
   })
 
   it("аудит реестра сверяет с OpenRouter только его модели (fal-модели не «пропали»)", () => {

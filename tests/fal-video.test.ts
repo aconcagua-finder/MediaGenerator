@@ -294,3 +294,34 @@ describe("ffmpeg: аргументы замены голоса", () => {
     expect(a[a.length - 1]).toBe("/t/out.mp4")
   })
 })
+
+describe("«Картинка + звук → видео» (Wan 2.7)", () => {
+  const base = {
+    model: "fal-ai/wan/v2.7/image-to-video",
+    prompt: "  говорит в камеру  ",
+    params: { duration: 6, resolution: "720p" },
+    apiKey: "k",
+    startImageUrl: "https://x.test/i.png",
+    audioUrl: "https://x.test/a.mp3",
+  }
+
+  it("тело запроса несёт картинку, звук, длину и разрешение", () => {
+    expect(buildFalVideoInput(base)).toEqual({
+      image_url: "https://x.test/i.png",
+      audio_url: "https://x.test/a.mp3",
+      duration: 6,
+      resolution: "720p",
+      prompt: "говорит в камеру",
+    })
+  })
+
+  it("пустой промпт не отправляется", () => {
+    expect(buildFalVideoInput({ ...base, prompt: "   " })).not.toHaveProperty("prompt")
+  })
+
+  it("без звука или картинки задача не уходит, ссылки только https", () => {
+    expect(() => buildFalVideoInput({ ...base, audioUrl: undefined })).toThrow("звуковая дорожка")
+    expect(() => buildFalVideoInput({ ...base, startImageUrl: undefined })).toThrow("картинка")
+    expect(() => buildFalVideoInput({ ...base, audioUrl: "http://x.test/a.mp3" })).toThrow("HTTPS")
+  })
+})

@@ -17,7 +17,7 @@ import { posterKeyOf } from "./poster-key"
  * голос» (без родителя) остаётся своей карточкой.
  */
 
-export type HistoryMode = "t2v" | "i2v" | "v2v" | "voice"
+export type HistoryMode = "t2v" | "i2v" | "v2v" | "a2v" | "voice"
 export type HistoryStatus = FeedStatus
 
 export interface HistoryVideo {
@@ -173,7 +173,7 @@ function videoOf(row: HistoryVideoRow | undefined): HistoryVideo | null {
 }
 
 function mode(m: string): HistoryMode {
-  return m === "i2v" || m === "v2v" || m === "voice" ? m : "t2v"
+  return m === "i2v" || m === "v2v" || m === "a2v" || m === "voice" ? m : "t2v"
 }
 
 function aspectOf(p: Params): string {
@@ -257,7 +257,7 @@ export function buildVideoHistory(input: {
       }
       if (status === "error") item.error = errorText(row)
 
-      if (item.mode === "v2v") {
+      if (item.mode === "v2v" || item.mode === "a2v") {
         const sourceId = str(p.source_id)
         item.source = sourceId ? sourceOf(sourceById.get(sourceId), now) : null
       }

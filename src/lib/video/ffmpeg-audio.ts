@@ -21,6 +21,18 @@ export function buildExtractAudioArgs(videoPath: string, outPath: string): strin
   ]
 }
 
+/** Загруженное аудио → mp3 без сведения в моно: дорожка попадёт в видео как есть */
+export function buildAudioToMp3Args(inPath: string, outPath: string): string[] {
+  return [
+    "-y", "-hide_banner", "-loglevel", "error",
+    "-i", inPath,
+    "-vn",
+    "-c:a", "libmp3lame",
+    "-b:a", "192k",
+    outPath,
+  ]
+}
+
 /**
  * Подмена звука: видеодорожка копируется как есть, новый звук кодируется в AAC.
  * `-shortest` — на случай, если конвертер голоса вернул звук чуть длиннее/короче;

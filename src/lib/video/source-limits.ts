@@ -11,6 +11,16 @@ export const MAX_SOURCE_BYTES = 100 * 1024 * 1024
 export const MAX_SAMPLE_SECONDS = 60
 export const MAX_SAMPLE_BYTES = 10 * 1024 * 1024
 
+/** «Картинка + звук → видео»: Wan 2.7 делает от 2 до 15 секунд */
+export const A2V_MIN_AUDIO_SECONDS = 2
+export const A2V_MAX_AUDIO_SECONDS = 15
+
+/** Длина видео по длине дорожки: целые секунды, хвост короче 0.1 сек не округляем вверх */
+export function a2vDurationSeconds(audioSeconds: number): number {
+  const rounded = Math.ceil(audioSeconds - 0.1)
+  return Math.min(A2V_MAX_AUDIO_SECONDS, Math.max(A2V_MIN_AUDIO_SECONDS, rounded))
+}
+
 export const VIDEO_EXTENSIONS = ["mp4", "mov", "webm"] as const
 export const VIDEO_MIME_BY_EXT: Record<string, string> = {
   mp4: "video/mp4",

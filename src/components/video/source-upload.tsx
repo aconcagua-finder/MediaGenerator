@@ -31,6 +31,10 @@ interface SourceUploadProps {
   /** Ограничение длительности (по умолчанию — общий лимит для вида файла) */
   maxSeconds?: number
   disabled?: boolean
+  /** Минимальная длительность, сек (по умолчанию не ограничена) */
+  minSeconds?: number
+  /** Заголовок пустой зоны вместо стандартного */
+  title?: string
   /** Подсказка внутри пустой зоны */
   hint?: string
 }
@@ -44,7 +48,7 @@ function fmtSize(bytes: number): string {
  * до отправки (расширение, размер, длительность по метаданным браузера), загрузка с
  * прогрессом, превью. Серверная проверка по ffprobe всё равно выполняется.
  */
-export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint }: SourceUploadProps) {
+export function SourceUpload({ kind, value, onChange, maxSeconds, minSeconds, title, disabled, hint }: SourceUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<(() => void) | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
@@ -79,13 +83,17 @@ export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint
       try {
         const meta = await readMediaMeta(file, kind)
         if (Number.isFinite(meta.durationSeconds)) {
+          if (meta.durationSeconds > limitSeconds + 0.05) {
+            toast.error(`Слишком длинный файл: максимум ${limitSeconds} сек, а у вас ${meta.durationSeconds.toFixed(1)} сек`)
+            return
+          }
           const check = validateSourceMeta(kind, { sizeBytes: file.size, durationSeconds: meta.durationSeconds })
           if (!check.ok) {
             toast.error(check.message)
             return
           }
-          if (meta.durationSeconds > limitSeconds + 0.05) {
-            toast.error(`Слишком длинный файл: максимум ${limitSeconds} сек, а у вас ${meta.durationSeconds.toFixed(1)} сек`)
+          if (minSeconds && meta.durationSeconds < minSeconds - 0.05) {
+            toast.error(`Слишком короткий файл: нужно от ${minSeconds} сек, а у вас ${meta.durationSeconds.toFixed(1)} сек`)
             return
           }
         }
@@ -102,6 +110,10 @@ export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint
           toast.error(`Слишком длинный файл: максимум ${limitSeconds} сек, а у вас ${uploaded.durationSeconds.toFixed(1)} сек`)
           return
         }
+        if (minSeconds && uploaded.durationSeconds < minSeconds - 0.05) {
+          toast.error(`Слишком короткий файл: нужно от ${minSeconds} сек, а у вас ${uploaded.durationSeconds.toFixed(1)} сек`)
+          return
+        }
         onChange({ ...uploaded, name: file.name, previewUrl: URL.createObjectURL(file) })
       } catch (err) {
         toast.error("Не удалось загрузить файл", { description: err instanceof Error ? err.message : undefined })
@@ -110,7 +122,7 @@ export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint
         setProgress(null)
       }
     },
-    [kind, limitBytes, limitSeconds, onChange]
+    [kind, limitBytes, limitSeconds, minSeconds, onChange]
   )
 
   function openPicker() {
@@ -123,7 +135,7 @@ export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint
     return (
       <div className="rounded-lg border border-white/[0.12] bg-white/[0.02] p-3">
         <div className="flex items-start gap-3">
-          {kind === "video" ? (
+          {kind === "video" && (
             <video
               src={value.previewUrl}
               controls
@@ -131,8 +143,6 @@ export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint
               preload="metadata"
               className="max-h-56 w-auto max-w-[45%] rounded-md bg-black"
             />
-          ) : (
-            <audio src={value.previewUrl} controls className="h-10 w-full" />
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-white" title={value.name}>{value.name}</p>
@@ -153,6 +163,7 @@ export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint
             <X className="size-3.5" />
           </button>
         </div>
+        {kind === "audio" && <audio src={value.previewUrl} controls className="mt-2 h-10 w-full" />}
       </div>
     )
   }
@@ -160,6 +171,7 @@ export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint
   return (
     <div
       role="button"
+      data-source-upload
       tabIndex={0}
       onClick={openPicker}
       onKeyDown={(e) => {
@@ -208,10 +220,10 @@ export function SourceUpload({ kind, value, onChange, maxSeconds, disabled, hint
           <UploadCloud className="size-6 text-neutral-400" />
           <p className="text-sm font-medium text-neutral-200">
             <Icon className="mr-1.5 inline size-4 align-text-bottom text-neutral-400" />
-            {kind === "video" ? "Загрузите видео" : "Загрузите образец голоса"}
+            {title ?? (kind === "video" ? "Загрузите видео" : "Загрузите образец голоса")}
           </p>
           <p className="text-xs text-neutral-500">
-            Перетащите файл сюда или нажмите. {kind === "video" ? "mp4, mov, webm" : "mp3, wav, m4a, ogg"} · до {limitSeconds} сек · до {Math.round(limitBytes / 1024 / 1024)} МБ
+            Перетащите файл сюда или нажмите. {kind === "video" ? "mp4, mov, webm" : "mp3, wav, m4a, ogg"} · {minSeconds ? `от ${minSeconds} ` : ""}до {limitSeconds} сек · до {Math.round(limitBytes / 1024 / 1024)} МБ
           </p>
           {hint && <p className="max-w-md text-[11px] leading-snug text-neutral-600">{hint}</p>}
         </>

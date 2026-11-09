@@ -47,6 +47,7 @@ export const MODE_LABELS: Record<HistoryMode, string> = {
   t2v: "Текст → видео",
   i2v: "Картинка → видео",
   v2v: "Видео → видео",
+  a2v: "Картинка + звук → видео",
   voice: "Замена голоса",
 }
 
