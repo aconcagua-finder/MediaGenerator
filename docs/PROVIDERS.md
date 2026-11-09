@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: ноябрь 2026 (аудит 2026-W45)
+> Актуально на: ноябрь 2026 (аудит 2026-W46)
 
 ---
 
@@ -26,12 +26,13 @@
 > | Модель | Отключение | Замена |
 > |--------|-----------|--------|
 > | `gpt-image-1` | **23.10.2026** ✅ отключена, убрана (W44) | `gpt-image-2.5-sunburst` / `-flare` |
-> | `gpt-image-1.5` | **01.12.2026** | `gpt-image-2.5-sunburst` / `-flare` |
-> | `gpt-image-1-mini` | **01.12.2026** | `gpt-image-2.5-sunburst` / `-flare` |
+> | `gpt-image-1.5` | **01.12.2026** | `gpt-image-2.6-sunburst` / `-flare` (W46) |
+> | `gpt-image-1-mini` | **01.12.2026** | `gpt-image-2.6-sunburst` / `-flare` (W46) |
 >
 > (W44: OpenAI теперь рекомендует замену `gpt-image-2.5-*`, а не `gpt-image-2`. У нас 2.5 доступна
 > через OpenRouter (`openai/gpt-image-2.5-*`); прямой OpenAI-вариант не заведён — цена по токенам
-> ($30/1М выходных image-токенов), поддержка прозрачного фона в доках не указана.)
+> ($30/1М выходных image-токенов). W46: OpenRouter заявляет `background: transparent` у `gpt-image-2.5-*`
+> и `2.6-*`, но наш спек этот параметр пока не передаёт.)
 >
 > `gpt-image-2` — единственная без даты отключения. ❗ Но она НЕ умеет прозрачный
 > фон, а `gpt-image-1.5`/`gpt-image-1` умеют — то есть после 01.12.2026 у нас
@@ -168,6 +169,8 @@
 
 | Модель | ID | Цена за изобр. | Размеры | Референс (правка) |
 |--------|----|----------------|---------|-------------------|
+| GPT Image 2.6 Sunburst (W46) | `openai/gpt-image-2.6-sunburst` | $0.12 | — | да |
+| GPT Image 2.6 Flare (W46) | `openai/gpt-image-2.6-flare` | $0.12 | — | да |
 | GPT Image 2.5 Sunburst | `openai/gpt-image-2.5-sunburst` | $0.12 | — | да |
 | GPT Image 2.5 Flare | `openai/gpt-image-2.5-flare` | $0.12 | — | да |
 | FLUX.3 Image | `black-forest-labs/flux-3-image` | 1K $0.048 / 2K $0.1 / 4K $0.607 | 1K/2K/4K | да |
@@ -519,6 +522,31 @@ $0.048 (OpenRouter сейчас даёт скидку 50%). Цены Gemini-по
 > - **Perplexity:** даты отключения Sonar Chat Completions в changelog нет; 24.10 из Agent API уходят GPT-5.x — не касается.
 > - **Дубли цен:** `OPENAI_PRICING` (reddit-search), `PERPLEXITY_PRICING`, `cover-models.ts` совпадают с живыми ценами.
 
+> **Аудит 2026-W46 (09.11.2026).**
+> - **Механический дифф.** Видео: 33 id (+2). **Добавлена** `google/gemini-omni-1.2-flash` (GA 05.11): t2v/i2v, 3–15 сек,
+>   360p/720p/1080p/4K, 16:9 и 9:16, $0.023/$0.07/$0.104/$0.209 за сек. В `pricing_skus` только тариф со звуком, поэтому цена
+>   одна. Платный живой вызов не делался: русская озвучка и поведение `generate_audio:false` не проверены (`russianSpeech: partial`).
+>   **Пропущена** `google/gemini-omni-1.1-flash`: у Google 03.12.2026 переводится на 1.2, а 1.2 дешевле на 30% и длиннее.
+>   Вне реестра — прежние `flux-video-edit` (v2v-кандидат, контракт не проверен), `flux-video-upscale` (апскейл — режима нет),
+>   `heygen/avatar-iv` (lip-sync — режима нет).
+>   Картинки: 66 id (+2). **Добавлены** `openai/gpt-image-2.6-sunburst` и `-flare` (04.11, Images API, тариф как у 2.5).
+>   Вне реестра — прежние: `recraft-v4-styles-pro|-vector|-pro-vector` (нужен входной файл), `openai/gpt-image-1|1-mini`,
+>   `recraft/recraft-v3`, `flux.2-klein-4b` (дубли прямых провайдеров), Gemini `*-preview` (ретайрнуты), `openrouter/auto-code|auto-beta` (роутеры).
+>   Текст: новых id у вендоров реестра нет, кроме `gemini-omni-*` (это видеомодели, пропущены); `*:batch`, `-pro` и снапшот `-1017` пропущены как раньше.
+> - **Чат:** дрейф `deepseek-v4-pro` $1.6/$3.2 → $0.9553/$1.9105; `deepseek-v4.1-flash` $0.045/$0.50 → $0.051/$0.567.
+>   Google автоматически перенаправляет прямые запросы `gemini-3.5-flash` на 3.6 с 08.10; на OpenRouter слаг жив, цена прежняя.
+>   ⏳ `gpt-5-mini` — 11.12.2026 (без изменений).
+> - **Картинки:** ❗ через 3 недели, **01.12.2026**, отключаются `gpt-image-1.5` и `gpt-image-1-mini`; OpenAI теперь называет заменой `gpt-image-2.6-*`.
+>   Живой `/images/models/.../endpoints` показывает `background: transparent` у `gpt-image-2.5-*` и `2.6-*`, но наш спек
+>   параметр `background` не передаёт: чтобы не потерять прозрачный фон, его нужно завести до 01.12. FLUX.2 pro/max/flex, Seedream 4.5, все
+>   Gemini-слаги — `/endpoints` 200, status 0. BFL: записей за ноябрь нет, депрекейшенов FLUX.2 нет. Recraft: страница цен без
+>   пометок об отключении, changelog по старому адресу отдаёт 404. xAI: цены Grok Imagine без изменений, депрекейшенов нет.
+> - **Видео:** дрейф `heygen-video-1` — появился 1080p $0.10 (добавлен) и `long_duration_seconds_*` дороже обычных, API принимает до 30 сек;
+>   порог «длинного» не опубликован, длительности остаются 5/10/15. xAI новее `grok-imagine-video-1.5` не выпускал.
+> - **Классификатор:** `claude-sonnet-4.6` Active (не раньше 17.02.2027). Sonnet 4.5 уходит 30.11.2026 — в реестре нет.
+> - **Публикации:** `PERPLEXITY_PRICING` совпадает с ценами `perplexity/*` на OpenRouter (страница цен Perplexity их больше не перечисляет); даты отключения
+>   Sonar нет. `OPENAI_PRICING` (reddit-search) совпадает с живыми ценами. Обложки — без изменений, слаги живы.
+
 > **Аудит 2026-W45 (02.11.2026).**
 > - **Механический дифф.** Видео: 31 id (+1). **Добавлена** `tbc/mischief-1` (The Biological Computing Co., 23.10):
 >   ТОЛЬКО i2v (без `frame_images` — 400 «requires exactly one frame_images entry with frame_type first_frame»),
@@ -777,7 +805,8 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 | `x-ai/grok-imagine-video` | оба | нет | 5/10 | 480p/720p | ~0.06 |
 | `x-ai/grok-imagine-video-1.5` | оба² | нет² | 5/10 | 480p/720p/1080p | ~0.08–0.25 |
 | `x-ai/grok-imagine-video-1.5-lite` | оба | нет | 5/10/15 | 480p/720p/1080p | ~0.02–0.14 |
-| `heygen/heygen-video-1` | оба | встроен⁵ | 5/10/15 | 480p/768p/2K | ~0.02–0.10 |
+| `heygen/heygen-video-1` | оба | встроен⁵ | 5/10/15 | 480p/768p/1080p/2K | ~0.02–0.10 |
+| `google/gemini-omni-1.2-flash` (W46) | оба | да (в цене) | 3/5/8/10/12/15 | 360p/720p/1080p/4K | ~0.023–0.209 |
 | `tbc/mischief-1` | только i2v | нет | 3/5 | 480p/720p (16:9) | ~0.005–0.01 |
 
 Источник правды — `src/lib/providers/video-models.ts`. Цены за секунду — ориентир для UI;

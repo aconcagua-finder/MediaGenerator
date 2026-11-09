@@ -106,6 +106,20 @@ describe("оценка стоимости видео", () => {
     expect(p("bytedance/seedance-2.5", "480p")).toBeCloseTo(854 * 480 * 0.0234375 * 0.0000107, 3)
   })
 
+  it("Gemini Omni 1.2 Flash (W46): цена одна со звуком и без", () => {
+    const m = getVideoModel("google/gemini-omni-1.2-flash")!
+    expect(m.modes).toEqual(["t2v", "i2v"])
+    expect(videoPricePerSecond(m, "720p", true)).toBeCloseTo(0.069504, 6)
+    expect(videoPricePerSecond(m, "720p", false)).toBeCloseTo(0.069504, 6)
+    expect(videoPricePerSecond(m, "4K", true)).toBeCloseTo(0.208512, 6)
+  })
+
+  it("HeyGen Video (W46): появился 1080p", () => {
+    const m = getVideoModel("heygen/heygen-video-1")!
+    expect(m.resolutions).toContain("1080p")
+    expect(videoPricePerSecond(m, "1080p")).toBeCloseTo(0.1, 6)
+  })
+
   it("mischief 1 (W45): только i2v, от $0.005/сек", () => {
     const m = getVideoModel("tbc/mischief-1")!
     expect(m.modes).toEqual(["i2v"])
