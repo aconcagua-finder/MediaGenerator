@@ -325,3 +325,45 @@ describe("«Картинка + звук → видео» (Wan 2.7)", () => {
     expect(() => buildFalVideoInput({ ...base, audioUrl: "http://x.test/a.mp3" })).toThrow("HTTPS")
   })
 })
+
+describe("«Картинка + звук → видео» (Wan 3.0)", () => {
+  const base = {
+    model: "alibaba/wan-3.0/reference-to-video",
+    prompt: "Use @image as the reference. Use @AUDIO as speech.",
+    params: { duration: 7, resolution: "720p", aspect_ratio: "9:16" },
+    apiKey: "k",
+    startImageUrl: "https://x.test/i.png",
+    audioUrl: "https://x.test/a.mp3",
+  }
+
+  it("картинка и звук уходят референсами, звук включён, форма кадра передаётся", () => {
+    expect(buildFalVideoInput(base)).toMatchObject({
+      reference_image_urls: ["https://x.test/i.png"],
+      reference_audio_urls: ["https://x.test/a.mp3"],
+      audio: true,
+      duration: 7,
+      resolution: "720p",
+      aspect_ratio: "9:16",
+    })
+  })
+
+  it("обозначения Syntx переводятся, инструкция про звук дописывается всегда", () => {
+    const prompt = String(buildFalVideoInput(base).prompt)
+    expect(prompt).toContain("Use Image 1 as the reference. Use Audio 1 as speech.")
+    expect(prompt).not.toMatch(/@image|@audio/i)
+    expect(prompt).toContain("Use Audio 1 as the sole source of speech")
+    expect(prompt).toContain("Lip sync.")
+  })
+
+  it("без промпта сцена по умолчанию + та же инструкция", () => {
+    const prompt = String(buildFalVideoInput({ ...base, prompt: "  " }).prompt)
+    expect(prompt).toContain("The person from Image 1 talks to the camera")
+    expect(prompt).toContain("Do not add, replace or omit any words")
+  })
+
+  it("неизвестная форма кадра не отправляется, без файлов задача не уходит", () => {
+    expect(buildFalVideoInput({ ...base, params: { ...base.params, aspect_ratio: "21:9" } })).not.toHaveProperty("aspect_ratio")
+    expect(() => buildFalVideoInput({ ...base, audioUrl: undefined })).toThrow("звуковая дорожка")
+    expect(() => buildFalVideoInput({ ...base, startImageUrl: "http://x.test/i.png" })).toThrow("HTTPS")
+  })
+})

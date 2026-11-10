@@ -23,8 +23,10 @@ import {
   A2V_MIN_AUDIO_SECONDS,
   MAX_SOURCE_SECONDS,
   a2vDurationSeconds,
+  closestAspectRatio,
   fileExtension,
 } from "@/lib/video/source-limits"
+import { WAN3_ASPECT_RATIOS } from "@/lib/providers/video/fal-video"
 import { checkVideoLimits } from "@/lib/video/limits"
 import { hasActiveProviderKey } from "@/lib/provider-keys"
 import {
@@ -405,6 +407,10 @@ export async function POST(request: NextRequest) {
           // размеры картинки: по ним история рисует карточку нужной формы
           source_width: a2vImageSize?.width ?? null,
           source_height: a2vImageSize?.height ?? null,
+          // Wan 3.0 берёт картинку референсом, а не первым кадром: форму кадра задаём сами
+          ...(a2vImageSize?.width && a2vImageSize?.height
+            ? { aspect_ratio: closestAspectRatio(a2vImageSize.width, a2vImageSize.height, WAN3_ASPECT_RATIOS) }
+            : {}),
         }
       : isV2V
       ? {

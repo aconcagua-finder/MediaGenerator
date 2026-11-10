@@ -11,9 +11,17 @@ describe("режим «картинка + звук → видео»", () => {
     expect(a2vDurationSeconds(15.04)).toBe(A2V_MAX_AUDIO_SECONDS)
   })
 
-  it("каждая возможная длина есть среди длительностей модели", () => {
-    const m = getVideoModel("fal-ai/wan/v2.7/image-to-video")!
-    for (let s = A2V_MIN_AUDIO_SECONDS; s <= A2V_MAX_AUDIO_SECONDS; s++) expect(m.durations).toContain(s)
+  it("каждая возможная длина есть среди длительностей обеих моделей", () => {
+    for (const id of ["fal-ai/wan/v2.7/image-to-video", "alibaba/wan-3.0/reference-to-video"]) {
+      const m = getVideoModel(id)!
+      for (let s = A2V_MIN_AUDIO_SECONDS; s <= A2V_MAX_AUDIO_SECONDS; s++) expect(m.durations).toContain(s)
+    }
+  })
+
+  it("Wan 3.0: цена по разрешению", () => {
+    const m = getVideoModel("alibaba/wan-3.0/reference-to-video")!
+    expect(estimateVideoCost(m, { durationSeconds: 7, resolution: "720p" })).toBeCloseTo(0.7)
+    expect(estimateVideoCost(m, { durationSeconds: 7, resolution: "1080p" })).toBeCloseTo(1.4)
   })
 
   it("цена по разрешению за секунду результата", () => {
@@ -24,7 +32,8 @@ describe("режим «картинка + звук → видео»", () => {
 
   it("модель видна только в своём режиме и только с ключом fal", () => {
     const id = "fal-ai/wan/v2.7/image-to-video"
-    expect(modelsForMode("a2v", { hasFalKey: true }).map((m) => m.id)).toEqual([id])
+    // Wan 3.0 первым: это умолчание вкладки
+    expect(modelsForMode("a2v", { hasFalKey: true }).map((m) => m.id)).toEqual(["alibaba/wan-3.0/reference-to-video", id])
     expect(modelsForMode("a2v", { hasFalKey: false })).toEqual([])
     expect(modelsForMode("generate", { hasFalKey: true }).some((m) => m.id === id)).toBe(false)
     expect(modelsForMode("v2v", { hasFalKey: true }).some((m) => m.id === id)).toBe(false)

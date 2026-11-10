@@ -111,7 +111,67 @@ export function buildWanAudioInput(opts: {
   return input
 }
 
+/** Соотношения сторон Wan 3.0 (по схеме fal); `adaptive` не берём — подбираем по картинке */
+export const WAN3_ASPECT_RATIOS = ["16:9", "4:3", "1:1", "3:4", "9:16"]
+
+/**
+ * Инструкция, которая держит речь Wan 3.0 на загруженной дорожке. Без неё модель
+ * берёт только манеру голоса и говорит свой текст (живой тест 2026-11-09).
+ */
+const WAN3_KEEP_AUDIO =
+  "Use Audio 1 as the sole source of speech. Preserve every word, the original voice, intonation, pace and pauses of Audio 1. " +
+  "Do not add, replace or omit any words, and do not add other dialogue. " +
+  "The person from Image 1 speaks Audio 1 with lip and jaw movements precisely synchronized with every syllable. Lip sync."
+
+/**
+ * Промпт Wan 3.0 для «картинка + звук»: обозначения Syntx (`@image`, `@audio`) →
+ * обозначения Wan (`Image 1`, `Audio 1`), плюс обязательная инструкция про звук.
+ */
+export function buildWan3AudioPrompt(userPrompt?: string): string {
+  const text = (userPrompt ?? "")
+    .replace(/@image\b/gi, "Image 1")
+    .replace(/@audio\b/gi, "Audio 1")
+    .trim()
+  const scene = text || "The person from Image 1 talks to the camera. Preserve their appearance, clothing and the scene from Image 1."
+  return `${scene}\n\n${WAN3_KEEP_AUDIO}`
+}
+
+/** Тело запроса Wan 3.0 reference-to-video: картинка и звук — референсы */
+export function buildWan3AudioInput(opts: {
+  imageUrl: string
+  audioUrl: string
+  prompt?: string
+  duration?: number
+  resolution?: string
+  aspectRatio?: string
+}): Record<string, unknown> {
+  assertHttps(opts.imageUrl, "картинку")
+  assertHttps(opts.audioUrl, "звуковую дорожку")
+  const input: Record<string, unknown> = {
+    prompt: buildWan3AudioPrompt(opts.prompt),
+    reference_image_urls: [opts.imageUrl],
+    reference_audio_urls: [opts.audioUrl],
+    audio: true,
+  }
+  if (opts.duration != null) input.duration = opts.duration
+  if (opts.resolution) input.resolution = opts.resolution
+  if (opts.aspectRatio && WAN3_ASPECT_RATIOS.includes(opts.aspectRatio)) input.aspect_ratio = opts.aspectRatio
+  return input
+}
+
 export function buildFalVideoInput(request: VideoSubmitRequest): Record<string, unknown> {
+  if (request.model === "alibaba/wan-3.0/reference-to-video") {
+    if (!request.startImageUrl) throw new Error("Для этого режима нужна картинка")
+    if (!request.audioUrl) throw new Error("Для этого режима нужна звуковая дорожка")
+    return buildWan3AudioInput({
+      imageUrl: request.startImageUrl,
+      audioUrl: request.audioUrl,
+      prompt: request.prompt,
+      duration: request.params.duration,
+      resolution: request.params.resolution,
+      aspectRatio: request.params.aspect_ratio,
+    })
+  }
   if (request.model === "fal-ai/wan/v2.7/image-to-video") {
     if (!request.startImageUrl) throw new Error("Для этого режима нужна картинка")
     if (!request.audioUrl) throw new Error("Для этого режима нужна звуковая дорожка")

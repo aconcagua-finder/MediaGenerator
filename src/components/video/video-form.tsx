@@ -93,7 +93,8 @@ type FormMode = "generate" | "v2v" | "a2v"
 const MODEL_PREF: Record<FormMode, string> = {
   generate: "video_model",
   v2v: "video_model_v2v",
-  a2v: "video_model_a2v",
+  // _2: с появлением Wan 3.0 сохранённый ранее Wan 2.7 не должен перебивать новое умолчание
+  a2v: "video_model_a2v_2",
 }
 
 function parseFormMode(value: string): FormMode {
@@ -900,6 +901,9 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
             label={isA2V ? "Что происходит в кадре (необязательно)" : isV2V ? (model.promptOptional ? "Что изменить (необязательно)" : "Что изменить в видео") : "Промпт"}
             placeholder={isA2V ? A2V_PROMPT_PLACEHOLDER : isV2V ? (model.requiresCharacterImage ? MOTION_PROMPT_PLACEHOLDER : V2V_PROMPT_PLACEHOLDER) : "Опишите видео, которое хотите сгенерировать..."}
           />
+          {isA2V && model.a2vPromptHint && (
+            <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">{model.a2vPromptHint}</p>
+          )}
           {isV2V && !model.requiresCharacterImage && (
             <p className="mt-1.5 text-[11px] leading-snug text-neutral-600">
               Описывайте образ нейтрально: откровенные формулировки про фигуру и одежду модерация Runway отклоняет
@@ -986,7 +990,7 @@ export function VideoForm({ hasOpenRouterKey, hasFalKey = false, hasElevenLabsKe
           {/* Индикатор русской озвучки выбранной модели */}
           {isA2V ? (
             <p className="mt-3 text-[11px] leading-snug text-neutral-500">
-              В видео останется ваша дорожка без изменений, на любом языке. Длина видео равна длине звука.
+              {model.a2vAudioNote} Длина видео равна длине звука.
             </p>
           ) : isV2V ? (
             <p className="mt-3 text-[11px] leading-snug text-neutral-500">
