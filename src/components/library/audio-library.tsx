@@ -38,6 +38,7 @@ import {
   deleteFolder,
   type FolderItem,
 } from "@/lib/actions/folders"
+import { downloadLibraryFiles } from "@/lib/library/zip"
 
 interface AudioLibraryProps {
   initialAudios: AudioLibraryItem[]
@@ -133,13 +134,8 @@ export function AudioLibrary({ initialAudios, initialTotal, initialFolders }: Au
   }
 
   function handleBulkDownload() {
-    for (const id of selectedIds) {
-      const link = document.createElement("a")
-      link.href = `/api/audios/${id}`
-      link.download = `voice-${id}`
-      link.click()
-    }
-    toast.success(`Скачивание ${selectedIds.size} аудио`)
+    downloadLibraryFiles("audios", selectedIds, (id) => ({ href: `/api/audios/${id}`, name: `voice-${id}` }))
+    toast.success(selectedIds.size > 1 ? `Собираем архив: ${selectedIds.size} аудио` : "Скачивание началось")
   }
 
   async function handleCreateFolder(name: string) {

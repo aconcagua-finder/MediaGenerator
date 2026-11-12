@@ -40,6 +40,7 @@ import {
   deleteFolder,
   type FolderItem,
 } from "@/lib/actions/folders"
+import { downloadLibraryFiles } from "@/lib/library/zip"
 
 interface VideoLibraryProps {
   initialVideos: VideoLibraryItem[]
@@ -154,13 +155,8 @@ export function VideoLibrary({
   }
 
   function handleBulkDownload() {
-    for (const id of selectedIds) {
-      const link = document.createElement("a")
-      link.href = `/api/videos/${id}`
-      link.download = `video-${id}.mp4`
-      link.click()
-    }
-    toast.success(`Скачивание ${selectedIds.size} видео`)
+    downloadLibraryFiles("videos", selectedIds, (id) => ({ href: `/api/videos/${id}`, name: `video-${id}.mp4` }))
+    toast.success(selectedIds.size > 1 ? `Собираем архив: ${selectedIds.size} видео` : "Скачивание началось")
   }
 
   async function handleCreateFolder(name: string) {

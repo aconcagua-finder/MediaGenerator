@@ -53,6 +53,7 @@ import {
   resetFolderPasswordWithAccount,
   type FolderItem,
 } from "@/lib/actions/folders"
+import { downloadLibraryFiles } from "@/lib/library/zip"
 
 interface LibraryViewProps {
   initialImages: ImageWithGeneration[]
@@ -226,15 +227,10 @@ export function LibraryView({
     })
   }
 
-  // Массовое скачивание (просто открываем каждое в новой вкладке)
+  // Массовое скачивание: один файл напрямую, несколько одним ZIP
   function handleBulkDownload() {
-    for (const id of selectedIds) {
-      const link = document.createElement("a")
-      link.href = `/api/images/${id}`
-      link.download = `image-${id}.png`
-      link.click()
-    }
-    toast.success(`Скачивание ${selectedIds.size} изображений`)
+    downloadLibraryFiles("images", selectedIds, (id) => ({ href: `/api/images/${id}`, name: `image-${id}.png` }))
+    toast.success(selectedIds.size > 1 ? `Собираем архив: ${selectedIds.size} изображений` : "Скачивание началось")
   }
 
   // Папки: создание, переименование, удаление

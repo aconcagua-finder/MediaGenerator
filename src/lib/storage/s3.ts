@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   CreateBucketCommand,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
@@ -163,6 +164,24 @@ export async function downloadStream(
     contentRange: response.ContentRange,
     statusCode: range && response.ContentRange ? 206 : 200,
   }
+}
+
+/**
+ * Размер объекта в байтах (HEAD, без скачивания). Нет объекта — исключение.
+ */
+export async function objectSize(key: string): Promise<number> {
+  const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }))
+  return head.ContentLength ?? 0
+}
+
+/**
+ * Объект как веб-поток (для сборки ZIP и прочих Web Streams потребителей).
+ */
+export async function objectWebStream(key: string): Promise<ReadableStream<Uint8Array>> {
+  const response = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
+  const body = response.Body as { transformToWebStream?: () => ReadableStream<Uint8Array> } | undefined
+  if (!body?.transformToWebStream) throw new Error(`Пустой ответ S3 для ${key}`)
+  return body.transformToWebStream()
 }
 
 /**

@@ -299,6 +299,7 @@
 | Большой блок чата с текстовыми моделями `/chat` (Claude/GPT/Gemini/Grok/DeepSeek через OpenRouter) | ✅ |
 | Markdown-рендер ответов (react-markdown + remark-gfm + highlight.js) | ✅ |
 | Картинка + звук → видео (Wan 2.7, своя озвучка) | 2026-11-09 |
+| Библиотека: массовое скачивание одним ZIP (видео, фото, аудио) | 2026-11-12 |
 | Streaming SSE через `/api/chat`, копирование, шаблоны ролей | ✅ |
 | Таблицы `chats` и `chat_messages` + drizzle-схема | ✅ |
 | Иконка "Чат" в сайдбаре | ✅ |
