@@ -24,6 +24,7 @@ export const VISION_TEXT_MODELS = new Set<string>([
   "anthropic/claude-opus-4.8",
   "anthropic/claude-haiku-5.5",
   "anthropic/claude-haiku-4.5",
+  "anthropic/claude-fable-5.2",
   "anthropic/claude-fable-5.1",
   // OpenAI — GPT-5 семейство мультимодальное
   "openai/gpt-5.4",
@@ -35,6 +36,8 @@ export const VISION_TEXT_MODELS = new Set<string>([
   "openai/gpt-6-luna",
   // Google — Gemini 3.x и 4 все принимают картинки
   "google/gemini-4-argon",
+  "google/gemini-4-carbon",
+  "google/gemini-4-hydrogen",
   "google/gemini-3.1-pro-preview",
   "google/gemini-3.5-flash",
   "google/gemini-3-flash-preview",
@@ -45,7 +48,8 @@ export const VISION_TEXT_MODELS = new Set<string>([
   "x-ai/grok-4.20-multi-agent",
   "x-ai/grok-4.3",
   "x-ai/grok-4.7",
-  // Qwen 3.8 и DeepSeek V4.1 — мультимодальные
+  // Qwen4/3.8 и DeepSeek V4.1 — мультимодальные
+  "qwen/qwen4-max",
   "qwen/qwen3.8-max-0902",
   "qwen/qwen3.8-flash",
   "deepseek/deepseek-v4.1-flash",

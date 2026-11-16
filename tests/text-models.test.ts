@@ -23,4 +23,18 @@ describe("реестр текстовых моделей", () => {
     expect(getTextModel("x-ai/grok-4.7")?.pricing).toEqual({ input: 2.0, output: 6.0 })
     expect(getTextModel("qwen/qwen3.8-max-0902")?.vendor).toBe("qwen")
   })
+
+  it("новые модели W47 с ценами живого /models и vision", async () => {
+    const { supportsVision } = await import("@/lib/capabilities")
+    const expected: Record<string, { input: number; output: number }> = {
+      "anthropic/claude-fable-5.2": { input: 8.0, output: 40.0 },
+      "google/gemini-4-carbon": { input: 2.0, output: 10.0 },
+      "google/gemini-4-hydrogen": { input: 1.5, output: 7.5 },
+      "qwen/qwen4-max": { input: 1.5, output: 4.5 },
+    }
+    for (const [id, pricing] of Object.entries(expected)) {
+      expect(getTextModel(id)?.pricing, id).toEqual(pricing)
+      expect(supportsVision(id), id).toBe(true)
+    }
+  })
 })

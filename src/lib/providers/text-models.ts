@@ -3,7 +3,7 @@
  * Все они вызываются через единый OpenRouter endpoint (chat/completions),
  * поэтому достаточно одного API-ключа OpenRouter.
  *
- * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — 12.10.2026.
+ * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — 16.11.2026 (W47).
  */
 
 export interface TextModel {
@@ -135,14 +135,26 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "anthropic/claude-fable-5.2",
+    name: "Claude Fable 5.2",
+    vendor: "anthropic",
+    description: "Новейший старший тир Anthropic (09.11.2026): сильнее Fable 5.1 в коде, рассуждениях и работе с картинками — и на 20% дешевле. $8/$40.",
+    category: "smart",
+    contextTokens: 1_000_000,
+    // Живой /models W47: $8/$40 (Fable 5.1 — $10/$50). Живой вызов 200.
+    pricing: { input: 8.0, output: 40.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "anthropic/claude-fable-5.1",
     name: "Claude Fable 5.1",
     vendor: "anthropic",
-    description: "Старший тир Anthropic (сентябрь 2026): лучшая в линейке в агентном коде и долгих задачах. Дорогая — $10/$50.",
+    description: "Прошлый старший тир Anthropic (сентябрь 2026). Fable 5.2 новее, сильнее и дешевле — $8/$40 против $10/$50.",
     category: "smart",
     contextTokens: 1_000_000,
     pricing: { input: 10.0, output: 50.0 },
-    isNew: true,
     streaming: true,
     supportsVision: true,
   },
@@ -195,6 +207,19 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "google/gemini-4-carbon",
+    name: "Gemini 4 Carbon",
+    vendor: "google",
+    description: "Свежая топ-модель Gemini 4 (10.11.2026) для кода, агентных и сложных рассуждений. Картинки, аудио, видео и файлы на входе, 1M контекст.",
+    category: "smart",
+    contextTokens: 1_049_000,
+    // Живой /models W47: $2/$10, как у Argon. Живой вызов с temperature 200.
+    pricing: { input: 2.0, output: 10.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "google/gemini-3.1-pro-preview",
     name: "Gemini 3.1 Pro",
     vendor: "google",
@@ -215,6 +240,19 @@ export const TEXT_MODELS: TextModel[] = [
     category: "fast",
     contextTokens: 1_049_000,
     pricing: { input: 1.5, output: 9.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "google/gemini-4-hydrogen",
+    name: "Gemini 4 Hydrogen",
+    vendor: "google",
+    description: "Рабочая лошадка Gemini 4 (12.11.2026): код, агентные задачи, массовая обработка — быстрее и дешевле Carbon/Argon. 1M контекст, принимает картинки.",
+    category: "fast",
+    contextTokens: 1_049_000,
+    // Живой /models W47: $1.5/$7.5. Живой вызов с temperature 200.
+    pricing: { input: 1.5, output: 7.5 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -350,6 +388,19 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "qwen/qwen4-max",
+    name: "Qwen4 Max",
+    vendor: "qwen",
+    description: "Alibaba — флагман нового поколения Qwen4 (15.11.2026): рассуждения по умолчанию, картинки и видео на входе, 1M контекст. Дешевле Qwen 3.8 Max.",
+    category: "alt",
+    contextTokens: 1_000_000,
+    // Живой /models W47: $1.5/$4.5. Живой вызов с temperature 200.
+    pricing: { input: 1.5, output: 4.5 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "qwen/qwen3.8-max-0902",
     name: "Qwen 3.8 Max",
     vendor: "qwen",
@@ -387,9 +438,10 @@ export const TEXT_MODELS: TextModel[] = [
     // до $1.6/$3.2 (+67%); в W39 откатился обратно к $0.95526/$1.91052 (−40%,
     // сверено с живым /models); W41 (07.10.2026) — просел до $0.2088/$0.4176 (−78%);
     // W42 (12.10.2026) — вернулся к StreamLake $0.95526/$1.91052 (×4.6);
-    // W45 (02.11.2026) — снова $1.6/$3.2 (+67%); W46 (09.11.2026) — $0.9553/$1.9105 (−40%).
+    // W45 (02.11.2026) — снова $1.6/$3.2 (+67%); W46 (09.11.2026) — $0.9553/$1.9105 (−40%);
+    // W47 (16.11.2026) — $0.9/$1.5.
     // Реселлеры сильно волатильны, следующий аудит сверит снова.
-    pricing: { input: 0.9553, output: 1.9105 },
+    pricing: { input: 0.9, output: 1.5 },
     isNew: true,
     streaming: true,
   },
@@ -402,8 +454,8 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 1_049_000,
     // W42: дефолт /models сместился с реселлера ($0.05/$1.2) на нативный DeepSeek $0.15/$0.60.
     // W43: снова реселлер — $0.04/$0.08 (нативный тариф DeepSeek теперь у снапшота -1017).
-    // W44: $0.02/$1.00; W45: $0.045/$0.50; W46: $0.051/$0.567.
-    pricing: { input: 0.051, output: 0.567 },
+    // W44: $0.02/$1.00; W45: $0.045/$0.50; W46: $0.051/$0.567; W47: $0.14/$0.42.
+    pricing: { input: 0.14, output: 0.42 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -418,8 +470,8 @@ export const TEXT_MODELS: TextModel[] = [
     // Дефолтный роут OpenRouter волатилен: W31 $0.098/$0.196 → W34 $0.14/$0.28 →
     // W35 $0.0574/$0.1148 → W36 $0.088606/$0.177212 → W40 $0.14/$0.28 → W41 $0.03/$1.28
     // (вход −79%, выход ×4.6 — реселлер с перекошенным тарифом, сверено с живым /models).
-    // W43 $0.091/$0.182. Реселлеры волатильны — следующий аудит сверит снова.
-    pricing: { input: 0.091, output: 0.182 },
+    // W43 $0.091/$0.182; W47 $0.09/$0.18. Реселлеры волатильны — следующий аудит сверит снова.
+    pricing: { input: 0.09, output: 0.18 },
     streaming: true,
   },
 ]

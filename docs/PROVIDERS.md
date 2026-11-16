@@ -1,6 +1,6 @@
 # MediaGenerator — Провайдеры и модели
 
-> Актуально на: ноябрь 2026 (аудит 2026-W46)
+> Актуально на: ноябрь 2026 (аудит 2026-W47)
 
 ---
 
@@ -32,7 +32,10 @@
 > (W44: OpenAI теперь рекомендует замену `gpt-image-2.5-*`, а не `gpt-image-2`. У нас 2.5 доступна
 > через OpenRouter (`openai/gpt-image-2.5-*`); прямой OpenAI-вариант не заведён — цена по токенам
 > ($30/1М выходных image-токенов). W46: OpenRouter заявляет `background: transparent` у `gpt-image-2.5-*`
-> и `2.6-*`, но наш спек этот параметр пока не передаёт.)
+> и `2.6-*`, но наш спек этот параметр пока не передаёт. **W47: заведено** — у Images-API моделей с
+> `transparentBackground` (GPT Image 2.5/2.6, Seedream 5.0 Pro/Flash и 5.5, Riverflow 2.5/2.6) в форме есть «Фон»
+> opaque/transparent, адаптер передаёт `background`. Живой вызов: `gpt-image-2.6-flare` и `seedream-5-5` отдают PNG RGBA,
+> 54% и 82% пикселей полностью прозрачны. Прозрачный фон после 01.12 не пропадёт.)
 >
 > `gpt-image-2` — единственная без даты отключения. ❗ Но она НЕ умеет прозрачный
 > фон, а `gpt-image-1.5`/`gpt-image-1` умеют — то есть после 01.12.2026 у нас
@@ -169,6 +172,9 @@
 
 | Модель | ID | Цена за изобр. | Размеры | Референс (правка) |
 |--------|----|----------------|---------|-------------------|
+| Seedream 5.5 (W47) | `bytedance-seed/seedream-5-5` | 1K $0.02 / 2K $0.035 | 1K/2K | да |
+| MiniMax H3 Image (W47) | `minimax/minimax-h3-image` | ~$0.025 (токены) | 1K/2K | да |
+| Recraft V4.1 Flash v2 (W47) | `recraft/recraft-v4.1-flash-v2` | $0.007 | — | нет |
 | GPT Image 2.6 Sunburst (W46) | `openai/gpt-image-2.6-sunburst` | $0.12 | — | да |
 | GPT Image 2.6 Flare (W46) | `openai/gpt-image-2.6-flare` | $0.12 | — | да |
 | GPT Image 2.5 Sunburst | `openai/gpt-image-2.5-sunburst` | $0.12 | — | да |
@@ -522,6 +528,35 @@ $0.048 (OpenRouter сейчас даёт скидку 50%). Цены Gemini-по
 > - **Perplexity:** даты отключения Sonar Chat Completions в changelog нет; 24.10 из Agent API уходят GPT-5.x — не касается.
 > - **Дубли цен:** `OPENAI_PRICING` (reddit-search), `PERPLEXITY_PRICING`, `cover-models.ts` совпадают с живыми ценами.
 
+> **Аудит 2026-W47 (16.11.2026).**
+> - **Механический дифф.** Видео: 32 id. Новых нет. ❗ **Убрана** `bytedance/seedance-1-5-pro`: пропала из `/videos/models`,
+>   `POST /videos` отвечает 404 «No endpoints found». Генераций ею в БД нет. Вне реестра остались прежние осознанные пропуски:
+>   `gemini-omni-1.1-flash` (уходит на 1.2 03.12), `flux-video-edit` (v2v-кандидат, контракт не проверен), `flux-video-upscale`
+>   и `heygen/avatar-iv` (режимов нет).
+>   Картинки: 72 id (+6). **Добавлены** `bytedance-seed/seedream-5-5` (12.11, 1K $0.02 / 2K $0.035, до 10 референсов, прозрачный
+>   фон), `minimax/minimax-h3-image` (10.11, токенный тариф, живой вызов 1K $0.0231 / 2K $0.0233 → оценка $0.025, 1–16
+>   референсов) и `recraft/recraft-v4.1-flash-v2` (13.11, $0.007). Все три проверены живым вызовом Images API.
+>   **Пропущены** `minimax/minimax-h3-image-highspeed` (та же модель вдвое дороже, выигрыш только в скорости),
+>   `recraft/recraft-v4.1-flash-v2:free` (бесплатный дубль с лимитами), `tencent/hy-world-2.1-panorama` (только 360°-панорама,
+>   без параметров, просмотра панорам в сервисе нет). Остальное вне реестра — прежние пропуски (Recraft V4 Styles, дубли
+>   прямых провайдеров, Gemini `*-preview`, `openrouter/auto*`, `krea/k3-edit`, `qwen-image-2.1-pro`).
+>   ❗ Крон `model-check` уже вставил новые id заглушками (`is_active=false`, пустая схема). `seedModels()` оживляет их при
+>   открытии `/generate`.
+>   Текст: **добавлены** `anthropic/claude-fable-5.2` (09.11, $8/$40, дешевле Fable 5.1), `google/gemini-4-carbon`
+>   (10.11, $2/$10), `google/gemini-4-hydrogen` (12.11, $1.5/$7.5), `qwen/qwen4-max` (15.11, $1.5/$4.5). Все 1M контекста
+>   и vision, живой вызов с `temperature` прошёл (200). Пропущены `*:batch`.
+> - **Чат:** дрейф DeepSeek (реселлеры): `deepseek-v4-pro` → $0.9/$1.5, `deepseek-v4.1-flash` → $0.14/$0.42,
+>   `deepseek-v4-flash` → $0.09/$0.18. Остальные цены и контексты совпали.
+> - **Картинки:** ❗ `gpt-image-1.5`/`-1-mini` отключаются **01.12.2026** (официальная замена OpenAI — `gpt-image-2`, но
+>   прозрачный фон она не умеет). Прозрачный фон перенесён на OpenRouter-модели (см. таблицу отключений выше). Сами
+>   1.5/1-mini (сид, правки, обложки `openai:gpt-image-1.5`) убрать аудитом W49 или сразу после 01.12. FLUX.2 pro/max/flex,
+>   Seedream 4.5, все Gemini-слаги, `gpt-5-image*`: `/endpoints` 200, status 0. Google: новых image-депрекейшенов нет.
+> - **Видео:** у `heygen-video-1` появились SKU `long_reference_duration_seconds_*` (длинный клип с референсом). Снимок
+>   обновлён, оценка за секунду не меняется. xAI новее `grok-imagine-video-1.5` не выпускал.
+> - **Классификатор:** `claude-sonnet-4.6` жива, $3/$15; отключение не раньше 17.02.2027.
+> - **Публикации:** `PERPLEXITY_PRICING` и `OPENAI_PRICING` (reddit-search) совпадают с живыми ценами. Обложки: все слаги
+>   живы. ⚠️ `openai:gpt-image-1.5` в списке обложек перестанет работать 01.12 (не дефолт ни одного стиля).
+
 > **Аудит 2026-W46 (09.11.2026).**
 > - **Механический дифф.** Видео: 33 id (+2). **Добавлена** `google/gemini-omni-1.2-flash` (GA 05.11): t2v/i2v, 3–15 сек,
 >   360p/720p/1080p/4K, 16:9 и 9:16, $0.023/$0.07/$0.104/$0.209 за сек. В `pricing_skus` только тариф со звуком, поэтому цена
@@ -801,7 +836,6 @@ Reddit-обсуждений: запускается web-search-tool, модел�
 | `bytedance/seedance-2.5` | оба | да | 4–30 | 480p/720p | ~0.10–0.23 |
 | `bytedance/seedance-2.0-fast` | оба | да | 4/8/12 | 480p/720p | ~0.04 |
 | `bytedance/seedance-2.0-mini` | оба | да | 4/8/12 | 480p/720p | ~0.034–0.076 |
-| `bytedance/seedance-1-5-pro` | оба | да | 4/8/12 | 480p/720p/1080p | ~0.02 |
 | `x-ai/grok-imagine-video` | оба | нет | 5/10 | 480p/720p | ~0.06 |
 | `x-ai/grok-imagine-video-1.5` | оба² | нет² | 5/10 | 480p/720p/1080p | ~0.08–0.25 |
 | `x-ai/grok-imagine-video-1.5-lite` | оба | нет | 5/10/15 | 480p/720p/1080p | ~0.02–0.14 |
