@@ -101,6 +101,8 @@ async function imagesApiRequest(
   if (params.aspect_ratio) body.aspect_ratio = params.aspect_ratio
   if (params.image_size) body.resolution = toResolutionTier(String(params.image_size))
   if (params.quality) body.quality = params.quality
+  // Фон есть в схеме только у моделей с transparentBackground (см. openrouter-image-models.ts)
+  if (params.background === "transparent" || params.background === "opaque") body.background = params.background
   const format = imagesApiOutputFormat(model)
   if (format) body.output_format = format
   if (reference) {

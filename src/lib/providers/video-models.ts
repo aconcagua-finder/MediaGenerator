@@ -577,23 +577,6 @@ export const VIDEO_MODELS: VideoModel[] = [
     isNew: true,
   },
   {
-    id: "bytedance/seedance-1-5-pro",
-    name: "Seedance 1.5 Pro",
-    vendor: "bytedance",
-    description: "ByteDance — прошлое поколение Seedance: очень дёшево, со звуком и i2v, до 1080p. Без русской озвучки.",
-    modes: ["t2v", "i2v"],
-    supportsAudio: true,
-    russianSpeech: "none",
-    durations: [4, 8, 12],
-    resolutions: ["480p", "720p", "1080p"],
-    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "9:21"],
-    // video_tokens $0.0000012 без звука / $0.0000024 со звуком
-    price: {
-      perSecond: { "480p": 0.0115, "720p": 0.0259, "1080p": 0.0583 },
-      perSecondAudio: { "480p": 0.0231, "720p": 0.0518, "1080p": 0.1166 },
-    },
-  },
-  {
     id: "x-ai/grok-imagine-video-1.5",
     name: "Grok Imagine Video 1.5",
     vendor: "xai",
@@ -731,7 +714,6 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "alibaba/wan-2.7": { duration_seconds: 0.1 },
   "alibaba/wan-3.0": { duration_seconds_480p: 0.05, duration_seconds_720p: 0.1, duration_seconds_1080p: 0.2 },
   "bytedance/seedance-2.0-fast": { video_tokens: 0.0000042, video_tokens_without_audio: 0.0000042, video_tokens_with_video_input: 0.000002475 },
-  "bytedance/seedance-1-5-pro": { video_tokens: 0.0000024, video_tokens_without_audio: 0.0000012 },
   "x-ai/grok-imagine-video": {
     cents_per_image_input: 0.2, cents_per_video_output_second_480p: 5, cents_per_video_output_second_720p: 7,
   },
@@ -753,6 +735,9 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
     long_duration_seconds_480p: 0.045, long_duration_seconds_768p: 0.075, long_duration_seconds_1080p: 0.105, long_duration_seconds_2k: 0.105,
     reference_duration_seconds_480p: 0.07, reference_duration_seconds_768p: 0.1, reference_duration_seconds_1080p: 0.18, reference_duration_seconds_2k: 0.18,
     reference_input_images: 0.04,
+    // W47: появились long_reference_* (длинный клип с референсом), в оценку за секунду не входят
+    long_reference_duration_seconds_480p: 0.07, long_reference_duration_seconds_768p: 0.1,
+    long_reference_duration_seconds_1080p: 0.18, long_reference_duration_seconds_2k: 0.18,
   },
   "tbc/mischief-1": { cents_per_video_output_second_480p: 0.5, cents_per_video_output_second_720p: 1 },
   "google/gemini-omni-1.2-flash": {

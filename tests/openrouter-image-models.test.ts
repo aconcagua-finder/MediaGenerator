@@ -104,6 +104,33 @@ describe("стоимость новых image-моделей OpenRouter", () => 
     expect(calculateCost("openrouter", "qwen/qwen-image-2.1-turbo", { image_size: "2K" }, 2)).toBeCloseTo(0.0368, 6)
   })
 
+  it("новые модели W47: Seedream 5.5, MiniMax H3 Image, Recraft V4.1 Flash v2", () => {
+    expect(calculateCost("openrouter", "bytedance-seed/seedream-5-5", { image_size: "1K" }, 1)).toBeCloseTo(0.02, 6)
+    expect(calculateCost("openrouter", "bytedance-seed/seedream-5-5", { image_size: "2K" }, 1)).toBeCloseTo(0.035, 6)
+    expect(calculateCost("openrouter", "minimax/minimax-h3-image", { image_size: "2K" }, 2)).toBeCloseTo(0.05, 6)
+    expect(calculateCost("openrouter", "recraft/recraft-v4.1-flash-v2", {}, 1)).toBeCloseTo(0.007, 6)
+    expect(supportsImageInput("openrouter", "bytedance-seed/seedream-5-5")).toBe(true)
+    expect(supportsImageInput("openrouter", "minimax/minimax-h3-image")).toBe(true)
+    expect(supportsImageInput("openrouter", "recraft/recraft-v4.1-flash-v2")).toBe(false)
+  })
+
+  it("W47: прозрачный фон — опция «Фон» только у моделей с transparentBackground", () => {
+    const withBg = OPENROUTER_IMAGE_SPECS.filter((s) => s.transparentBackground).map((s) => s.modelId)
+    expect(withBg).toEqual(expect.arrayContaining([
+      "openai/gpt-image-2.6-sunburst", "openai/gpt-image-2.6-flare", "bytedance-seed/seedream-5-5",
+    ]))
+    for (const spec of OPENROUTER_IMAGE_SPECS) {
+      const seed = SEED_MODELS.find((m) => m.provider === "openrouter" && m.modelId === spec.modelId)!
+      const bg = (seed.paramsSchema as Record<string, { options: string[]; default: string } | undefined>).background
+      if (spec.transparentBackground) {
+        expect(bg?.options, spec.modelId).toEqual(["opaque", "transparent"])
+        expect(bg?.default, spec.modelId).toBe("opaque")
+      } else {
+        expect(bg, spec.modelId).toBeUndefined()
+      }
+    }
+  })
+
   it("новые модели W46: GPT Image 2.6 (оценка как у 2.5, правка доступна)", () => {
     for (const id of ["openai/gpt-image-2.6-sunburst", "openai/gpt-image-2.6-flare"]) {
       expect(calculateCost("openrouter", id, {}, 1)).toBeCloseTo(0.12, 6)

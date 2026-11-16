@@ -41,7 +41,8 @@ export const SEED_MODELS: SeedModel[] = [
         default: "png",
       },
       // GPT Image 2 не поддерживает transparent background (отвечает 400),
-      // поэтому опция фона тут отсутствует. Для прозрачного фона — gpt-image-1.5.
+      // поэтому опция фона тут отсутствует. Для прозрачного фона — GPT Image 2.6 / Seedream 5.5
+      // через OpenRouter (W47; gpt-image-1.5 отключается 01.12.2026).
       moderation: {
         type: "select",
         label: "Модерация",
@@ -60,7 +61,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openai",
     modelId: "gpt-image-1.5",
     displayName: "GPT Image 1.5",
-    description: "Прошлый флагман OpenAI. ⚠️ Отключается 01.12.2026 — переходите на GPT Image 2.",
+    description: "Прошлый флагман OpenAI. ⚠️ Отключается 01.12.2026 — переходите на GPT Image 2.6 (OpenRouter, умеет прозрачный фон).",
     paramsSchema: {
       size: {
         type: "select",
@@ -104,7 +105,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openai",
     modelId: "gpt-image-1-mini",
     displayName: "GPT Image 1 Mini",
-    description: "Бюджетная модель, самая дешёвая от OpenAI. ⚠️ Отключается 01.12.2026 — переходите на GPT Image 2.",
+    description: "Бюджетная модель, самая дешёвая от OpenAI. ⚠️ Отключается 01.12.2026 — переходите на GPT Image 2.6 (OpenRouter, умеет прозрачный фон).",
     paramsSchema: {
       size: {
         type: "select",
@@ -750,6 +751,14 @@ function openrouterImageSeed(spec: OpenRouterImageSpec): SeedModel {
       label: "Размер",
       options: spec.sizes,
       default: spec.sizes[0],
+    }
+  }
+  if (spec.transparentBackground) {
+    paramsSchema.background = {
+      type: "select",
+      label: "Фон",
+      options: ["opaque", "transparent"],
+      default: "opaque",
     }
   }
   if (spec.quality) {

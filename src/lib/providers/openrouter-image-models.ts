@@ -16,6 +16,9 @@
  *  - inclusionai/ming-image-0.1-design-layer: тоже требует входное изображение;
  *  - krea/k3-edit: только правка, требует 1–8 референсов (W43);
  *  - qwen/qwen-image-2.1-pro: дороже Qwen Image 3 Pro (1K) при старшем поколении (W43);
+ *  - minimax/minimax-h3-image-highspeed: та же модель вдвое дороже, выигрыш только в скорости (W47);
+ *  - recraft/recraft-v4.1-flash-v2:free: бесплатный дубль с лимитами (W47);
+ *  - tencent/hy-world-2.1-panorama: только 360°-панорама без параметров, просмотра панорам нет (W47);
  *  - *-preview, у которых есть GA, дубли прямых провайдеров и openrouter/auto*.
  *
  * Убраны: inclusionai/ming-image-0.1-design — пропала с OpenRouter (404, W43),
@@ -39,6 +42,12 @@ export interface OpenRouterImageSpec {
   price: OpenRouterImagePrice
   /** Принимает ли референс-картинку (редактирование / image-to-image) */
   imageInput: boolean
+  /**
+   * Поддерживает `background: transparent` в Images API (по `/endpoints`). W47: замена
+   * прозрачного фона `gpt-image-1.5`/`-1-mini`, которые OpenAI отключает 01.12.2026.
+   * Живой вызов: gpt-image-2.6-flare и seedream-5-5 отдают PNG с альфа-каналом.
+   */
+  transparentBackground?: boolean
 }
 
 const A_WIDE = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]
@@ -58,6 +67,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     // токенный тариф как у 2.5: $0.00003 за выходной image-токен; оценка по высокому качеству
     price: { perImage: 0.12 },
     imageInput: true,
+    transparentBackground: true,
   },
   {
     modelId: "openai/gpt-image-2.6-flare",
@@ -67,6 +77,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     sizes: [],
     price: { perImage: 0.12 },
     imageInput: true,
+    transparentBackground: true,
   },
 
   // === OpenAI GPT Image 2.5 ===
@@ -79,6 +90,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     // токенный тариф $0.00003, как у GPT-5.4 Image 2; оценка по высокому качеству
     price: { perImage: 0.12 },
     imageInput: true,
+    transparentBackground: true,
   },
   {
     modelId: "openai/gpt-image-2.5-flare",
@@ -88,6 +100,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     sizes: [],
     price: { perImage: 0.12 },
     imageInput: true,
+    transparentBackground: true,
   },
 
   // === Black Forest Labs ===
@@ -112,6 +125,19 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     imageInput: true,
   },
 
+  // === ByteDance Seedream 5.5 (W47) ===
+  {
+    modelId: "bytedance-seed/seedream-5-5",
+    displayName: "Seedream 5.5",
+    description: "ByteDance — новый Seedream 5.5 (ноябрь 2026): генерация и правки, до 10 референсов, прозрачный фон. Дешевле Seedream 5.0 Pro.",
+    aspects: A_WIDE,
+    sizes: ["1K", "2K"],
+    // output_image $0.02, вариант high_resolution $0.035 (= 2K). Живой вызов W47: 1K $0.02, 2K $0.035
+    price: { bySize: { "1K": 0.02, "2K": 0.035 } },
+    imageInput: true,
+    transparentBackground: true,
+  },
+
   // === ByteDance Seedream 5.0 ===
   {
     modelId: "bytedance-seed/seedream-5-0-pro",
@@ -122,6 +148,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     // output_image 0.045, вариант high_resolution 0.09 (отнесён к 2K)
     price: { bySize: { "1K": 0.045, "2K": 0.09 } },
     imageInput: true,
+    transparentBackground: true,
   },
   {
     modelId: "bytedance-seed/seedream-5-0-lite",
@@ -140,6 +167,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     sizes: ["1K", "2K"],
     price: { perImage: 0.018 },
     imageInput: true,
+    transparentBackground: true,
   },
 
   // === xAI ===
@@ -253,6 +281,16 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     description: "Recraft — самая быстрая и дешёвая V4.1 (~1.5 сек, ~1K). Только из текста, без референсов.",
     aspects: A_RECRAFT,
     sizes: [],
+    price: { perImage: 0.007 },
+    imageInput: false,
+  },
+  {
+    modelId: "recraft/recraft-v4.1-flash-v2",
+    displayName: "Recraft V4.1 Flash v2",
+    description: "Recraft — обновлённая V4.1 Flash (ноябрь 2026): та же скорость и цена, качество выше. Только из текста, без референсов.",
+    aspects: A_RECRAFT,
+    sizes: [],
+    // Живой вызов W47: $0.007
     price: { perImage: 0.007 },
     imageInput: false,
   },
@@ -384,6 +422,19 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     imageInput: true,
   },
 
+  // === MiniMax (W47) ===
+  {
+    modelId: "minimax/minimax-h3-image",
+    displayName: "MiniMax H3 Image",
+    description: "MiniMax — H3 Image (ноябрь 2026): генерация и правки по 1–16 референсам, много форматов кадра. Цена почти не зависит от размера.",
+    aspects: A_WIDE,
+    sizes: ["1K", "2K"],
+    // Токенный тариф (вход $2.3/1М + выход $3.8/1М), промпт модель сама расширяет.
+    // Живой вызов W47: 1K $0.0231, 2K $0.0233 (~4100 image-токенов) → оценка $0.025
+    price: { bySize: { "1K": 0.025, "2K": 0.025 } },
+    imageInput: true,
+  },
+
   // === Tencent ===
   {
     modelId: "tencent/hy-image-v3.5-preview",
@@ -423,6 +474,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     sizes: ["1K", "2K"],
     price: { bySize: { "1K": 0.019, "2K": 0.021 } },
     imageInput: true,
+    transparentBackground: true,
   },
   {
     modelId: "sourceful/riverflow-v2.5-pro",
@@ -432,6 +484,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     sizes: ["1K", "2K", "4K"],
     price: { bySize: { "1K": 0.13, "2K": 0.15, "4K": 0.17 } },
     imageInput: true,
+    transparentBackground: true,
   },
   {
     modelId: "sourceful/riverflow-v2.6-pro",
@@ -443,6 +496,7 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
     // (у 2.5 Pro в тот же день $0.246): фактическое списание выше листинга, берётся из usage.cost
     price: { bySize: { "1K": 0.13, "2K": 0.15, "4K": 0.17 } },
     imageInput: true,
+    transparentBackground: true,
   },
 ]
 
