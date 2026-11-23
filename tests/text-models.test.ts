@@ -30,7 +30,20 @@ describe("реестр текстовых моделей", () => {
       "anthropic/claude-fable-5.2": { input: 8.0, output: 40.0 },
       "google/gemini-4-carbon": { input: 2.0, output: 10.0 },
       "google/gemini-4-hydrogen": { input: 1.5, output: 7.5 },
-      "qwen/qwen4-max": { input: 1.5, output: 4.5 },
+      "qwen/qwen4-max": { input: 1.425, output: 4.275 },
+    }
+    for (const [id, pricing] of Object.entries(expected)) {
+      expect(getTextModel(id)?.pricing, id).toEqual(pricing)
+      expect(supportsVision(id), id).toBe(true)
+    }
+  })
+
+  it("новые модели W48 с ценами живого /models и vision", async () => {
+    const { supportsVision } = await import("@/lib/capabilities")
+    const expected: Record<string, { input: number; output: number }> = {
+      "openai/gpt-6.2-sol": { input: 2.0, output: 10.0 },
+      "openai/gpt-6.2-astra": { input: 8.0, output: 40.0 },
+      "google/gemini-4-neon": { input: 3.0, output: 15.0 },
     }
     for (const [id, pricing] of Object.entries(expected)) {
       expect(getTextModel(id)?.pricing, id).toEqual(pricing)

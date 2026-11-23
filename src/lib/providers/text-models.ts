@@ -3,7 +3,7 @@
  * Все они вызываются через единый OpenRouter endpoint (chat/completions),
  * поэтому достаточно одного API-ключа OpenRouter.
  *
- * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — 16.11.2026 (W47).
+ * Цены и контекстные окна проверены через openrouter.ai/api/v1/models — 23.11.2026 (W48).
  */
 
 export interface TextModel {
@@ -74,10 +74,23 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "openai/gpt-6.2-sol",
+    name: "GPT-6.2 Sol",
+    vendor: "openai",
+    description: "Свежая GPT-6.2 (17.11.2026) — апгрейд GPT-6.1 Sol по той же цене: повседневная работа, код, документы. 1M контекст, принимает картинки.",
+    category: "balanced",
+    contextTokens: 1_050_000,
+    // Живой /models W48: $2/$10. Живой вызов с temperature 200.
+    pricing: { input: 2.0, output: 10.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "openai/gpt-6.1-sol",
     name: "GPT-6.1 Sol",
     vendor: "openai",
-    description: "Свежая GPT-6.1 (сентябрь 2026) — средний тир после флагмана Astra. Код, агентные задачи, документы. Дешевле GPT-5.5 в 2.5 раза.",
+    description: "GPT-6.1 (сентябрь 2026) — средний тир после флагмана Astra. Код, агентные задачи, документы. GPT-6.2 Sol новее по той же цене.",
     category: "balanced",
     contextTokens: 1_050_000,
     pricing: { input: 2.0, output: 10.0 },
@@ -93,6 +106,19 @@ export const TEXT_MODELS: TextModel[] = [
     category: "balanced",
     contextTokens: 1_050_000,
     pricing: { input: 1.0, output: 5.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
+    id: "google/gemini-4-neon",
+    name: "Gemini 4 Neon",
+    vendor: "google",
+    description: "Gemini 4 Neon (18.11.2026): быстрая модель среднего класса для кода и агентных задач. Картинки, аудио, видео и файлы на входе, 1M контекст. Дороже Carbon.",
+    category: "balanced",
+    contextTokens: 1_049_000,
+    // Живой /models W48: $3/$15. Живой вызов с temperature 200.
+    pricing: { input: 3.0, output: 15.0 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -123,10 +149,23 @@ export const TEXT_MODELS: TextModel[] = [
     supportsVision: true,
   },
   {
+    id: "openai/gpt-6.2-astra",
+    name: "GPT-6.2 Astra",
+    vendor: "openai",
+    description: "Новый флагман OpenAI GPT-6.2 (17.11.2026) для самых сложных задач: инженерия, профессиональная работа, исследования. Дешевле GPT-6 Astra — $8/$40.",
+    category: "smart",
+    contextTokens: 1_050_000,
+    // Живой /models W48: $8/$40. Живой вызов с temperature 200.
+    pricing: { input: 8.0, output: 40.0 },
+    isNew: true,
+    streaming: true,
+    supportsVision: true,
+  },
+  {
     id: "openai/gpt-6-astra",
     name: "GPT-6 Astra",
     vendor: "openai",
-    description: "Флагман OpenAI GPT-6 (сентябрь 2026) для самых сложных задач: анализ, разработка, исследования. Дорогая — $10/$50.",
+    description: "Прошлый флагман OpenAI GPT-6 (сентябрь 2026): анализ, разработка, исследования. GPT-6.2 Astra новее и дешевле — эта $10/$50.",
     category: "smart",
     contextTokens: 1_050_000,
     pricing: { input: 10.0, output: 50.0 },
@@ -394,8 +433,8 @@ export const TEXT_MODELS: TextModel[] = [
     description: "Alibaba — флагман нового поколения Qwen4 (15.11.2026): рассуждения по умолчанию, картинки и видео на входе, 1M контекст. Дешевле Qwen 3.8 Max.",
     category: "alt",
     contextTokens: 1_000_000,
-    // Живой /models W47: $1.5/$4.5. Живой вызов с temperature 200.
-    pricing: { input: 1.5, output: 4.5 },
+    // Живой /models W47: $1.5/$4.5; W48: $1.425/$4.275 (−5%). Живой вызов с temperature 200.
+    pricing: { input: 1.425, output: 4.275 },
     isNew: true,
     streaming: true,
     supportsVision: true,
@@ -454,8 +493,8 @@ export const TEXT_MODELS: TextModel[] = [
     contextTokens: 1_049_000,
     // W42: дефолт /models сместился с реселлера ($0.05/$1.2) на нативный DeepSeek $0.15/$0.60.
     // W43: снова реселлер — $0.04/$0.08 (нативный тариф DeepSeek теперь у снапшота -1017).
-    // W44: $0.02/$1.00; W45: $0.045/$0.50; W46: $0.051/$0.567; W47: $0.14/$0.42.
-    pricing: { input: 0.14, output: 0.42 },
+    // W44: $0.02/$1.00; W45: $0.045/$0.50; W46: $0.051/$0.567; W47: $0.14/$0.42; W48: $0.0498/$0.1992.
+    pricing: { input: 0.0498, output: 0.1992 },
     isNew: true,
     streaming: true,
     supportsVision: true,

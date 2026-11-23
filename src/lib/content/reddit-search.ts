@@ -28,6 +28,8 @@ const OPENAI_PRICING: Record<string, { input: number; output: number }> = {
   "gpt-5.4": { input: 2.5, output: 15.0 },
   "gpt-5.5": { input: 5.0, output: 30.0 },
   "gpt-5-mini": { input: 0.25, output: 2.0 },
+  "gpt-6.2-sol": { input: 2.0, output: 10.0 },
+  "gpt-6.2-astra": { input: 8.0, output: 40.0 },
   "gpt-6.1-sol": { input: 2.0, output: 10.0 },
   "gpt-6.1-terra": { input: 1.0, output: 5.0 },
   "gpt-6-sol": { input: 2.0, output: 10.0 },

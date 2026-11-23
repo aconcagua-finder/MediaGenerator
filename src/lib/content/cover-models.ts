@@ -22,7 +22,7 @@ export const COVER_MODELS: CoverModelOption[] = [
     provider: "openai",
     model: "gpt-image-2",
     label: "OpenAI gpt-image-2",
-    hint: "Новейшая, лучше всех с кириллицей и деталями. Дороже.",
+    hint: "Лучше всех с кириллицей и деталями. Дороже. ⚠️ OpenAI отключает её 10.02.2027.",
     goodForCyrillic: true,
     approxCost: "~$0.04-0.13",
   },

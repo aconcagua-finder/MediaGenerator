@@ -104,6 +104,8 @@ describe("оценка стоимости видео", () => {
     expect(p("bytedance/seedance-2.0-mini", "720p")).toBeCloseTo(1280 * 720 * 0.0234375 * 0.0000035, 3)
     expect(p("bytedance/seedance-2.5", "720p")).toBeCloseTo(1280 * 720 * 0.0234375 * 0.0000107, 3)
     expect(p("bytedance/seedance-2.5", "480p")).toBeCloseTo(854 * 480 * 0.0234375 * 0.0000107, 3)
+    expect(p("bytedance/seedance-2.5-flash", "720p")).toBeCloseTo(1280 * 720 * 0.0234375 * 0.000007, 3)
+    expect(p("bytedance/seedance-2.5-flash", "480p")).toBeCloseTo(854 * 480 * 0.0234375 * 0.000007, 3)
   })
 
   it("Gemini Omni 1.2 Flash (W46): цена одна со звуком и без", () => {
