@@ -342,6 +342,28 @@ export const OPENROUTER_IMAGE_SPECS: OpenRouterImageSpec[] = [
 
   // === Microsoft MAI-Image ===
   {
+    modelId: "microsoft/mai-image-2.7",
+    displayName: "MAI-Image 2.7",
+    description: "Microsoft AI — свежая MAI-Image 2.7 (ноябрь 2026): генерация и правки по 5 референсам, прозрачный фон. Дешевле 2.6.",
+    aspects: A_MAI,
+    sizes: [],
+    // output_image $0.000034/токен × 1024 токена. Живой вызов W48: usage.cost $0.0349, PNG с альфой
+    price: { perImage: 0.035 },
+    imageInput: true,
+    transparentBackground: true,
+  },
+  {
+    modelId: "microsoft/mai-image-2.7-flash",
+    displayName: "MAI-Image 2.7 Flash",
+    description: "Microsoft AI — быстрый и дешёвый тир MAI-Image 2.7: прозрачный фон, правки по референсам. Одна из самых дешёвых.",
+    aspects: A_MAI,
+    sizes: [],
+    // output_image $0.00001/токен × 1024 токена. Живой вызов W48: usage.cost $0.0103, PNG с альфой
+    price: { perImage: 0.0103 },
+    imageInput: true,
+    transparentBackground: true,
+  },
+  {
     modelId: "microsoft/mai-image-2.5",
     displayName: "MAI-Image 2.5",
     description: "Microsoft AI — MAI-Image 2.5: генерация и правка, ~1K.",

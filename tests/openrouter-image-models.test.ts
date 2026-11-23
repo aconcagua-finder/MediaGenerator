@@ -114,6 +114,15 @@ describe("стоимость новых image-моделей OpenRouter", () => 
     expect(supportsImageInput("openrouter", "recraft/recraft-v4.1-flash-v2")).toBe(false)
   })
 
+  it("новые модели W48: MAI-Image 2.7 и 2.7 Flash (правки и прозрачный фон)", () => {
+    expect(calculateCost("openrouter", "microsoft/mai-image-2.7", {}, 1)).toBeCloseTo(0.035, 6)
+    expect(calculateCost("openrouter", "microsoft/mai-image-2.7-flash", {}, 2)).toBeCloseTo(0.0206, 6)
+    for (const id of ["microsoft/mai-image-2.7", "microsoft/mai-image-2.7-flash"]) {
+      expect(supportsImageInput("openrouter", id), id).toBe(true)
+      expect(OPENROUTER_IMAGE_SPECS.find((s) => s.modelId === id)?.transparentBackground, id).toBe(true)
+    }
+  })
+
   it("W47: прозрачный фон — опция «Фон» только у моделей с transparentBackground", () => {
     const withBg = OPENROUTER_IMAGE_SPECS.filter((s) => s.transparentBackground).map((s) => s.modelId)
     expect(withBg).toEqual(expect.arrayContaining([

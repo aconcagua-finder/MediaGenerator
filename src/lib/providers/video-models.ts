@@ -577,6 +577,22 @@ export const VIDEO_MODELS: VideoModel[] = [
     isNew: true,
   },
   {
+    id: "bytedance/seedance-2.5-flash",
+    name: "Seedance 2.5 Flash",
+    vendor: "bytedance",
+    description: "ByteDance — быстрая и дешёвая Seedance 2.5 (ноябрь 2026): клипы до 30 сек, стартовый и конечный кадр, до 720p, со звуком. На треть дешевле Seedance 2.5. Без русской озвучки.",
+    modes: ["t2v", "i2v"],
+    supportsAudio: true,
+    russianSpeech: "none",
+    durations: [4, 8, 12, 16, 20, 30],
+    resolutions: ["480p", "720p"],
+    aspectRatios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+    // video_tokens $0.000007 (звук не влияет): 854×480×0.0234375×цена и 1280×720×0.0234375×цена.
+    // Живой вызов W48: t2v 4 сек 480p без звука — usage.cost $0.2718 (оценка $0.269)
+    price: { perSecond: { "480p": 0.0673, "720p": 0.1512 } },
+    isNew: true,
+  },
+  {
     id: "x-ai/grok-imagine-video-1.5",
     name: "Grok Imagine Video 1.5",
     vendor: "xai",
@@ -729,6 +745,7 @@ export const VIDEO_PRICING_SKUS: Record<string, Record<string, number>> = {
   "alibaba/wan-3.0-prime": { duration_seconds_480p: 0.068, duration_seconds_720p: 0.14, duration_seconds_1080p: 0.28 },
   "bytedance/seedance-2.0-mini": { video_tokens: 0.0000035, video_tokens_without_audio: 0.0000035, video_tokens_with_video_input: 0.0000021 },
   "bytedance/seedance-2.5": { video_tokens: 0.0000107, video_tokens_without_audio: 0.0000107, video_tokens_with_video_input: 0.0000064 },
+  "bytedance/seedance-2.5-flash": { video_tokens: 0.000007, video_tokens_without_audio: 0.000007, video_tokens_with_video_input: 0.0000043 },
   "runway/aleph-2": { cents_per_second_output: 28, minimum_cents_per_generation: 56 },
   "heygen/heygen-video-1": {
     duration_seconds_480p: 0.02, duration_seconds_768p: 0.036, duration_seconds_1080p: 0.1, duration_seconds_2k: 0.1,

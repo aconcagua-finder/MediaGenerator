@@ -20,7 +20,7 @@ export const SEED_MODELS: SeedModel[] = [
     provider: "openai",
     modelId: "gpt-image-2",
     displayName: "GPT Image 2",
-    description: "Новейшая модель OpenAI (апр 2026). O-series reasoning, 2K, точный текст, лучшая в семействе.",
+    description: "Модель OpenAI (апр 2026): 2K, точный текст. ⚠️ OpenAI отключает её 10.02.2027 — замена GPT Image 2.6 Sunburst / Flare (OpenRouter).",
     paramsSchema: {
       size: {
         type: "select",
